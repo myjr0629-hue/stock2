@@ -205,7 +205,9 @@ test('⑥ 페이월 — 체험 있으면 눈썹 «새로 생긴 무료 체험» 
   assert.ok(h.includes('새로 생긴 무료 체험'), '눈썹');
   assert.ok(!h.includes('SIGNUM PRO</span>'), '눈썹 자리 대체');
   assert.ok(h.includes('PRO 7일 무료') && h.includes('7일 무료로 시작'), '오늘 체험 머리·버튼');
-  assert.ok(h.includes('7일 무료 체험 후 연 ₩89,000 자동 결제 · 언제든 해지'), '버튼 위 조건(가격·자동 갱신·해지)');
+  // ★11/19 체험 머리 화면은 버튼 위 한 줄 대신 체험 일정 3단(오늘 무료 · 종료 24시간 전까지 해지 · 7일 뒤 가격·자동 갱신)
+  assert.ok(h.includes('연 ₩89,000 결제 · 이후 자동 갱신') && h.includes('종료 24시간 전까지') && h.includes('해지하면 결제\u00a0없음'), '버튼 위 일정(가격·자동 갱신·해지)');
+  assert.ok(h.indexOf('data-trial-steps') < h.indexOf('7일 무료로 시작'), '일정은 버튼 위');
   assert.ok(h.includes('오늘은 결제되지 않습니다') && h.includes('24시간 전까지 해지하면'), '고지문');
   assert.match(h, /aria-checked="true" data-plan="annual"/, '연간 기본 선택 그대로');
   // 첫 실행 페이월과 눈썹만 다르다(가격·버튼·고지 동일)

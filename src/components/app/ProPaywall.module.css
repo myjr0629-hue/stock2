@@ -299,3 +299,82 @@
 .planAmt { font-size: 16px; font-weight: 700; letter-spacing: -0.02em; color: #ffffff; font-variant-numeric: tabular-nums; }
 .planPer { font-size: 11.5px; color: rgba(148, 163, 184, 0.75); }
 .plan.plan { min-height: 52px !important; }
+
+/* ★2026-11-19 체험 머리 화면(trialHead · 체험 적용 시)만 — 가치 3줄(체크) + 버튼 바로 위 체험 일정 3단.
+   다른 화면(설정·가치 벽·내 종목·만료)은 이 클래스를 쓰지 않는다(배치 예전 그대로). 375×667·360×640 에서 스크롤 없이 버튼이 보이게 촘촘히. */
+.vals {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.val {
+  position: relative;
+  padding-left: 22px;
+  font-size: 12.5px;
+  line-height: 1.42;
+  color: rgba(203, 213, 225, 0.92);
+  overflow-wrap: anywhere;
+}
+.val::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0.32em;
+  width: 13px;
+  height: 13px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.18)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.2 8.3l2.4 2.3 5.2-5.2' fill='none' stroke='%2334d399' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    center / 11px 11px no-repeat;
+}
+.valLead { font-weight: 600; color: #e2e8f0; }
+
+/* 체험 일정 — 점 3개를 가는 세로선으로 잇는다. 마지막(결제) 줄은 가격이라 밝게 */
+.steps {
+  position: relative;
+  margin: 0 0 11px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.steps::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 9px;
+  bottom: 9px;
+  width: 1px;
+  background: rgba(16, 185, 129, 0.35);
+}
+.step {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 8px;
+  align-items: baseline;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.step::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0.42em;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+.stepWhen { font-weight: 700; color: #e2e8f0; white-space: nowrap; }
+.stepWhat { color: rgba(203, 213, 225, 0.9); }
+.stepPay .stepWhat { font-weight: 600; color: #f1f5f9; }
+/* 한국어만 낱말 단위 줄바꿈(«결제 / 없음»처럼 낱말 중간이 갈리지 않게) — 일본어는 띄어쓰기가 없어 keep-all 이면 줄을 못 바꾼다 */
+.ko .val, .ko .step { word-break: keep-all; }

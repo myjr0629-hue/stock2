@@ -118,6 +118,12 @@ const COPY: Record<PaywallLocale, {
   trialHeadLede: string;
   /** ★11/16 밤 기존 무료 사용자 1회 안내(trial_announce) — 머리 위 한 줄(눈썹 자리). 체험이 적용될 때만 */
   trialAnnounceEyebrow: string;
+  /** ★11/19 체험 머리 화면(trialHead · 체험 적용 시)의 가치 2줄 — 미국 주식 앱 핵심(옵션 앞세우지 않음). 셋째 줄은 watchlist */
+  trialVals: [string, string];
+  /** ★11/19 체험 일정 3단(오늘 · 종료 24시간 전까지 해지 · N일 뒤 결제) — 버튼 바로 위. place = 해지하는 곳(스토어별) */
+  trialSteps: (days: number, price: string, plan: PlanId, place: string) => [string, string][];
+  /** 해지하는 곳 — iOS·안드·모름(웹 미리보기) */
+  cancelPlace: { ios: string; android: string; other: string };
 }> = {
   ko: {
     close: '닫기',
@@ -174,9 +180,16 @@ const COPY: Record<PaywallLocale, {
     // 줄이 접혀도 «· 언제든 해지»만 홀로 떨어지지 않게 뒤 묶음은 붙는 공백(U+00A0)
     trialTerms: (d, price, plan) => `${d}일 무료 체험 후 ${plan === 'annual' ? '연' : '월'} ${price} 자동\u00a0결제\u00a0·\u00a0언제든\u00a0해지`,
     trialFine: (d, price, plan) => `오늘은 결제되지 않습니다. ${d}일 무료 체험이 끝나면 ${price}이 결제되고, 이후 ${plan === 'annual' ? '1년마다' : '매월'} 자동 갱신됩니다. 체험 종료 24시간 전까지 해지하면 요금이 청구되지 않습니다. 해지는 기기의 구독 관리 화면에서 합니다.`,
-    trialHeadTitle: (d) => `PRO ${d}일 무료`,
+    trialHeadTitle: (d) => `PRO ${d}일 무료 체험`,
     trialHeadLede: '광고 없이 AI 종목 분석이 바로 열립니다. 체험 종료 24시간 전까지 해지하면 결제되지 않습니다.',
     trialAnnounceEyebrow: '새로 생긴 무료 체험',
+    trialVals: ['잠긴 AI 종목 분석이 광고 보기 없이 바로 열림', '실시간 주가·장마감 리포트·실적 일정을 광고 없이'],
+    trialSteps: (d, price, plan, place) => [
+      ['오늘', 'PRO 전부 무료로 열림'],
+      ['종료 24시간 전까지', `${place}에서 해지하면 결제\u00a0없음`],
+      [`${d}일 뒤`, `${plan === 'annual' ? '연' : '월'} ${price} 결제 · 이후 자동 갱신`],
+    ],
+    cancelPlace: { ios: 'App Store 구독 관리', android: 'Google Play 정기 결제', other: '기기의 구독 관리' },
   },
   en: {
     close: 'Close',
@@ -235,6 +248,13 @@ const COPY: Record<PaywallLocale, {
     trialHeadTitle: (d) => `Try PRO free for ${d} days`,
     trialHeadLede: 'AI stock analysis opens at once, with no ads. Cancel at least 24 hours before the trial ends and you pay nothing.',
     trialAnnounceEyebrow: 'New · Free trial',
+    trialVals: ['Locked AI stock analysis opens instantly, no ads to watch', 'Live prices, closing report and earnings calendar, ad-free'],
+    trialSteps: (d, price, plan, place) => [
+      ['Today', 'Full PRO access, free'],
+      ['Until 24h before end', `Cancel in ${place}, no charge`],
+      [`In ${d} days`, `${price}/${plan === 'annual' ? 'year' : 'month'}, renews automatically`],
+    ],
+    cancelPlace: { ios: 'App Store subscriptions', android: 'Google Play subscriptions', other: 'your device’s subscription settings' },
   },
   ja: {
     close: '閉じる',
@@ -290,9 +310,16 @@ const COPY: Record<PaywallLocale, {
     trialBadge: (d) => `${d}日間無料体験`,
     trialTerms: (d, price, plan) => `${d}日間無料、その後${plan === 'annual' ? '年額' : '月額'}${price}で自動更新・いつでも解約可`,
     trialFine: (d, price, plan) => `本日は請求されません。${d}日間の無料体験が終わると${price}が請求され、以後${plan === 'annual' ? '1年' : '1か月'}ごとに自動更新されます。体験終了の24時間前までに解約すれば請求されません。解約は端末の定期購読設定から行えます。`,
-    trialHeadTitle: (d) => `PRO ${d}日間無料`,
+    trialHeadTitle: (d) => `PRO ${d}日間無料体験`,
     trialHeadLede: '広告なしでAIの銘柄分析がすぐ開きます。体験終了の24時間前までに解約すれば請求されません。',
     trialAnnounceEyebrow: '新しい無料体験',
+    trialVals: ['ロック中のAI銘柄分析が広告視聴なしですぐ開く', 'リアルタイム株価・引け後レポート・決算日程を広告なしで'],
+    trialSteps: (d, price, plan, place) => [
+      ['今日', 'PROのすべてが無料で開く'],
+      ['終了24時間前まで', `${place}で解約すれば請求なし`],
+      [`${d}日後`, `${plan === 'annual' ? '年額' : '月額'}${price}を請求・以後自動更新`],
+    ],
+    cancelPlace: { ios: 'App Storeのサブスクリプション', android: 'Google Playの定期購入', other: '端末の定期購読設定' },
   },
 };
 
@@ -565,9 +592,23 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
       ? { title: t.watchlistTitle, lede: t.watchlistLede, cta: t.ctaPro }
       : { title: t.title, lede: t.lede, cta: t.cta };
   // ★11/16 체험이 적용되는 플랜이면 버튼은 «7일 무료로 시작»(명시 CTA — 3.1.2). 첫 실행 페이월(trialHead)은 머리도 체험 중심
+  // ★11/19 체험 머리 화면(첫 실행 first_run · 기존 사용자 안내 trial_announce — 체험이 적용될 때만). 11/16~18 iOS 열림 10·버튼 0 →
+  //   가격보다 가치·«오늘 무료» 일정이 먼저 보이게: 머리 설명 대신 가치 3줄(체크) · 연간 카드 위 · 버튼 바로 위 체험 일정 3단(가격·자동 갱신·해지 장소).
+  //   결제(구매 호출·패키지·선택 규칙)는 그대로 — 화면 표현만. 체험이 없거나 다른 화면이면 예전 그대로
+  const trialScreen = !!trialDays && trialHead && !context && !keepOpenWhilePro;
   const head = !trialDays ? head0
-    : trialHead && !context && !keepOpenWhilePro ? { title: t.trialHeadTitle(trialDays), lede: t.trialHeadLede, cta: t.ctaTrial(trialDays) }
+    : trialScreen ? { title: t.trialHeadTitle(trialDays), lede: '', cta: t.ctaTrial(trialDays) }
     : { ...head0, cta: t.ctaTrial(trialDays) };
+  // 해지하는 곳 — 네이티브 앱은 window.Capacitor(동기). 웹·미리보기·시험은 «기기의 구독 관리»
+  const storeOs = (() => {
+    if (!trialScreen) return 'other' as const;
+    try {
+      const pf = (window as unknown as { Capacitor?: { getPlatform?: () => string } }).Capacitor?.getPlatform?.();
+      return pf === 'ios' ? 'ios' as const : pf === 'android' ? 'android' as const : 'other' as const;
+    } catch { return 'other' as const; }
+  })();
+  // 체험 화면은 연간 카드를 위로(기본 선택이 맨 위에 보이게) — 선택·구매 규칙은 plans 그대로, 그리는 순서만
+  const shownPlans = trialScreen ? [...plans].sort((a, b) => (a.plan === 'annual' ? 0 : 1) - (b.plan === 'annual' ? 0 : 1)) : plans;
 
   return (
     <div className={s.overlay} data-pro-paywall data-paywall-src={context ? funnelSrc : undefined} role="dialog" aria-modal="true" aria-label={head.title} onKeyDown={trapTab}>
@@ -583,7 +624,7 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
           <span className={s.eyebrow}>{trialAnnounce && trialHead && trialDays && !context && !keepOpenWhilePro ? t.trialAnnounceEyebrow : t.eyebrow}</span>
           {/* ★11/11 만료 페이월 제목엔 날짜가 들어간다 — 한국어가 «11 / 월»로 갈라지지 않게 낱말 단위 줄바꿈(그 모드에서만) */}
           <h1 className={s.title} style={context ? { wordBreak: 'keep-all' } : undefined}>{head.title}</h1>
-          <p className={s.lede}>{head.lede}</p>
+          {(head.lede || !trialScreen) && <p className={s.lede}>{head.lede}</p>}
         </div>
 
         {/* ★11/11 체험 만료 뒤 — «체험 동안»(실제 값만) · «무료 플랜에서 달라지는 것». 없는 값의 줄은 lib/app/trialExpired 가 뺀다 */}
@@ -596,7 +637,14 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
               ))}
             </ul>
           </div>
-        )) : (
+        )) : trialScreen ? (
+        /* ★11/19 체험 화면 — 미국 주식 앱 핵심 가치 3줄(체크). 셋째 줄은 «내 종목» 한도(PRO 실제 혜택) */
+        <ul className={loc === 'ko' ? `${s.vals} ${s.ko}` : s.vals} data-trial-vals="">
+          {[...t.trialVals, t.watchlist].map((b, i) => (
+            <li key={b} className={i === 0 ? `${s.val} ${s.valLead}` : s.val}>{b}</li>
+          ))}
+        </ul>
+        ) : (
         /* 담는 것 — 아이콘도 칩도 없이 가는 선으로만 나눈다. 덜어낸 만큼 가격이 산다. */
         <ul className={s.benefits}>
           {(() => {
@@ -640,7 +688,7 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
                 </span>
               </button>
             )}
-            {plans.map((p) => {
+            {shownPlans.map((p) => {
               const on = !offerSelected && p.plan === selected;
               const name = p.plan === 'annual' ? t.planAnnual : p.plan === 'lifetime' ? t.planLifetime : t.planMonthly;
               const per = p.plan === 'annual' ? t.perYear : p.plan === 'monthly' ? t.perMonth : null;
@@ -688,9 +736,20 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
         )}
 
         {/* ★11/16 무료 체험 조건 — 결제 버튼 바로 위, 본문 크기(작은 글씨 아님). 체험이 적용될 때만 */}
-        {trialDays && trialPlan && (
+        {trialDays && trialPlan && trialScreen ? (
+          /* ★11/19 체험 일정 3단 — 결제 버튼 바로 위, 본문 크기. 오늘 무료 · 종료 24시간 전까지 해지하면 결제 없음(해지 장소) · N일 뒤 가격·주기·자동 갱신.
+             종료 전 알림은 약속하지 않는다(D-2 푸시는 «갱신 끈 체험자»에게만 간다 — lib/push/trialPush) */
+          <ol className={loc === 'ko' ? `${s.steps} ${s.ko}` : s.steps} data-trial-days={trialDays} data-trial-steps="">
+            {t.trialSteps(trialDays, trialPlan.priceString, trialPlan.plan, t.cancelPlace[storeOs]).map(([when, what], i) => (
+              <li key={i} className={i === 2 ? `${s.step} ${s.stepPay}` : s.step}>
+                <span className={s.stepWhen}>{when}</span>
+                <span className={s.stepWhat}>{what}</span>
+              </li>
+            ))}
+          </ol>
+        ) : trialDays && trialPlan ? (
           <p className={s.trialTerms} data-trial-days={trialDays}>{t.trialTerms(trialDays, trialPlan.priceString, trialPlan.plan)}</p>
-        )}
+        ) : null}
 
         <button
           type="button"
