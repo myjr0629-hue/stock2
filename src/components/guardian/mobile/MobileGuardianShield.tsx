@@ -565,6 +565,7 @@ export default function MobileGuardianShield({ data, verdict, session, useAppVal
                     //    ("Educational market-data research only…", ValueWall.tsx:69).
                     //    호출부 8곳 중 여기만 빠져 있었다(dash·cmd·flow 는 전부 전달).
                     locale={localeKey}
+                    unlockScope="guardian_gamma"
                     title={appGateCopy.title}
                     subtitle={<GammaGateSubtitle locale={localeKey} />}
                     teaser={{

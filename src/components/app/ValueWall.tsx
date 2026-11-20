@@ -12,16 +12,24 @@ import { proPurchaseState } from '@/lib/app/proPurchaseState';
 import { markGateDay, readGateDay, storeProSignal, checkStorePro, gatePaywallSlot, decideFirstGatePaywall, decideNoFillPaywall } from '@/lib/app/gatePaywall';
 import { beginGateFlow, endGateFlow, gateFlowActive, trialAnnouncedToday } from '@/lib/app/trialAnnounce';
 import { trackFunnel } from '@/lib/app/funnelBeacon';
-import { grantScopeUnlock, scopeUnlockedAt, unlockScopeName, noteRewardForFollow } from '@/lib/app/adUnlockScope';
+import { grantScopeUnlock, scopeUnlockedAt, unlockScopeName, noteRewardForFollow, migrateLegacyUnlock } from '@/lib/app/adUnlockScope';
 const announcedTodaySafe = () => { try { return trialAnnouncedToday(window.localStorage); } catch { return false; } };
 
 const UNLOCK_KEY = 'signum_ad_unlock';
 const UNLOCK_MS = 60 * 60 * 1000;
 // ★11/20 잠금(화면 가림)은 «범위»마다 따로 연다(lib/app/adUnlockScope) — 광고 한 편 = 누른 그 잠금 하나만 1시간.
 //   앱 전역 키(UNLOCK_KEY)는 adManager 의 «보상형 뒤 1시간 전면 쉬기»용으로만 예전처럼 쓴다(잠금 판정에는 안 쓴다).
+//   이번 실행 동안의 사본 — 저장소에 못 써도 1시간 동안 다시 잠그지 않는다(관문 11201522 ③)
+const memUnlocks = new Map<string, number>();
+let legacyChecked = false;
 /** 이 범위의 광고 잠금해제가 지금 유효한가 — 콜백 안에서 렌더를 기다리지 않고 읽는다(useUnlockState 와 같은 해석) */
 const scopeUnlockedNow = (scope: string) => {
-  try { return scopeUnlockedAt(window.localStorage, scope, Date.now()); } catch { return false; }
+  const now = Date.now();
+  if ((memUnlocks.get(scope) ?? 0) > now) return true;
+  try {
+    if (!legacyChecked) { legacyChecked = true; migrateLegacyUnlock(window.localStorage, now); } // 배포 전 받은 1시간 해제는 끝까지 준다(관문 11201522 ①)
+    return scopeUnlockedAt(window.localStorage, scope, now);
+  } catch { return false; }
 };
 
 // IAP_LIVE is the single source of truth in src/config/iap.ts. While false, the
@@ -144,8 +152,9 @@ export function useUnlockState(scope?: string) {
    *  돌려주는 값: 이 범위 말고 이미 열려 있던 범위 수(예전 규칙이면 «광고 없이 같이 열렸을» 잠금이 있었다는 뜻) */
   const unlock = useCallback((writeGlobal = true) => {
     let others = 0;
+    const now = Date.now();
+    memUnlocks.set(scopeName, now + UNLOCK_MS);
     try {
-      const now = Date.now();
       others = grantScopeUnlock(window.localStorage, scopeName, now);
       if (writeGlobal) window.localStorage.setItem(UNLOCK_KEY, JSON.stringify({ unlockedUntil: now + UNLOCK_MS, tier: 'premium' }));
       noteRewardForFollow(window.localStorage, now); // 계측만 — 해제 뒤 24시간 안의 페이월 열림·버튼·결제를 한 번씩 센다(funnelBeacon)

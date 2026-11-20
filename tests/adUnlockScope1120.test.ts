@@ -123,3 +123,47 @@ test('③ 소스 계약 — ValueWall 은 범위 키로 판정, 전역 키는 �
   // 계측 고리
   assert.match(read('src/lib/app/funnelBeacon.ts'), /if \(follow\) trackFunnel\('rw_then', \{ src: follow \}\);/);
 });
+
+test('① 관문 11201522 — 배포 전 받은 전역 해제는 남은 시간 동안 모든 잠금에 통한다(한 번만 옮김)', () => {
+  const t0 = 1_800_000_000_000;
+  const s = mem();
+  s.m.set('signum_ad_unlock', JSON.stringify({ unlockedUntil: t0 + 20 * 60_000, tier: 'premium' }));
+  sc.migrateLegacyUnlock(s, t0);
+  assert.equal(sc.scopeUnlockedAt(s, 'cmd_ai', t0 + 1), true);
+  assert.equal(sc.scopeUnlockedAt(s, 'dash_gate', t0 + 1), true);
+  assert.equal(sc.scopeUnlockedAt(s, 'cmd_ai', t0 + 20 * 60_000), false, '남은 시간까지만');
+  assert.equal(sc.grantScopeUnlock(s, 'cmd_ai', t0 + 2), 0, '옛 해제는 «다른 열린 잠금»으로 세지 않는다');
+  // 옮긴 뒤 새 보상형이 전역 키를 다시 써도(전면 쉬기용) 잠금은 열리지 않는다
+  const s2 = mem();
+  sc.migrateLegacyUnlock(s2, t0); // 옛 해제 없음 → 표식만
+  assert.equal(s2.m.get(sc.LEGACY_MIGRATED_KEY), '1');
+  s2.m.set('signum_ad_unlock', JSON.stringify({ unlockedUntil: t0 + H, tier: 'premium' }));
+  sc.migrateLegacyUnlock(s2, t0 + 5);
+  assert.equal(sc.scopeUnlockedAt(s2, 'cmd_quant', t0 + 6), false);
+  // 만료된 옛 키·숫자 형식·깨진 값
+  const s3 = mem(); s3.m.set('signum_ad_unlock', String(t0 + 5 * 60_000)); sc.migrateLegacyUnlock(s3, t0);
+  assert.equal(sc.scopeUnlockedAt(s3, 'x', t0 + 1), true, '숫자 형식');
+  const s4 = mem(); s4.m.set('signum_ad_unlock', JSON.stringify({ unlockedUntil: t0 - 1 })); sc.migrateLegacyUnlock(s4, t0);
+  assert.equal(sc.scopeUnlockedAt(s4, 'x', t0 + 1), false, '만료');
+  const s5 = mem(); s5.m.set('signum_ad_unlock', JSON.stringify({ unlockedUntil: t0 + 99 * H })); sc.migrateLegacyUnlock(s5, t0);
+  assert.equal(sc.scopeUnlockedAt(s5, 'x', t0 + H + 1), false, '최대 1시간');
+  const blocked = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); } };
+  sc.migrateLegacyUnlock(blocked, t0);
+});
+
+test('③ 관문 11201522 — 잠금 범위는 언어와 무관한 고정 이름 · 저장 실패 시 이번 실행 사본', () => {
+  const cmd = read('src/app/[locale]/app-view/cmd/page.tsx');
+  for (const k of ['cmd_ai', 'cmd_quant', 'cmd_holdings']) assert.ok(cmd.includes(`unlockScope="${k}"`), k);
+  const f = read('src/app/[locale]/app-view/flow/page.tsx');
+  for (const k of ['flow_gex', 'flow_whale', 'flow_chain']) assert.ok(f.includes(`unlockScope="${k}"`), k);
+  assert.ok(read('src/components/guardian/mobile/MobileGuardianShield.tsx').includes('unlockScope="guardian_gamma"'));
+  // 모든 <ValueWall 여는 태그 뒤 10줄 안에 unlockScope
+  for (const [rel, src] of [['cmd', cmd], ['flow', f], ['guardian', read('src/components/guardian/mobile/MobileGuardianShield.tsx')]] as const) {
+    const lines = src.split('\n');
+    lines.forEach((l, i) => { if (/^\s*<ValueWall\s*$/.test(l)) assert.ok(lines.slice(i, i + 10).some((x) => x.includes('unlockScope=')), `${rel}:${i + 1}`); });
+  }
+  const v = read('src/components/app/ValueWall.tsx');
+  assert.match(v, /if \(\(memUnlocks\.get\(scope\) \?\? 0\) > now\) return true;/);
+  assert.match(v, /memUnlocks\.set\(scopeName, now \+ UNLOCK_MS\);/);
+  assert.match(v, /migrateLegacyUnlock\(window\.localStorage, now\)/);
+});

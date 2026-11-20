@@ -3646,6 +3646,7 @@ export default function AppFlowPage() {
               <ValueWall
                 locale={locale}
                 compact
+                unlockScope="flow_gex"
                 title={locale === 'ko' ? 'GEX 레짐 잠금해제' : locale === 'ja' ? 'GEXレジーム解除' : 'Unlock GEX Regime'}
                 subtitle={
                   locale === 'ko'
@@ -4050,6 +4051,7 @@ export default function AppFlowPage() {
                   <div style={{ borderTop: '1px solid rgba(255,255,255,0.055)', paddingTop: '14px', marginTop: '14px', position: 'relative' }}>
                     <ValueWall
                       locale={locale}
+                      unlockScope="flow_whale"
                       title={ui.unlockTitle}
                       subtitle={ui.unlockSub}
                       teaser={{ label: ui.teaserLabel, value: `${ui.details} · ${directionText}` }}

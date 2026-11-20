@@ -38,16 +38,40 @@ export function readScopedUnlocks(storage: StorageLike | null | undefined, now: 
   return out;
 }
 
-/** 이 범위가 지금 열려 있나 */
+/** 배포 전 규칙(앱 전역 1시간)으로 받은 해제의 남은 시간 — 모든 잠금에 통한다(관문 11201522 ①: 남은 보상을 빼앗지 않는다) */
+export const LEGACY_SCOPE = '*';
+export const LEGACY_MIGRATED_KEY = 'signum_ad_unlock_mig1120';
+const LEGACY_GLOBAL_KEY = 'signum_ad_unlock';
+
+/** 새 규칙을 처음 읽을 때 «한 번만»: 옛 전역 키가 아직 유효하면 그 시각까지 모든 잠금을 연다. 그 뒤의 전역 키(전면 쉬기용)는 잠금에 쓰지 않는다 */
+export function migrateLegacyUnlock(storage: StorageLike | null | undefined, now: number): void {
+  try {
+    if (!storage || storage.getItem(LEGACY_MIGRATED_KEY)) return;
+    const raw = storage.getItem(LEGACY_GLOBAL_KEY);
+    let until = 0;
+    if (raw) {
+      try { const p = JSON.parse(raw) as { unlockedUntil?: unknown } | number; until = Number(typeof p === 'object' && p ? p.unlockedUntil : p); } catch { until = Number(raw); }
+    }
+    if (Number.isFinite(until) && until > now) {
+      const live = readScopedUnlocks(storage, now);
+      live[LEGACY_SCOPE] = Math.min(until, now + AD_UNLOCK_MS);
+      storage.setItem(SCOPED_UNLOCK_KEY, JSON.stringify(live));
+    }
+    storage.setItem(LEGACY_MIGRATED_KEY, '1');
+  } catch { /* 저장소 막힘 — 옮길 것도 없다 */ }
+}
+
+/** 이 범위가 지금 열려 있나(옛 규칙의 남은 해제 포함) */
 export function scopeUnlockedAt(storage: StorageLike | null | undefined, scope: string | null | undefined, now: number): boolean {
-  return (readScopedUnlocks(storage, now)[unlockScopeName(scope)] ?? 0) > now;
+  const live = readScopedUnlocks(storage, now);
+  return (live[unlockScopeName(scope)] ?? 0) > now || (live[LEGACY_SCOPE] ?? 0) > now;
 }
 
 /** 이 범위를 1시간 연다 — 만료된 범위는 지우고, 범위 수는 상한 안에서 가장 늦게 끝나는 것부터 남긴다. 돌려주는 값: 이 범위 말고 이미 열려 있던 범위 수 */
 export function grantScopeUnlock(storage: StorageLike | null | undefined, scope: string | null | undefined, now: number): number {
   const name = unlockScopeName(scope);
   const live = readScopedUnlocks(storage, now);
-  const others = Object.keys(live).filter((k) => k !== name).length;
+  const others = Object.keys(live).filter((k) => k !== name && k !== LEGACY_SCOPE).length;
   live[name] = now + AD_UNLOCK_MS;
   const kept = Object.entries(live).sort((a, b) => b[1] - a[1]).slice(0, MAX_SCOPES);
   try { storage?.setItem(SCOPED_UNLOCK_KEY, JSON.stringify(Object.fromEntries(kept))); } catch { /* 저장 못 하면 이번 실행 동안만(상태) 열린다 */ }
