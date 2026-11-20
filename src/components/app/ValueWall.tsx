@@ -11,6 +11,7 @@ import type { FunnelSrc } from '@/lib/app/funnelSchema';
 import { proPurchaseState } from '@/lib/app/proPurchaseState';
 import { markGateDay, readGateDay, storeProSignal, checkStorePro, gatePaywallSlot, decideFirstGatePaywall, decideNoFillPaywall } from '@/lib/app/gatePaywall';
 import { beginGateFlow, endGateFlow, gateFlowActive, trialAnnouncedToday } from '@/lib/app/trialAnnounce';
+import { trackFunnel } from '@/lib/app/funnelBeacon';
 const announcedTodaySafe = () => { try { return trialAnnouncedToday(window.localStorage); } catch { return false; } };
 
 const UNLOCK_KEY = 'signum_ad_unlock';
@@ -227,6 +228,7 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
 
   const finishUnlock = useCallback(() => {
     unlock();
+    trackFunnel('reward_ok', { src: 'ad_modal' }); // ★11/20 계측만 — 대체 30초 창이 잠금을 열었다(하루 합계 · 식별자 없음)
     onUnlock?.();
   }, [onUnlock, unlock]);
 
@@ -308,6 +310,7 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
         const reward = await adManager.showRewarded();
         if (reward) {
           // adManager grants once and broadcasts signum:unlock to update the wall.
+          trackFunnel('reward_ok', { src: 'value_wall' }); // ★11/20 계측만 — 보상형 광고를 끝까지 봐 1시간 잠금해제(하루 합계 · 식별자 없음)
           onUnlock?.();
           return 'done';
         }

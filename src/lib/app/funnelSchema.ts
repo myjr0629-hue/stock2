@@ -35,6 +35,8 @@ export const FUNNEL_STAGES = [
   'trial_off_show', 'trial_off_manage', 'trial_off_close', 'trial_off_expired', // 갱신 끈 체험 안내의 익명 합계
   'trial_off_plans', // ★11/11 체험 종료 안내의 «PRO 요금제 보기»(페이월 열림·구매는 출처 trial_off 의 open·cta·buy_* 로 센다)
   'trial_push_shown', 'trial_push_accept', 'trial_push_os_granted', 'trial_push_os_denied', 'trial_push_dismiss', // ★11/18 체험자 알림 다시 묻기(lib/app/trialPushOptIn): 시트 보임 · [알림 켜기] · OS 허용 · OS 거절 · [나중에] — 출처 tpush_ai·tpush_day1
+  'fr_judge',      // ★11/20 첫 실행 체험 페이월 판정(lib/app/firstRunPaywall · 실행당 한 번씩): 출처 fr_try = 판정 시작 · fr_late = 재시도·늦게 보임 · 그 밖의 fr_* = 안 보인 이유(페이월이 보이면 open/first_run 으로 센다)
+  'reward_ok',     // ★11/20 광고 잠금해제(1시간·앱 전역)가 주어졌다(ValueWall useAdUnlockGate) — 출처 value_wall = 보상형 광고 끝까지 봄 · ad_modal = 광고 없을 때 30초 대체 창
 ] as const;
 export type FunnelStage = (typeof FUNNEL_STAGES)[number];
 
@@ -75,6 +77,9 @@ export const FUNNEL_SRCS = [
   'first_run',                      // ★11/16 첫 실행이 끝난 직후 1회 «7일 무료 체험» 페이월(lib/app/firstRunPaywall — 체험 자격 확인된 무료 사용자만)
   'trial_announce',                 // ★11/16 밤 기존 무료 사용자 1회 «새로 생긴 7일 무료 체험» 페이월(lib/app/trialAnnounce — 체험 자격·이력 0 확인된 무료 사용자만, 앱 포그라운드 때)
   'tpush_ai', 'tpush_day1',         // ★11/18 체험자 알림 다시 묻기의 트리거(trial_push_* 전용 — 구매 출처로 쓰지 않는다): 내 종목 첫 AI 한 줄 · 체험 다음 날 첫 실행
+  // ★11/20 첫 실행 체험 페이월 판정(fr_judge 전용 — 구매 출처로 쓰지 않는다, lib/app/firstRunPaywall FIRST_RUN_SKIPS 와 같아야 한다)
+  'fr_try', 'fr_late',              // 판정 시작(네이티브·첫 실행을 막 마침) · 재시도 끝에 또는 예전 상한(8초) 뒤에 보였다
+  'fr_pro', 'fr_seen', 'fr_noiap', 'fr_noelig', 'fr_unk', 'fr_nooffer', 'fr_wait', 'fr_chk', 'fr_busy', // 안 보인 이유: PRO(코드 포함)·결제 중 · 이미 봄/저장소 막힘 · 결제 불가 · 체험 자격 없음(확정) · 자격 끝내 모름 · 오퍼링 없음 · PRO 상태 못 받음 · 스토어 재조회 실패 · 다른 시트·페이월과 겹침
 ] as const;
 export type FunnelSrc = (typeof FUNNEL_SRCS)[number];
 

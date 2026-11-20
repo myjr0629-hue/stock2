@@ -198,10 +198,23 @@ const INTRO_ELIGIBLE = 2;
  *   실패·시간 초과·모름 = 체험 없음(예전 화면 그대로). 가격·플랜 목록은 건드리지 않는다.
  */
 export async function withTrials(list: PlanOffer[]): Promise<PlanOffer[]> {
-  if (!list.length) return list;
+  return (await withTrialsStatus(list)).list;
+}
+
+/** RevenueCat INTRO_ELIGIBILITY_STATUS_UNKNOWN */
+const INTRO_UNKNOWN = 0;
+
+/**
+ * ★11/20 withTrials 와 같은 결과 + «iOS 자격을 끝내 몰랐나»(unknown).
+ *   unknown = iOS 에서 무료 소개 오퍼 상품이 있는데 자격 조회가 시간 초과·오류·UNKNOWN 이었다(«자격 없음» 확정과 구분).
+ *   첫 실행 체험 페이월(FirstRunTrialPaywall)만 이것으로 «다시 묻기»를 정한다 — 목록·가격·trialDays 규칙은 withTrials 와 한 바이트도 다르지 않다.
+ */
+export async function withTrialsStatus(list: PlanOffer[]): Promise<{ list: PlanOffer[]; unknown: boolean }> {
+  if (!list.length) return { list, unknown: false };
   let platform = '';
-  try { const { Capacitor } = await import('@capacitor/core'); platform = Capacitor.getPlatform(); } catch { return list; }
+  try { const { Capacitor } = await import('@capacitor/core'); platform = Capacitor.getPlatform(); } catch { return { list, unknown: false }; }
   let eligible: Record<string, boolean> = {};
+  let unknown = false;
   if (platform === 'ios') {
     const ids = list.filter((o) => o.plan !== 'lifetime' && o.pkg?.product?.introPrice?.price === 0).map((o) => o.pkg.product.identifier);
     if (ids.length) {
@@ -211,15 +224,21 @@ export async function withTrials(list: PlanOffer[]): Promise<PlanOffer[]> {
           Purchases.checkTrialOrIntroductoryPriceEligibility({ productIdentifiers: ids }),
           new Promise<null>((r) => setTimeout(() => r(null), TRIAL_ELIGIBILITY_TIMEOUT_MS)),
         ]);
-        if (res) eligible = Object.fromEntries(ids.map((id) => [id, Number((res as Record<string, { status?: unknown }>)[id]?.status) === INTRO_ELIGIBLE]));
-      } catch { eligible = {}; }
+        if (res) {
+          const st = (id: string) => Number((res as Record<string, { status?: unknown }>)[id]?.status);
+          eligible = Object.fromEntries(ids.map((id) => [id, st(id) === INTRO_ELIGIBLE]));
+          // 하나라도 ELIGIBLE 이면 확정(체험 있음). 아니면 UNKNOWN·값 없음이 섞였을 때만 «모름»
+          unknown = !ids.some((id) => st(id) === INTRO_ELIGIBLE) && ids.some((id) => { const v = st(id); return !Number.isFinite(v) || v === INTRO_UNKNOWN; });
+        } else unknown = true;
+      } catch { eligible = {}; unknown = true; }
     }
   }
-  return list.map((o) => {
+  const out = list.map((o) => {
     if (o.plan === 'lifetime') return o;
     const days = trialDaysFor(o.pkg?.product as TrialProductLike, platform, eligible[o.pkg?.product?.identifier ?? '']);
     return days ? { ...o, trialDays: days } : o;
   });
+  return { list: out, unknown };
 }
 
 /**
