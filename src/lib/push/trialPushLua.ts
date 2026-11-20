@@ -76,6 +76,21 @@ export const SWEEP_IF_UNBOUND_LUA = "if redis.call('GET', KEYS[3]) == ARGV[3] an
  *  (발송 중 새 체험·다른 고객 기록으로 바뀌었으면 그 대상은 남긴다 — 관문 11121138 ②·11121143 ①). KEYS 토큰주인·대상 · ARGV 고객해시(옛 기록은 '')·토큰·만료 */
 export const DROP_DUE_IF_SAME_LUA = "if (ARGV[1] == '' or redis.call('GET', KEYS[1]) == ARGV[1]) and tonumber(redis.call('ZSCORE', KEYS[2], ARGV[2]) or '-1') == tonumber(ARGV[3]) then redis.call('ZREM', KEYS[2], ARGV[2]) return 1 end return 0";
 
+/** ★11/21 체험 만료 다음 날 «다시 시작» 할인 코드 푸시(lib/push/comebackPush) 자리 잡기 — 한 번에(Lua):
+ *  대상 항목이 아직 있고(그 사이 재결제 웹훅이 지웠으면 -3 — 관문 11210848 ③) · 지금도 이 고객의 묶인 토큰이고 · 그 토큰의 체험 기록 주인이
+ *  바로 이 고객이면(주인이 없거나 다른 고객이면 -1 — 기기를 이어 쓰는 경우 · 관문 11210848 ④·11210854 ②) · 고객·토큰 «보냄» 표식(1회)과 «최근 체험 알림» 표식(20시간)을 세운다.
+ *  KEYS 고객보냄·토큰보냄·고객최근·고객→토큰·대상항목·토큰주인 · ARGV 묶음값·보냄TTL·최근TTL·값·고객해시
+ *  → 1 잡음 · 0 이미 보냄 · -1 지금 토큰 아님 · -2 최근에 체험 알림을 받음 · -3 대상에서 빠짐 */
+export const COMEBACK_CLAIM_LUA = [
+  "if redis.call('EXISTS', KEYS[5]) == 0 then return -3 end",
+  "if redis.call('GET', KEYS[4]) ~= ARGV[1] then return -1 end",
+  "if redis.call('GET', KEYS[6]) ~= ARGV[5] then return -1 end",
+  "if redis.call('EXISTS', KEYS[1]) == 1 or redis.call('EXISTS', KEYS[2]) == 1 then return 0 end",
+  "if redis.call('EXISTS', KEYS[3]) == 1 then return -2 end",
+  "redis.call('SET', KEYS[1], ARGV[4], 'EX', ARGV[2]); redis.call('SET', KEYS[2], ARGV[4], 'EX', ARGV[2]); redis.call('SET', KEYS[3], ARGV[4], 'EX', ARGV[3])",
+  'return 1',
+].join('\n');
+
 /** 내 잠금일 때만 푼다. KEYS 잠금 · ARGV 잠금 ID */
 export const UNLOCK_LUA = "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end return 0";
 
@@ -121,6 +136,14 @@ export const MEMORY_IMPL = new Map<string, (m: MemRedis, keys: string[], a: stri
   [DROP_DUE_IF_SAME_LUA, (m, k, a) => {
     if ((a[0] === '' || m.kv.get(k[0]) === a[0]) && m.zs.get(k[1])?.get(a[1]) === Number(a[2])) { m.zs.get(k[1])!.delete(a[1]); return 1; }
     return 0;
+  }],
+  [COMEBACK_CLAIM_LUA, (m, k, a) => {
+    if (!m.kv.has(k[4])) return -3;
+    if (m.kv.get(k[3]) !== a[0]) return -1;
+    if (m.kv.get(k[5]) !== a[4]) return -1;
+    if (m.kv.has(k[0]) || m.kv.has(k[1])) return 0;
+    if (m.kv.has(k[2])) return -2;
+    m.kv.set(k[0], a[3]); m.kv.set(k[1], a[3]); m.kv.set(k[2], a[3]); return 1;
   }],
   [UNLOCK_LUA, (m, k, a) => { if (m.kv.get(k[0]) === a[0]) { m.kv.delete(k[0]); return 1; } return 0; }],
 ]);

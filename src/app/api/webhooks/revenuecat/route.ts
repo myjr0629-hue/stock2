@@ -1,6 +1,9 @@
 import { giftStore } from '@/lib/giftShare/server';
 import { authorized, insert, normalize } from '@/lib/rcCohort/core';
 import { ensurePromoYear, evalPromoLedger, promoYearFromWebhook, promoYearRefundFromWebhook, recordPromoYearRefund } from '@/lib/promoYear/core';
+import { Redis } from '@upstash/redis';
+import { applyComebackWebhook } from '@/lib/push/comebackPush';
+import { comebackCode } from '@/lib/app/comebackOffer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,6 +27,15 @@ export async function POST(request: Request): Promise<Response> {
     if (!store) return reply(503);
     try { await insert(store, item); }
     catch { return reply(503); }
+  }
+  // ★11/21 체험 해지 만료 → 다음 날 «다시 시작» 할인 코드 푸시 대상에 넣기 · 다시 결제 → 빼기(lib/push/comebackPush).
+  //   코호트 기록 «뒤에», 실패해도 응답은 바꾸지 않는다(RC 재전송을 부르지 않게 — 놓치면 그 고객에게 한 통이 안 갈 뿐).
+  //   코드 설정(COMEBACK_OFFER_CODE)이 없으면 하지 않는다 · 2.5초 상한(Redis 지연이 웹훅 응답을 붙잡지 않게 — 관문 11210848)
+  if (comebackCode()) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([applyComebackWebhook(body, Redis.fromEnv(), secret), new Promise((resolve) => { timer = setTimeout(resolve, 2500); })]);
+    } catch (e: any) { console.error('[Webhook/RC] comeback', e?.message || e); } finally { clearTimeout(timer); }
   }
   // «1년 PRO 이용권(자동 갱신 없음)» 구매 → 구매 + 365일 프로모셔널 pro (lib/promoYear/core · 2026-11-14)
   //   코호트 기록 «뒤에» 한다(기존 기록이 부여 장애에 막히지 않게). 부여를 못 하면 503 → RC 가 다시 보낸다(코호트는 이벤트 ID 로 중복 제거).

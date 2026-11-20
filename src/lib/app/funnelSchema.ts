@@ -71,6 +71,7 @@ export const FUNNEL_SRCS = [
   'trial_off_early',                // ★11/11 갱신 끈 직후 1회 안내(같은 시트 · 시트 단계와 그 시트가 연 페이월의 open·cta·buy_*)
   'push_trial',                     // ★11/11 체험 종료 D-2 푸시 탭(push_open 전용)
   'push_trial_d3', 'push_trial_d6', // ★11/19 체험 중 가치 알림 탭(push_open 전용 · /api/cron/trial-push · lib/push/trialValuePush) — 3일째(내 종목 AI 한 줄·AI 브리핑) · 6일째(장 마감 리포트)
+  'push_comeback',                  // ★11/21 체험 만료 D+1 «다시 시작» 할인 코드 푸시 탭(push_open · 이어서 애플 적용 화면 code_open·code_pro · lib/push/comebackPush)
   'push_announce',                  // ★11/14 관리자 공지 푸시 탭(push_open 전용 · /api/admin/announce)
   'trial_expired',                  // ★11/11 체험 만료 뒤 첫 실행 1회 페이월(open = 보였다 · cta · buy_* · restore_*)
   'trial_expired_offer',            // ★11/12 그 페이월 안의 «월간 첫 달 할인» 카드(open = 카드가 보였다 · cta = 할인 카드로 결제 단추 · buy_* = 할인 결제 결과)

@@ -2,6 +2,7 @@ import QRCode from 'qrcode';
 import { COPY, type PreviewLang } from './linkPreview';
 import { couponSubline } from './couponHtml';
 import { audienceLine } from './coupon';
+import { COMEBACK_MONTHS, COMEBACK_PRICES, isComebackCode } from '@/lib/app/comebackOffer';
 
 /**
  * 데스크톱 → 폰 «넘겨주기» 페이지.
@@ -207,6 +208,29 @@ const RT: Record<PreviewLang, RTxt> = {
   },
 };
 
+/** ★2026-11-21 «다시 시작» 할인 코드(lib/app/comebackOffer · 서버 설정 COMEBACK_OFFER_CODE — 만료 고객 전용 · 첫 2개월 할인가 → 정가 자동 갱신)만 «첫 달 무료» 문구를 할인 문구로 바꾼다.
+ *  배치·단추·QR 은 그대로(같은 칸에 글자만). 다른 코드 화면은 예전 그대로. 가격은 언어별 나라의 App Store 가격이며 그 나라를 함께 적는다(관문 11210854 ①). */
+const COMEBACK_RT: Record<PreviewLang, Pick<RTxt, 'h1' | 'renew' | 'android' | 'terms'>> = {
+  ko: {
+    h1: `SIGNUM HQ PRO 첫 ${COMEBACK_MONTHS}개월 월 ${COMEBACK_PRICES.KR.offer}`,
+    renew: `, 이후 월 ${COMEBACK_PRICES.KR.regular} 자동 갱신(한국 App Store · 언제든 해지)`,
+    android: '안드로이드 폰은 같은 QR 로 Google Play 설치로 이어집니다(이 할인 코드는 아이폰 전용).',
+    terms: '광고 없음 + 내 종목 100개(무료 5개) · 체험·구독이 끝난 회원 전용 · 해지는 App Store 구독 관리에서',
+  },
+  en: {
+    h1: `SIGNUM HQ PRO — ${COMEBACK_MONTHS} months, US${COMEBACK_PRICES.US.offer}/mo`,
+    renew: `, then US${COMEBACK_PRICES.US.regular}/mo (US App Store), auto-renews — cancel anytime`,
+    android: 'On Android, the same QR opens Google Play to install (this discount code is iPhone-only).',
+    terms: 'No ads + 100 watchlist tickers (free: 5) · lapsed subscribers only · cancel in App Store subscriptions',
+  },
+  ja: {
+    h1: `SIGNUM HQ PRO ${COMEBACK_MONTHS}か月 月額${COMEBACK_PRICES.JP.offer}`,
+    renew: `、以降は月額${COMEBACK_PRICES.JP.regular}で自動更新(日本価格・いつでも解約可)`,
+    android: 'Androidスマホは同じQRでGoogle Playのインストールに進みます(この割引コードはiPhoneのみ)。',
+    terms: '広告なし + マイ銘柄100件(無料は5件) · 体験・購読が終了した方専用 · 解約はApp Storeのサブスクリプション管理から',
+  },
+};
+
 export async function desktopRedeemHtml(opts: {
   fromTag: string | null;
   code: string;
@@ -227,7 +251,7 @@ export async function desktopRedeemHtml(opts: {
   campaign?: { scanUrl: string; ipadUrl: string; sub: string };
 }): Promise<string> {
   const { fromTag, code, lang, redeemUrl, coupon = false, androidCoupon = false } = opts;
-  const t = RT[lang];
+  const t: RTxt = !coupon && !opts.gift && !opts.campaign && isComebackCode(code) ? { ...RT[lang], ...COMEBACK_RT[lang] } : RT[lang];
   const giftRefQuery = opts.gift && opts.giftRef ? `&ref=${encodeURIComponent(opts.giftRef)}${opts.giftInv && /^[A-Za-z0-9._-]{40,80}$/.test(opts.giftInv) ? `&inv=${encodeURIComponent(opts.giftInv)}` : ''}` : '';
   const scan = opts.campaign ? opts.campaign.scanUrl : opts.gift ? `${SITE}/app?from=${encodeURIComponent(fromTag || 'gift')}&l=${lang}&gift=${encodeURIComponent(opts.gift)}${giftRefQuery}&via=qr` : redeemScanUrl(fromTag, code);
   const ipadUrl = opts.campaign ? opts.campaign.ipadUrl : opts.gift ? `${redeemUrl}&gift_os=ios` : redeemUrl;

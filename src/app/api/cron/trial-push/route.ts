@@ -11,6 +11,9 @@
 //   ★11/19 같은 회차에서 체험 중 «가치 알림»(3일째·6일째 — lib/push/trialValuePush)도 보낸다: D-2 가 먼저 돌고, 같은 고객에게 하루 한 통.
 //     대상 목록 push:trial:value(보고 API 가 확인된 체험만 넣는다) · 상한·통계는 D-2 와 따로(v_*) · 끄기 trial-value-push:off
 //     (?valueOff=1 켬 / ?valueOff=0 끔 — 인증 필요) · 한 회차만 빼기 ?value=0 · ?dry=1 이면 가치 알림 미리보기(valuePreview)도 돌려준다.
+//   ★11/21 체험 만료 다음 날(D+1) «다시 시작» 할인 코드 푸시(lib/push/comebackPush)도 같은 회차 맨 뒤에 보낸다 — iOS · 고객당 1회 · 발송 직전 RC 재확인.
+//     대상 목록 push:comeback:due(RC 웹훅 EXPIRATION 이 넣는다) · 코드 = 환경 변수 COMEBACK_OFFER_CODE(없으면 꺼짐) · 상한·통계 따로(c_*) · 끄기 COMEBACK_PUSH=off 또는 comeback-push:off
+//     (?comebackOff=1 켬 / ?comebackOff=0 끔 — 인증 필요) · 한 회차만 빼기 ?comeback=0 · ?dry=1 이면 comeback(대상 수·이유)도 돌려준다(보내지 않음·표식 없음).
 // Auth: Authorization: Bearer ${CRON_SECRET} (또는 ?secret=) — 다른 크론과 같다.
 // ============================================================================
 import { NextResponse } from 'next/server';
@@ -19,7 +22,7 @@ import { parseRecord } from '@/lib/push/prefs';
 import { sendSignalPushes, type SignalPushItem } from '@/lib/push/sendSignal';
 import { etDay } from '@/lib/app/funnelSchema';
 import { TRIAL_PUSH_OWNER_KEY, TRIAL_PUSH_UID_KEY } from '@/lib/push/trialVerify';
-import { bindValue, boundToken, CLAIM_GAP_LUA, DROP_DUE_IF_SAME_LUA, SWEEP_IF_UNBOUND_LUA } from '@/lib/push/trialPushLua';
+import { bindValue, boundToken, CLAIM_GAP_LUA, COMEBACK_CLAIM_LUA, DROP_DUE_IF_SAME_LUA, SWEEP_IF_UNBOUND_LUA } from '@/lib/push/trialPushLua';
 import {
   TRIAL_PUSH_GAP_S, TRIAL_PUSH_LAST_UID_KEY, TRIAL_VALUE_DAY_KEY, TRIAL_VALUE_MAX_LEN_MS, TRIAL_VALUE_MAX_PER_DAY, TRIAL_VALUE_MAX_PER_RUN,
   TRIAL_VALUE_OFF_KEY, TRIAL_VALUE_SCAN_LIMIT, TRIAL_VALUE_SCAN_PAGES, TRIAL_VALUE_SENT_KEY, TRIAL_VALUE_SENT_TTL_S, TRIAL_VALUE_SENT_UID_KEY,
@@ -30,6 +33,12 @@ import {
   TRIAL_PUSH_MIN_MS, TRIAL_PUSH_SCAN_LIMIT, TRIAL_PUSH_SCAN_PAGES, TRIAL_PUSH_SENT_KEY, TRIAL_PUSH_SENT_TTL_S, TRIAL_PUSH_SENT_UID_KEY,
   trialPushContent, trialPushDecision, type TrialPushRecord,
 } from '@/lib/push/trialPush';
+import {
+  COMEBACK_DAY_KEY, COMEBACK_ENTRY_KEY, COMEBACK_MAX_AFTER_MS, COMEBACK_MAX_PER_DAY, COMEBACK_MAX_PER_RUN, COMEBACK_MIN_AFTER_MS, COMEBACK_OFF_KEY,
+  COMEBACK_SENT_TOKEN_KEY, COMEBACK_SENT_TTL_S, COMEBACK_SENT_UID_KEY, COMEBACK_ZSET, comebackContent, comebackDecision, comebackEnvOff, comebackPushData,
+  openUid, parseEntry, readComebackRc, type ComebackEntry, type ComebackTokenRec,
+} from '@/lib/push/comebackPush';
+import { comebackCode } from '@/lib/app/comebackOffer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -55,6 +64,16 @@ export async function GET(request: Request) {
     try {
       if (valueOff === '1') await redis.set(TRIAL_VALUE_OFF_KEY, '1'); else await redis.del(TRIAL_VALUE_OFF_KEY);
       return NextResponse.json({ ok: true, valueOff: valueOff === '1' });
+    } catch {
+      return NextResponse.json({ ok: false, error: 'switch failed' }, { status: 500 });
+    }
+  }
+  // ★11/21 «다시 시작» 할인 코드 푸시 끄기 스위치 — ?comebackOff=1 끔 · ?comebackOff=0 다시 켬(환경 변수 COMEBACK_PUSH=off 는 이것과 무관하게 끈다). 이 요청은 발송하지 않는다
+  const comebackOff = searchParams.get('comebackOff');
+  if (comebackOff === '1' || comebackOff === '0') {
+    try {
+      if (comebackOff === '1') await redis.set(COMEBACK_OFF_KEY, '1'); else await redis.del(COMEBACK_OFF_KEY);
+      return NextResponse.json({ ok: true, comebackOff: comebackOff === '1' });
     } catch {
       return NextResponse.json({ ok: false, error: 'switch failed' }, { status: 500 });
     }
@@ -118,12 +137,17 @@ export async function GET(request: Request) {
     }
     const dayKey = TRIAL_PUSH_DAY_KEY(etDay(new Date(now)));
     const valueOn = searchParams.get('value') !== '0' && !isOn(await redis.get(TRIAL_VALUE_OFF_KEY).catch(() => null));
+    // 코드 설정(COMEBACK_OFFER_CODE)이 없으면 꺼진 것으로 본다
+    const cbCode = comebackCode();
+    const comebackOn = !!cbCode && searchParams.get('comeback') !== '0' && !comebackEnvOff() && !isOn(await redis.get(COMEBACK_OFF_KEY).catch(() => null));
     if (dry) {
       const v = valueOn ? await runValue(now, true, pickedOwners) : null;
+      const cb = comebackOn ? await runComeback(now, true, cbCode!) : null;
       return NextResponse.json({ ok: true, dry: true, candidates, attemptsToday: Number(await redis.get(dayKey)) || 0, send: picked.length, skipped,
         preview: picked.map(({ rec, tokenRec }) => ({ platform: rec.platform, locale: rec.locale, title: trialPushContent(rec, tokenRec?.tz).title, hoursLeft: Math.round((rec.expiresAt - now) / 3600_000) })),
         value: v ? { on: true, candidates: v.candidates, send: v.preview.length, skipped: v.skipped } : { on: false },
-        valuePreview: v?.preview ?? [] });
+        valuePreview: v?.preview ?? [],
+        comeback: cb ? { on: true, candidates: cb.candidates, send: cb.preview.length, skipped: cb.skipped, preview: cb.preview } : { on: false } });
     }
 
     // 자리 잡기(SET NX) → 하루 상한 예약(INCR) → 보내기 직전 기록 재확인 → 보내기
@@ -181,6 +205,11 @@ export async function GET(request: Request) {
     if (valueOn) {
       try { value = await runValue(now, false, pickedOwners); } catch (e: any) { console.error('[Cron/TrialPush] value', e?.message || e); }
     }
+    // ★11/21 체험 만료 D+1 «다시 시작» 할인 코드(맨 뒤 — 실패해도 앞 결과·통계는 남긴다)
+    let comeback: Awaited<ReturnType<typeof runComeback>> | null = null;
+    if (comebackOn) {
+      try { comeback = await runComeback(now, false, cbCode!); } catch (e: any) { console.error('[Cron/TrialPush] comeback', e?.message || e); }
+    }
     const statsKey = `push:stats:trial:${etDay(new Date(now))}`;
     const prev = parseRecord<Record<string, number>>(await redis.get(statsKey)) || {};
     const stats: Record<string, number> = { ...prev, runs: (prev.runs || 0) + 1, candidates: (prev.candidates || 0) + candidates, sent: (prev.sent || 0) + sent, failed: (prev.failed || 0) + failed, dead: (prev.dead || 0) + dead };
@@ -191,9 +220,15 @@ export async function GET(request: Request) {
       add('v_sent_d3', value.sentByStep.d3); add('v_sent_d6', value.sentByStep.d6);
       for (const [k, v] of Object.entries(value.skipped)) add(`v_skip_${k}`, v);
     }
+    if (comeback) {
+      const add = (k: string, n: number) => { if (n) stats[k] = (prev[k] || 0) + n; };
+      add('c_candidates', comeback.candidates); add('c_sent', comeback.sent); add('c_failed', comeback.failed); add('c_dead', comeback.dead);
+      for (const [k, v] of Object.entries(comeback.skipped)) add(`c_skip_${k}`, v);
+    }
     await redis.set(statsKey, JSON.stringify(stats), { ex: 60 * 86400 });
     return NextResponse.json({ ok: true, candidates, sent, failed, dead, skipped,
-      value: value ? { on: true, candidates: value.candidates, sent: value.sent, failed: value.failed, dead: value.dead, sentByStep: value.sentByStep, skipped: value.skipped } : { on: valueOn } });
+      value: value ? { on: true, candidates: value.candidates, sent: value.sent, failed: value.failed, dead: value.dead, sentByStep: value.sentByStep, skipped: value.skipped } : { on: valueOn },
+      comeback: comeback ? { on: true, candidates: comeback.candidates, sent: comeback.sent, failed: comeback.failed, dead: comeback.dead, skipped: comeback.skipped } : { on: comebackOn } });
   } catch (e: any) {
     console.error('[Cron/TrialPush]', e?.message || e);
     return NextResponse.json({ ok: false, error: 'trial push failed' }, { status: 500 });
@@ -310,4 +345,98 @@ async function runValue(now: number, dry: boolean, d2Owners: Set<string>) {
     await redis.eval(SWEEP_IF_UNBOUND_LUA, [TRIAL_PUSH_UID_KEY(owner), TRIAL_VALUE_ZSET, TRIAL_PUSH_OWNER_KEY(token)], [bindValue(token), token, owner]).catch(() => {});
   }
   return { candidates, sent, failed, dead, sentByStep, skipped, preview };
+}
+
+/**
+ * ★11/21 체험 만료 D+1 «다시 시작» 할인 코드 푸시(lib/push/comebackPush) — 만료 +24~72시간 창의 대상(RC 고객 해시)을 읽어
+ *   규칙(comebackDecision)으로 거른 뒤, 한 명씩: RC 재확인(활성 권한·유료 이력 없음 · 해지 뒤 만료) → 자리 잡기(COMEBACK_CLAIM_LUA: 대상 항목 남음 + 묶음·주인 확인
+ *   + 고객·토큰 1회 표식 + 20시간 표식) → 하루 상한 예약(INCR) → 바로 그 한 통 발송(RC 확인과 발송 사이를 짧게 — 관문 11210848 ③).
+ *   실패(응답 유실 포함)도 표식을 놓지 않는다. RC 호출은 회차당 COMEBACK_RC_MAX · RC 실패 2번이면 이번 회차 중단 · 시간 예산 20초(관문 11210848 ⑤).
+ *   dry 면 표식·통계·목록 변경 없이 대상 수·이유·미리보기만(RC 읽기는 한다).
+ */
+const COMEBACK_RC_MAX = 30;
+const COMEBACK_BUDGET_MS = 20_000;
+async function runComeback(now: number, dry: boolean, code: string) {
+  const t0 = performance.now();
+  const skipped: Record<string, number> = {};
+  const skip = (k: string) => { skipped[k] = (skipped[k] || 0) + 1; };
+  if (!dry) await redis.zremrangebyscore(COMEBACK_ZSET, 0, now - COMEBACK_MAX_AFTER_MS - 1);
+  const uhs = ((await redis.zrange(COMEBACK_ZSET, now - COMEBACK_MAX_AFTER_MS, now - COMEBACK_MIN_AFTER_MS, { byScore: true, offset: 0, count: 1000 })) || []) as string[];
+  const candidates = uhs.length;
+  const secret = process.env.RC_COHORT_HMAC_SECRET || '';
+  type Ready = { uh: string; token: string; tokenRec: ComebackTokenRec; sealed: string; sf: ComebackEntry['sf']; cc: boolean };
+  const ready: Ready[] = [];
+  const drop: string[] = [];
+  for (let i = 0; i < uhs.length && ready.length < COMEBACK_MAX_PER_RUN; i += 50) {
+    const chunk = uhs.slice(i, i + 50);
+    const [entryRaw, bindRaw, sentRaw, lastRaw] = await Promise.all([
+      redis.mget<unknown[]>(...chunk.map((u) => COMEBACK_ENTRY_KEY(u))),
+      redis.mget<unknown[]>(...chunk.map((u) => TRIAL_PUSH_UID_KEY(u))),
+      redis.mget<unknown[]>(...chunk.map((u) => COMEBACK_SENT_UID_KEY(u))),
+      redis.mget<unknown[]>(...chunk.map((u) => TRIAL_PUSH_LAST_UID_KEY(u))),
+    ]);
+    const tokens = bindRaw.map((b) => boundToken(b));
+    const live = tokens.filter((t): t is string => !!t);
+    const [tokRaw, sentTokRaw, ownRaw] = live.length ? await Promise.all([
+      redis.mget<unknown[]>(...live.map((t) => `push:tokens:${t}`)),
+      redis.mget<unknown[]>(...live.map((t) => COMEBACK_SENT_TOKEN_KEY(t))),
+      redis.mget<unknown[]>(...live.map((t) => TRIAL_PUSH_OWNER_KEY(t))),
+    ]) : [[], [], []];
+    const tokOwner = new Map(live.map((t, k) => [t, ownRaw[k] == null ? null : String(ownRaw[k])]));
+    const tokRec = new Map(live.map((t, k) => [t, parseRecord<ComebackTokenRec>(tokRaw[k])]));
+    const tokSent = new Map(live.map((t, k) => [t, sentTokRaw[k] != null]));
+    for (let j = 0; j < chunk.length; j++) {
+      if (ready.length >= COMEBACK_MAX_PER_RUN) { skip('run_cap'); continue; }
+      const uh = chunk[j];
+      const entry = parseEntry(entryRaw[j]);
+      // 묶인 토큰의 체험 기록 주인이 이 고객이 아니면(없음 포함 — 기기를 이어 쓰는 경우) 묶인 토큰이 없는 것으로 본다
+      const token = tokens[j] && tokOwner.get(tokens[j]!) === uh ? tokens[j] : null;
+      const tr = token ? tokRec.get(token) ?? null : null;
+      const d = comebackDecision(entry, token, tr, now, { sent: sentRaw[j] != null || (!!token && tokSent.get(token) === true), recentPush: lastRaw[j] != null });
+      if (d !== 'send') {
+        skip(d);
+        // 'sent'·'unbound' 는 지우지 않는다(unbound — 같은 고객이 곧 새 토큰으로 다시 묶일 수 있다 · 관문 11210906) — 겹친 회차가 막 자리를 잡고 보내는 중일 수 있다(그 회차가 보낸 뒤 지운다 · 남은 것은 72시간 창이 걷는다 — 관문 11210903)
+        if (d === 'invalid' || d === 'unregistered' || d === 'not_ios' || d === 'muted' || d === 'no_permission' || d === 'storefront' || d === 'code_closed') drop.push(uh);
+        continue;
+      }
+      ready.push({ uh, token: token!, tokenRec: tr!, sealed: entry!.u, sf: entry!.sf, cc: entry!.cc === true });
+    }
+  }
+  const preview: Array<{ locale: string | null; storefront: string | null; title: string | null }> = [];
+  const dayKey = COMEBACK_DAY_KEY(etDay(new Date(now)));
+  let sent = 0, failed = 0, dead = 0, rcCalls = 0, rcFails = 0;
+  const forget = async (uh: string) => { await redis.zrem(COMEBACK_ZSET, uh); await redis.del(COMEBACK_ENTRY_KEY(uh)); };
+  if (!dry) for (const uh of drop) await forget(uh);   // 다시 볼 필요 없는 대상(보냄·권한 없음 등 — RC 장애·현지 시간·최근 실행은 남긴다)
+  const left = () => COMEBACK_BUDGET_MS - (performance.now() - t0);
+  for (const { uh, token, tokenRec, sealed, sf, cc } of ready) {
+    // 시간 예산: RC 요청은 남은 시간 안에서만(최대 3초) · 발송 단계도 예산을 넘기면 다음 회차로(관문 11210848 ⑤·11210854 ④)
+    if (rcCalls >= COMEBACK_RC_MAX || rcFails >= 2 || left() < 1000) { skip('deferred'); continue; }
+    const uid = openUid(sealed, secret);
+    if (!uid) { skip('no_secret'); continue; }
+    rcCalls++;
+    const v = await readComebackRc(uid, process.env.NEXT_PUBLIC_RC_IOS_KEY, now, sf, cc, fetch, Math.min(3000, left()));
+    if (v === 'rc_unavailable') { rcFails++; skip(v); continue; }
+    if (v !== 'eligible') { skip(v); if (!dry) await forget(uh); continue; }
+    const content = comebackContent(tokenRec, code, sf);
+    if (!content) { skip('storefront'); if (!dry) await forget(uh); continue; }
+    if (left() < 500) { skip('deferred'); continue; }
+    if (dry) { preview.push({ locale: tokenRec.locale ?? null, storefront: content.storefront, title: content.title }); continue; }
+    const keys = [COMEBACK_SENT_UID_KEY(uh), COMEBACK_SENT_TOKEN_KEY(token), TRIAL_PUSH_LAST_UID_KEY(uh), TRIAL_PUSH_UID_KEY(uh), COMEBACK_ENTRY_KEY(uh), TRIAL_PUSH_OWNER_KEY(token)];
+    const c = Number(await redis.eval(COMEBACK_CLAIM_LUA, keys, [bindValue(token), String(COMEBACK_SENT_TTL_S), String(TRIAL_PUSH_GAP_S), String(now), uh]));
+    if (c === -3) { skip('cancelled'); continue; }
+    if (c === -1) { skip('unbound'); continue; }   // 지우지 않는다 — 같은 고객이 새 토큰으로 다시 묶였으면 다음 회차에 새 토큰으로(묶음이 없으면 읽기 단계가 지운다 · 관문 11210904)
+    if (c === -2) { skip('recent_push'); continue; }
+    if (c !== 1) { skip('sent'); continue; }   // 겹친 회차가 먼저 잡았다 — 그 회차가 보내고 지운다(여기서 지우면 그쪽 재확인이 취소된다 · 관문 11210900 ②)
+    const n = await redis.incr(dayKey);
+    if (n === 1) await redis.expire(dayKey, 3 * 86400).catch(() => {});
+    if (n > COMEBACK_MAX_PER_DAY) { await redis.del(keys[0], keys[1], keys[2]); skip('day_cap'); break; }
+    // 자리 잡은 뒤 한 번 더 — 그 사이 재결제 웹훅이 대상을 지웠으면 보내지 않는다(표식은 남긴다 — 결제자라 다시 볼 일 없음 · 관문 11210854 ③)
+    if ((await redis.get(COMEBACK_ENTRY_KEY(uh))) == null) { skip('cancelled'); continue; }
+    const item: SignalPushItem = { id: token, token, platform: 'ios', title: content.title, body: content.body, data: comebackPushData(code), quiet: false, thread: 'comeback' };
+    const r = (await sendSignalPushes([item])).get(token);
+    if (r === 'ok') sent++; else if (r === 'dead') dead++; else failed++;   // 표식을 놓지 않는다(중복보다 누락)
+    preview.push({ locale: tokenRec.locale ?? null, storefront: content.storefront, title: content.title });
+    await forget(uh);
+  }
+  return { candidates, sent, failed, dead, skipped, preview };
 }

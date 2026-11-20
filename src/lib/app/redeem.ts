@@ -251,6 +251,23 @@ export async function openRedeem(src?: FunnelSrc, locale?: string): Promise<Rede
   return 'web';
 }
 
+/**
+ * ★11/21 «다시 시작» 할인 코드 푸시 탭(lib/push/comebackPush) — 코드를 미리 채운 애플 적용 주소를 연다(아이폰만).
+ *   코드는 푸시 데이터(c)에서 받되 형식 검사만 통과하면 애플 적용 주소(고정 앞부분)에만 넣는다 — 서버가 준 주소는 받지 않는다. 돌아오면 URL 경로와 같은 PRO 재확인(armReturn('url')).
+ */
+export async function openComebackRedeem(code: unknown, src?: FunnelSrc): Promise<boolean> {
+  if (platformOf() !== 'ios') return false;
+  const { comebackRedeemUrl } = await import('@/lib/app/comebackOffer');
+  const url = comebackRedeemUrl(code);
+  if (!url) return false;
+  void funnel().then((m) => m.trackFunnel('code_open', { src })).catch(() => {});
+  let wasNonPro = false;
+  try { if (await initRevenueCat()) wasNonPro = await confirmedNonProNow(); } catch { /* 확인 못 해도 연다 */ }
+  armReturn('url', src, wasNonPro);
+  void openExternalUrl(url);
+  return true;
+}
+
 /** 코드 입력 버튼을 보일 수 있는 곳인가(네이티브 — 웹에선 코드를 쓸 곳이 없다) */
 export function canRedeemHere(): boolean {
   return platformOf() !== 'web';
