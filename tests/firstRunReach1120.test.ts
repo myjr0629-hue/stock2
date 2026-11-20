@@ -311,3 +311,37 @@ test('⑤ 이미 봄 · 기록 실패 · 해제', async () => {
   assert.deepEqual(await frp.runFirstRunLoop(h.d), { kind: 'gone' });
   assert.equal(h.calls.mark, 0);
 });
+
+test('⑤ 관문 11201013 — 재조회는 성공·실패 합쳐 3번까지 · 30초를 넘겨 끝난 재조회 뒤엔 안 띄움', async () => {
+  // 늦은 표시: 재조회 성공 직후마다 시트가 열렸다 닫히기를 반복 → 무료 답을 10초 재사용, 호출 ≤ 3
+  let h = harness();
+  let flip = 0;
+  const d = { ...h.d, snap: () => (h.time() >= 9_000 ? { ...h.sv } : { ...h.sv, offers: [] as O[] }), rawOffers: async () => [] as O[],
+    lateEnv: () => { flip++; return { dialogOpen: flip % 2 === 0, gateFlow: false, visible: true, routeOk: true }; } };
+  let r = await frp.runFirstRunLoop(d);
+  assert.ok(h.calls.fetchPro <= frp.FIRST_RUN_CHECK_TRIES, `재조회 ${h.calls.fetchPro}회`);
+  assert.ok(r.kind === 'show' || r.kind === 'skip');
+  // 시트가 늘 열려 있으면 재조회 없이 상한에 fr_busy
+  h = harness();
+  const d2 = { ...h.d, snap: () => (h.time() >= 9_000 ? { ...h.sv } : { ...h.sv, offers: [] as O[] }), rawOffers: async () => [] as O[],
+    lateEnv: () => ({ dialogOpen: true, gateFlow: false, visible: true, routeOk: true }) };
+  assert.deepEqual(await frp.runFirstRunLoop(d2), { kind: 'skip', reason: 'fr_busy' });
+  assert.equal(h.calls.fetchPro, 0, '겹침이면 묻지도 않는다');
+  // 29.5초에 시작한 재조회가 30초를 넘겨 끝남 → 띄우지 않음
+  h = harness();
+  const d3 = { ...h.d, snap: () => (h.time() >= 29_500 ? { ...h.sv } : { ...h.sv, offers: [] as O[] }), rawOffers: async () => [] as O[],
+    fetchPro: async () => { h.calls.fetchPro++; h.advance(1_000); return false; } };
+  r = await frp.runFirstRunLoop(d3);
+  assert.equal(r.kind, 'skip');
+  assert.equal(h.calls.mark, 0, '상한 뒤 표식·표시 없음');
+  // 재조회가 늘 실패 → 정확히 3번 묻고 fr_chk
+  h = harness({ fetchPro: async () => { h.calls.fetchPro++; throw new Error('net'); } });
+  assert.deepEqual(await frp.runFirstRunLoop(h.d), { kind: 'skip', reason: 'fr_chk' });
+  assert.equal(h.calls.fetchPro, frp.FIRST_RUN_CHECK_TRIES);
+  // 무료 답 뒤 훅이 PRO 로 바뀌면(코드 PRO 늦게 도착) 재사용하지 않고 건너뜀
+  h = harness();
+  let pro = false;
+  const d4 = { ...h.d, snap: () => ({ ...h.sv, isPro: pro }), fetchPro: async () => { h.calls.fetchPro++; pro = true; return false; } };
+  assert.deepEqual(await frp.runFirstRunLoop(d4), { kind: 'skip', reason: 'fr_pro' });
+  assert.equal(h.calls.mark, 0);
+});

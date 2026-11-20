@@ -52,6 +52,8 @@ export const FIRST_RUN_OFFER_TRIES = 3;
 export const FIRST_RUN_CHECK_TRIES = 3;
 /** 스토어 재조회 한 번의 상한 */
 export const FIRST_RUN_CHECK_TIMEOUT_MS = 4_000;
+/** 스토어 «무료» 답을 겹침 대기 뒤 다시 쓰는 시간(그 사이 PRO 는 훅·공유 신호·결제 진행 중으로 본다) */
+export const FIRST_RUN_FREE_REUSE_MS = 10_000;
 
 /** 안 보인 이유(퍼널 출처 fr_*) */
 export type FirstRunSkip = 'fr_pro' | 'fr_seen' | 'fr_noiap' | 'fr_noelig' | 'fr_unk' | 'fr_nooffer' | 'fr_wait' | 'fr_chk' | 'fr_busy';
@@ -174,7 +176,8 @@ export async function runFirstRunLoop<O extends OfferLike>(d: FirstRunLoopDeps<O
   const startedAt = d.now();
   let override: O[] | null = null;
   let trialUnknown: boolean | null = null;
-  let trialTries = 0, offerTries = 0, checkFails = 0;
+  let trialTries = 0, offerTries = 0, checkFails = 0, checkCalls = 0;
+  let freeAt = 0;   // 마지막으로 스토어가 «무료»라고 답한 시각 — 겹침 때문에 기다린 뒤엔 짧은 동안 다시 묻지 않는다(호출 상한 · 관문 11201013)
   let readyAt = 0;
   let retried = false;
   let lastBusy = false;
@@ -185,6 +188,11 @@ export async function runFirstRunLoop<O extends OfferLike>(d: FirstRunLoopDeps<O
     return override && override.length ? override : hook;
   };
   const isLate = () => d.now() - startedAt > FIRST_RUN_PAYWALL_WAIT_MS;
+  const overBudget = () => d.now() - startedAt >= FIRST_RUN_PAYWALL_BUDGET_MS;
+  const timeoutResult = (): FirstRunLoopResult<O> => {
+    const s = d.snap();
+    return { kind: 'skip', reason: firstRunTimeoutReason({ ready: s.ready && s.trialsReady, offersLen: pick().length, checkFailed: checkFails > 0, busy: lastBusy }) };
+  };
   /** 늦은 경우의 겹침 — 'busy' = 다른 페이월이 이미 열림(끝) · 'wait' = 잠시 뒤 다시 · 'ok' */
   const lateGate = (): 'ok' | 'wait' | 'busy' => {
     if (!isLate()) return 'ok';
@@ -195,10 +203,7 @@ export async function runFirstRunLoop<O extends OfferLike>(d: FirstRunLoopDeps<O
   };
 
   while (d.alive()) {
-    if (d.now() - startedAt >= FIRST_RUN_PAYWALL_BUDGET_MS) {
-      const s = d.snap();
-      return { kind: 'skip', reason: firstRunTimeoutReason({ ready: s.ready && s.trialsReady, offersLen: pick().length, checkFailed: checkFails > 0, busy: lastBusy }) };
-    }
+    if (overBudget()) return timeoutResult();
     const s = d.snap();
     const ready = s.ready && s.trialsReady;
     if (ready && !readyAt) readyAt = d.now();
@@ -232,22 +237,31 @@ export async function runFirstRunLoop<O extends OfferLike>(d: FirstRunLoopDeps<O
     const g1 = lateGate();
     if (g1 === 'busy') return { kind: 'skip', reason: 'fr_busy' };
     if (g1 === 'wait') { await d.sleep(1_000); continue; }
-    let free: boolean | null = null;
-    try { free = !(await withTimeout(d.fetchPro(), FIRST_RUN_CHECK_TIMEOUT_MS)); } catch { free = null; }
-    if (!d.alive()) return { kind: 'gone' };
-    if (free === null) {
-      checkFails += 1; retried = true;
-      if (checkFails >= FIRST_RUN_CHECK_TRIES) return { kind: 'skip', reason: 'fr_chk' };
-      await d.sleep(1_500);
-      continue;
+    if (!(freeAt && d.now() - freeAt < FIRST_RUN_FREE_REUSE_MS)) {
+      // 스토어 재조회는 성공·실패 합쳐 FIRST_RUN_CHECK_TRIES 번까지(호출 상한)
+      if (checkCalls >= FIRST_RUN_CHECK_TRIES) return { kind: 'skip', reason: checkFails > 0 ? 'fr_chk' : 'fr_busy' };
+      checkCalls += 1;
+      let free: boolean | null = null;
+      try { free = !(await withTimeout(d.fetchPro(), FIRST_RUN_CHECK_TIMEOUT_MS)); } catch { free = null; }
+      if (!d.alive()) return { kind: 'gone' };
+      if (free === null) {
+        checkFails += 1; retried = true;
+        if (checkCalls >= FIRST_RUN_CHECK_TRIES) return { kind: 'skip', reason: 'fr_chk' };
+        await d.sleep(1_500);
+        continue;
+      }
+      if (!free) return { kind: 'skip', reason: 'fr_pro' };
+      freeAt = d.now();
     }
-    if (!free || d.pending() || d.sharedPro()) return { kind: 'skip', reason: 'fr_pro' };
+    if (d.pending() || d.sharedPro() || d.snap().isPro) return { kind: 'skip', reason: 'fr_pro' };
     // 재조회를 기다리는 사이 다른 페이월·시트가 떴으면(늦은 경우) 다시 본다
     const g2 = lateGate();
     if (g2 === 'busy') return { kind: 'skip', reason: 'fr_busy' };
     if (g2 === 'wait') { await d.sleep(1_000); continue; }
     const chosen = pick();
     if (!hasTrialOffer(chosen)) { await d.sleep(250); continue; }   // 그 사이 목록이 바뀌었다 — 다시 판정
+    if (overBudget()) return timeoutResult();   // 마지막 재조회가 상한을 넘겨 끝났다 — 30초 뒤엔 띄우지 않는다(관문 11201013)
+    if (d.shown()) return { kind: 'skip', reason: 'fr_seen' };
     if (!d.mark()) return { kind: 'skip', reason: 'fr_seen' };
     return { kind: 'show', offers: chosen, late: isLate() || retried };
   }
