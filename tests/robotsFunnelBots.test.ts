@@ -43,7 +43,10 @@ async function main() {
   console.log('✓ robots: 기존 출력과 전체 로케일·공개 경로');
 
   process.env.VERCEL_ENV = 'preview';
-  const bots = ['HeadlessChrome/130', 'ExampleBot/1', 'Crawler/1', 'Spider/1', 'Googlebot/2.1', 'bingbot/2.0', 'Lighthouse', 'Playwright', 'Puppeteer', 'Slackbot'];
+  const bots = ['HeadlessChrome/130', 'ExampleBot/1', 'Crawler/1', 'Spider/1', 'Googlebot/2.1', 'bingbot/2.0', 'Lighthouse', 'Playwright', 'Puppeteer', 'Slackbot',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36 signum-integrity-probe',
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 signum-ext-check',
+    'Mozilla/5.0 (compatible; signum-integrity-watch/1.0)', 'signumhq-aso-probe/1.0'];
   const humans: Array<[string, string]> = [
     ['Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148', 'ios'],
     ['Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36', 'android'],

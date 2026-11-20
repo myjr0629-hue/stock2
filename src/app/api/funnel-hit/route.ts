@@ -22,7 +22,10 @@ const TTL = 60 * 60 * 24 * 45;
 // Keep the shared link-preview rules intact; this additional filter applies only to funnel counts.
 // "bot" only as a crawler token ("Googlebot/2.1", "bot;") — real phone models such as
 // "CUBOT P80" or "HUAWEI BOT-L21" must stay counted.
-const AUTOMATED_UA_RE = /bot\/|\bbot\b(?!-)|crawler|spider|headless|lighthouse|playwright|puppeteer/i;
+// ★ 2026-11-20: 우리 자체 점검기(scripts/integrity/screenprobe.js «signum-integrity-probe», check-ext-transition «signum-ext-check»,
+//   aso-thin-door «signumhq-aso-probe» 등)는 UA 끝에 signum-…-probe/check/watch 를 붙인 채 /ko/app-view 를 분 단위로 열어
+//   web 법적 고지 «노출 447 → 마침 0»(ET 11/18~20)을 만들었다. 사람 유입이 아니므로 세지 않는다.
+const AUTOMATED_UA_RE = /bot\/|\bbot\b(?!-)|crawler|spider|headless|lighthouse|playwright|puppeteer|signum(?:hq)?-[a-z-]*(?:probe|check|watch)\b/i;
 
 async function bump(key: string): Promise<void> {
   const cur = (await getFromCache<number>(key)) || 0;
