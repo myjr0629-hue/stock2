@@ -12,19 +12,16 @@ import { proPurchaseState } from '@/lib/app/proPurchaseState';
 import { markGateDay, readGateDay, storeProSignal, checkStorePro, gatePaywallSlot, decideFirstGatePaywall, decideNoFillPaywall } from '@/lib/app/gatePaywall';
 import { beginGateFlow, endGateFlow, gateFlowActive, trialAnnouncedToday } from '@/lib/app/trialAnnounce';
 import { trackFunnel } from '@/lib/app/funnelBeacon';
+import { grantScopeUnlock, scopeUnlockedAt, unlockScopeName, noteRewardForFollow } from '@/lib/app/adUnlockScope';
 const announcedTodaySafe = () => { try { return trialAnnouncedToday(window.localStorage); } catch { return false; } };
 
 const UNLOCK_KEY = 'signum_ad_unlock';
 const UNLOCK_MS = 60 * 60 * 1000;
-/** ★11/17 광고 잠금해제(앱 전역)가 지금 유효한가 — 콜백 안에서 렌더를 기다리지 않고 읽는다(useUnlockState 와 같은 해석) */
-const adUnlockedNow = () => {
-  try {
-    const raw = localStorage.getItem(UNLOCK_KEY);
-    if (!raw) return false;
-    let until: unknown;
-    try { const p = JSON.parse(raw); until = p?.unlockedUntil || p; } catch { until = raw; }
-    return Date.now() < Number(until);
-  } catch { return false; }
+// ★11/20 잠금(화면 가림)은 «범위»마다 따로 연다(lib/app/adUnlockScope) — 광고 한 편 = 누른 그 잠금 하나만 1시간.
+//   앱 전역 키(UNLOCK_KEY)는 adManager 의 «보상형 뒤 1시간 전면 쉬기»용으로만 예전처럼 쓴다(잠금 판정에는 안 쓴다).
+/** 이 범위의 광고 잠금해제가 지금 유효한가 — 콜백 안에서 렌더를 기다리지 않고 읽는다(useUnlockState 와 같은 해석) */
+const scopeUnlockedNow = (scope: string) => {
+  try { return scopeUnlockedAt(window.localStorage, scope, Date.now()); } catch { return false; }
 };
 
 // IAP_LIVE is the single source of truth in src/config/iap.ts. While false, the
@@ -124,25 +121,12 @@ function resolveValueWallLocale(locale?: string): ValueWallLocale {
   return 'en';
 }
 
-export function useUnlockState() {
+export function useUnlockState(scope?: string) {
+  const scopeName = unlockScopeName(scope);
   const [unlocked, setUnlocked] = useState(false);
 
   useEffect(() => {
-    const check = () => {
-      const raw = localStorage.getItem(UNLOCK_KEY);
-      if (!raw) {
-        setUnlocked(false);
-        return;
-      }
-
-      try {
-        const parsed = JSON.parse(raw);
-        const until = parsed.unlockedUntil || parsed;
-        setUnlocked(Date.now() < Number(until));
-      } catch {
-        setUnlocked(Date.now() < Number(raw));
-      }
-    };
+    const check = () => setUnlocked(scopeUnlockedNow(scopeName));
 
     check();
     window.addEventListener('storage', check);
@@ -154,14 +138,22 @@ export function useUnlockState() {
       window.removeEventListener('signum:unlock', check as EventListener);
       clearInterval(timer);
     };
-  }, []);
+  }, [scopeName]);
 
-  const unlock = useCallback(() => {
-    const state = { unlockedUntil: Date.now() + UNLOCK_MS, tier: 'premium' };
-    localStorage.setItem(UNLOCK_KEY, JSON.stringify(state));
+  /** 이 범위만 1시간 연다. writeGlobal = 앱 전역 키도 쓴다(대체 30초 창 — 예전처럼 1시간 전면 쉬기. 보상형은 adManager 가 이미 썼다).
+   *  돌려주는 값: 이 범위 말고 이미 열려 있던 범위 수(예전 규칙이면 «광고 없이 같이 열렸을» 잠금이 있었다는 뜻) */
+  const unlock = useCallback((writeGlobal = true) => {
+    let others = 0;
+    try {
+      const now = Date.now();
+      others = grantScopeUnlock(window.localStorage, scopeName, now);
+      if (writeGlobal) window.localStorage.setItem(UNLOCK_KEY, JSON.stringify({ unlockedUntil: now + UNLOCK_MS, tier: 'premium' }));
+      noteRewardForFollow(window.localStorage, now); // 계측만 — 해제 뒤 24시간 안의 페이월 열림·버튼·결제를 한 번씩 센다(funnelBeacon)
+    } catch { /* 저장소 막힘 — 이번 화면 동안만 열린다 */ }
     window.dispatchEvent(new Event('signum:unlock'));
     setUnlocked(true);
-  }, []);
+    return others;
+  }, [scopeName]);
 
   return { unlocked, unlock };
 }
@@ -171,14 +163,20 @@ export function useUnlockState() {
    (1번 신호는 안 가리고, 2~4번만 셔머 막대). 그래도 결제·광고 흐름은
    두 벌이 되면 안 되므로 ValueWall 과 «같은 코드»를 쓰게 여기서 내보낸다.
    ValueWall 자신도 이 훅을 쓴다 — 동작은 한 곳에만 있다.            */
-export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
+export function useAdUnlockGate(locale?: string, onUnlock?: () => void, unlockScope?: string) {
+  // ★11/20 이 게이트의 잠금 범위 — ValueWall 은 unlockScope 또는 제목, 대시보드 게이트는 'dash_gate'. 광고 한 편은 이 범위만 연다.
+  const scopeName = unlockScopeName(unlockScope);
+  const scopeRef = useRef(scopeName);
+  scopeRef.current = scopeName;
+  /** 이 게이트의 잠금이 지금 열려 있나(다른 게이트의 광고로는 열리지 않는다) */
+  const adUnlockedNow = () => scopeUnlockedNow(scopeRef.current);
   const [showAd, setShowAd] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
   const unlockPending = useRef(false);
   const [purchasing, setPurchasing] = useState(false);
   const [proError, setProError] = useState(false);
   const [proNothing, setProNothing] = useState(false); // successful restore that found no entitlement
-  const { unlocked, unlock } = useUnlockState();
+  const { unlocked, unlock } = useUnlockState(scopeName);
   // Pro (paid, ad-free) is inert while IAP_LIVE=false: isPro stays false, no SDK.
   const { isPro, ready, offers, purchase, restore, iapAvailable } = useProStatus();
   // ★11/16 게이트 흐름의 스토어 재조회(proCheck)가 PRO 를 확인했는데 이 훅의 isPro 가 아직 무료면(초기 조회 실패·갱신 지연) 그 값으로 연다 — 잠금에 가두지 않는다
@@ -227,8 +225,9 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
   const afterPaywall = useRef<null | 'ad' | 'fallback'>(null);
 
   const finishUnlock = useCallback(() => {
-    unlock();
+    const others = unlock(true);
     trackFunnel('reward_ok', { src: 'ad_modal' }); // ★11/20 계측만 — 대체 30초 창이 잠금을 열었다(하루 합계 · 식별자 없음)
+    if (others > 0) trackFunnel('reward_ok', { src: 'rw_more' }); // ★11/20 계측만 — 다른 잠금이 이미 열린 채 또 열었다(예전 규칙이면 광고 없이 열렸을 몫)
     onUnlock?.();
   }, [onUnlock, unlock]);
 
@@ -309,8 +308,11 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
         const { adManager } = await import('@/services/adManager');
         const reward = await adManager.showRewarded();
         if (reward) {
-          // adManager grants once and broadcasts signum:unlock to update the wall.
+          // adManager grants once(앱 전역 키 = 1시간 전면 쉬기) and broadcasts signum:unlock.
+          // ★11/20 잠금은 이 게이트의 범위만 연다 — 전역 키는 adManager 가 이미 썼다(writeGlobal=false).
+          const others = unlock(false);
           trackFunnel('reward_ok', { src: 'value_wall' }); // ★11/20 계측만 — 보상형 광고를 끝까지 봐 1시간 잠금해제(하루 합계 · 식별자 없음)
+          if (others > 0) trackFunnel('reward_ok', { src: 'rw_more' }); // ★11/20 계측만 — 다른 잠금이 이미 열린 채 또 열었다
           onUnlock?.();
           return 'done';
         }
@@ -351,12 +353,12 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void) {
     if (!alive.current || adUnlockedNow()) return 'done'; // ★11/17 재조회 사이 화면 이탈·잠금 해제 — 대체 창 안 엶(관문 11170647)
     openFallback();
     return 'done';
-  }, [onUnlock, proCheck]);
+  }, [onUnlock, proCheck, unlock]);
 
   const handleUnlockPress = useCallback(async () => {
     if (unlockPending.current || gateBusy()) return;
     // ★11/17 다른 게이트의 흐름(재조회·광고 준비/표시·페이월)이 도는 중이면 이 탭은 넘긴다 — 게이트 흐름은 앱 전역 하나(관문 11170644 ①: A 광고 중 B 의 ad_nofill·gate_first 겹침)
-    //   잠금해제는 앱 전역(UNLOCK_KEY·signum:unlock)이라 A 의 흐름이 B 의 잠금도 연다. 흐름 표식은 2분 상한·흐름 끝·언마운트에 지운다.
+    //   ★11/20 잠금해제는 범위마다(lib/app/adUnlockScope) — A 의 흐름은 A 만 연다. B 는 A 의 흐름이 끝난 뒤 다시 누르면 된다. 흐름 표식은 2분 상한·흐름 끝·언마운트에 지운다.
     if (gateFlowActive()) return;
     gateFlowAt.current = Date.now();
     endGateFlow(gateFlowId.current);
@@ -503,6 +505,8 @@ interface ValueWallProps {
   previewChipLabel?: string;
   legalNote?: ReactNode;
   inset?: boolean;
+  /** ★11/20 광고 잠금해제 범위(lib/app/adUnlockScope) — 없으면 제목. 같은 범위의 잠금끼리만 같이 열린다 */
+  unlockScope?: string;
 }
 
 export function ValueWall({
@@ -519,6 +523,7 @@ export function ValueWall({
   previewChipLabel,
   legalNote,
   inset = false,
+  unlockScope,
 }: ValueWallProps) {
   // NOTE: adFreeLabel prop is kept in ValueWallProps for caller compat but no longer
   // rendered — the paid upgrade is now the proCta button below the free ad CTA.
@@ -526,7 +531,7 @@ export function ValueWall({
   const {
     isUnlocked, unlocking, purchasing, proError, proNothing, iapAvailable,
     handleUnlockPress, openPaywall, handleRestore, copy, portals,
-  } = useAdUnlockGate(locale, onUnlock);
+  } = useAdUnlockGate(locale, onUnlock, unlockScope ?? title);
   const resolvedCtaLabel = ctaLabel || copy.ctaLabel;
   const resolvedPreviewChipLabel = previewChipLabel || copy.previewChipLabel;
   const resolvedLegalNote = legalNote || copy.legalNote;

@@ -7,6 +7,7 @@
 // ============================================================================
 
 import { normalizeCode, normalizeVersion, isFunnelSrc, type FunnelSrc, type FunnelStage, type FunnelPlatform } from '@/lib/app/funnelSchema';
+import { rewardFollowUp } from '@/lib/app/adUnlockScope';
 
 /**
  * 안드로이드 «앱»도 보낸다 (2026-10-14 켬).
@@ -64,5 +65,9 @@ export function trackFunnel(stage: FunnelStage, opts: { src?: FunnelSrc; code?: 
       try { if (typeof navigator.sendBeacon === 'function' && navigator.sendBeacon(q)) return; } catch { /* 폴백 */ }
       void fetch(q, { method: 'POST', keepalive: true }).catch(() => {});
     }).catch(() => {});
+    // ★11/20 광고 잠금해제 뒤 24시간 안의 첫 페이월 열림·버튼·결제 — 기기 안에서만 잇는다(lib/app/adUnlockScope). rw_then 은 다시 여기로 오지 않는다(open·cta·buy_ok 만 본다)
+    let follow: ReturnType<typeof rewardFollowUp> = null;
+    try { follow = rewardFollowUp(window.localStorage, stage, Date.now()); } catch { /* 저장소 막힘 */ }
+    if (follow) trackFunnel('rw_then', { src: follow });
   } catch { /* 측정이 기능을 깨뜨리지 않는다 */ }
 }

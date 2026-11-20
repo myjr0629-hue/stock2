@@ -1254,7 +1254,7 @@ export default function AppDashPage() {
     return vals.length ? clampPct(vals.reduce((a, c) => a + c, 0) / vals.length) : null;
   })();
 
-  const adGate = useAdUnlockGate(locale);
+  const adGate = useAdUnlockGate(locale, undefined, 'dash_gate'); // ★11/20 광고 한 편은 이 게이트만 1시간(lib/app/adUnlockScope)
   // «내 종목» — 행 길게 누르기 시트 · 담긴 종목 로고 하트 배지(행 전체가 이미 버튼이라 버튼을 더 넣지 않는다)
   const starLp = useStarLongPress();
   const myList = useAppWatchlist();

@@ -13,6 +13,7 @@ import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { SwipeableTabs } from '@/components/app/SwipeableTabs';
 import { ValueWall } from '@/components/app/ValueWall';
+import { scopeUnlockedAt } from '@/lib/app/adUnlockScope';
 import dashStyles from '../dash/dash.module.css';
 import s from '../cmd/cmd.module.css';
 import { premiumLabel, totalPremiumOf, fmtPremiumM } from '@/lib/premiumFlow';
@@ -1129,17 +1130,10 @@ export default function AppFlowPage() {
   const priceColorClass = up ? s.pos : s.neg;
 
   // Check localStorage for unlock timestamp
+  //   ★11/20 맥스페인 줄은 바로 위 체인 잠금(unlockScope 'flow_chain')과 같이 열린다 — 다른 화면의 광고 한 편으로는 열리지 않는다(lib/app/adUnlockScope)
   useEffect(() => {
     const checkUnlock = () => {
-      const raw = localStorage.getItem('signum_ad_unlock');
-      if (!raw) { setIsLocked(true); return; }
-      try {
-        const parsed = JSON.parse(raw);
-        const until = parsed.unlockedUntil || parsed;
-        setIsLocked(Date.now() >= Number(until));
-      } catch {
-        setIsLocked(Date.now() >= Number(raw));
-      }
+      try { setIsLocked(!scopeUnlockedAt(window.localStorage, 'flow_chain', Date.now())); } catch { setIsLocked(true); }
     };
     checkUnlock();
     window.addEventListener('storage', checkUnlock);
@@ -4396,6 +4390,7 @@ export default function AppFlowPage() {
                 teaser={{ label: whaleCopy.freePreview, value: `${flowTab === 'whale' ? (whaleMeta == null ? '—' : whaleDayCount) : insiderStats.count} ${whaleCopy.prints} / ${flowTab === 'whale' ? (whaleMeta == null ? '—' : formatCompactMoney(whaleBasis === 'eod-volume' ? whaleDayTotal : largestWhalePrint ?? 0, 1)) : formatCompactMoney(insiderStats.largest, 1)}` }}
                 ctaLabel={whaleCopy.unlockCta}
                 previewChipLabel={whaleCopy.freePreview}
+                unlockScope="flow_chain"
                 onUnlock={() => setIsLocked(false)}
                 lockedPreview={
                   <div 

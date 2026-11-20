@@ -157,7 +157,7 @@ test('④ 닫힌 목록 — funnelSchema ↔ firstRunPaywall ↔ mkt-funnel', ()
   assert.deepEqual(mf.STAGES, [...schema.FUNNEL_STAGES]);
   assert.deepEqual(mf.SRCS, [...schema.FUNNEL_SRCS]);
   const src = read('scripts/mkt-funnel.js');
-  assert.ok(/NON_FUNNEL_STAGES = new Set\(\[[^\]]*'fr_judge', 'reward_ok'\]\)/.test(src), '본표 열에 섞이지 않는다(머리줄 11칸 고정)');
+  assert.ok(/NON_FUNNEL_STAGES = new Set\(\[[^\]]*'fr_judge', 'reward_ok', 'rw_then'\]\)/.test(src), '본표 열에 섞이지 않는다(머리줄 11칸 고정 · 11/20 오후 rw_then 추가)');
   assert.ok(src.includes('...TRIAL_PUSH_SRCS, ...FR_SRCS,'), 'fr_* 출처는 본표 행에서 빠진다');
 });
 
@@ -176,8 +176,8 @@ test('④ 컴포넌트 계약 — 배너 억제 · 예전 상한 · 계측 가�
   const code = c.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).map((l) => l.replace(/\/\*.*?\*\//g, '').replace(/\/\/.*$/, '')).join('\n');
   assert.ok(!/[가-힣ぁ-んァ-ン一-龥]/.test(code), '코드에 화면 문구 없음');
   const v = read('src/components/app/ValueWall.tsx');
-  assert.equal((v.match(/trackFunnel\('reward_ok'/g) || []).length, 2, '광고 잠금해제 계측 두 곳(보상형·대체 창)');
-  assert.ok(/const UNLOCK_MS = 60 \* 60 \* 1000;/.test(v), '잠금해제 범위·시간은 그대로(실측상 사용 거의 없음 — 바꾸지 않음)');
+  assert.equal((v.match(/trackFunnel\('reward_ok', \{ src: '(value_wall|ad_modal)' \}\)/g) || []).length, 2, '광고 잠금해제 계측 두 곳(보상형·대체 창)');
+  assert.ok(/const UNLOCK_MS = 60 \* 60 \* 1000;/.test(v), '잠금해제 시간은 1시간 그대로(11/20 오후부터 범위만 «누른 잠금 하나» — tests/adUnlockScope1120)');
 });
 
 // ── ⑤ 판정 고리(runFirstRunLoop) — 가짜 시계 ─────────────────────────────────────────────
