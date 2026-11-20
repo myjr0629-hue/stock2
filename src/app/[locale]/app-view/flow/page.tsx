@@ -12,8 +12,7 @@ import { AdBanner } from '@/components/app/AdBanner';
 import { AppTickerLogo } from '@/components/app/AppTickerLogo';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { SwipeableTabs } from '@/components/app/SwipeableTabs';
-import { ValueWall } from '@/components/app/ValueWall';
-import { scopeUnlockedAt } from '@/lib/app/adUnlockScope';
+import { ValueWall, adScopeUnlockedNow } from '@/components/app/ValueWall';
 import dashStyles from '../dash/dash.module.css';
 import s from '../cmd/cmd.module.css';
 import { premiumLabel, totalPremiumOf, fmtPremiumM } from '@/lib/premiumFlow';
@@ -1133,7 +1132,7 @@ export default function AppFlowPage() {
   //   ★11/20 맥스페인 줄은 바로 위 체인 잠금(unlockScope 'flow_chain')과 같이 열린다 — 다른 화면의 광고 한 편으로는 열리지 않는다(lib/app/adUnlockScope)
   useEffect(() => {
     const checkUnlock = () => {
-      try { setIsLocked(!scopeUnlockedAt(window.localStorage, 'flow_chain', Date.now())); } catch { setIsLocked(true); }
+      setIsLocked(!adScopeUnlockedNow('flow_chain')); // ValueWall 과 같은 판정(이번 실행 사본·옛 해제 포함 — 관문 11201525 ②)
     };
     checkUnlock();
     window.addEventListener('storage', checkUnlock);
@@ -3661,7 +3660,6 @@ export default function AppFlowPage() {
                 }}
                 previewChipLabel={whaleCopy.freePreview}
                 ctaLabel={whaleCopy.unlockCta}
-                onUnlock={() => setIsLocked(false)}
               >
                 <div className="premium-card" style={{ padding: '16px', margin: 0, position: 'relative' }}>
                 {renderPopover('gex', flowCopy.regimeInfo, flowCopy.regimeInfoTitle)}
@@ -4057,7 +4055,6 @@ export default function AppFlowPage() {
                       teaser={{ label: ui.teaserLabel, value: `${ui.details} · ${directionText}` }}
                       ctaLabel={ui.watchCta}
                       previewChipLabel={whaleCopy.freePreview}
-                      onUnlock={() => setIsLocked(false)}
                       lockedPreview={
                         <div style={{ opacity: 0.14, filter: 'blur(3.5px)', pointerEvents: 'none' }}>
                           <div style={{ fontSize: '11px', fontWeight: 850, color: 'var(--text-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{ui.details}</div>

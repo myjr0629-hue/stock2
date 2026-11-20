@@ -43,22 +43,26 @@ export const LEGACY_SCOPE = '*';
 export const LEGACY_MIGRATED_KEY = 'signum_ad_unlock_mig1120';
 const LEGACY_GLOBAL_KEY = 'signum_ad_unlock';
 
-/** 새 규칙을 처음 읽을 때 «한 번만»: 옛 전역 키가 아직 유효하면 그 시각까지 모든 잠금을 연다. 그 뒤의 전역 키(전면 쉬기용)는 잠금에 쓰지 않는다 */
-export function migrateLegacyUnlock(storage: StorageLike | null | undefined, now: number): void {
+/** 새 규칙을 처음 읽을 때 «한 번만»: 옛 전역 키가 아직 유효하면 그 시각까지 모든 잠금을 연다. 그 뒤의 전역 키(전면 쉬기용)는 잠금에 쓰지 않는다.
+ *  돌려주는 값: 옮긴 옛 해제의 만료 시각(없으면 0) — 저장에 실패해도 부르는 쪽이 이번 실행 동안 기억한다(관문 11201525 ③) */
+export function migrateLegacyUnlock(storage: StorageLike | null | undefined, now: number): number {
+  let granted = 0;
   try {
-    if (!storage || storage.getItem(LEGACY_MIGRATED_KEY)) return;
+    if (!storage || storage.getItem(LEGACY_MIGRATED_KEY)) return 0;
     const raw = storage.getItem(LEGACY_GLOBAL_KEY);
     let until = 0;
     if (raw) {
       try { const p = JSON.parse(raw) as { unlockedUntil?: unknown } | number; until = Number(typeof p === 'object' && p ? p.unlockedUntil : p); } catch { until = Number(raw); }
     }
     if (Number.isFinite(until) && until > now) {
+      granted = Math.min(until, now + AD_UNLOCK_MS);
       const live = readScopedUnlocks(storage, now);
-      live[LEGACY_SCOPE] = Math.min(until, now + AD_UNLOCK_MS);
+      live[LEGACY_SCOPE] = granted;
       storage.setItem(SCOPED_UNLOCK_KEY, JSON.stringify(live));
     }
     storage.setItem(LEGACY_MIGRATED_KEY, '1');
-  } catch { /* 저장소 막힘 — 옮길 것도 없다 */ }
+  } catch { /* 저장소 막힘 — 읽은 만큼(granted)은 돌려준다 */ }
+  return granted;
 }
 
 /** 이 범위가 지금 열려 있나(옛 규칙의 남은 해제 포함) */

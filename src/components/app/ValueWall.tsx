@@ -25,12 +25,18 @@ let legacyChecked = false;
 /** 이 범위의 광고 잠금해제가 지금 유효한가 — 콜백 안에서 렌더를 기다리지 않고 읽는다(useUnlockState 와 같은 해석) */
 const scopeUnlockedNow = (scope: string) => {
   const now = Date.now();
-  if ((memUnlocks.get(scope) ?? 0) > now) return true;
-  try {
-    if (!legacyChecked) { legacyChecked = true; migrateLegacyUnlock(window.localStorage, now); } // 배포 전 받은 1시간 해제는 끝까지 준다(관문 11201522 ①)
-    return scopeUnlockedAt(window.localStorage, scope, now);
-  } catch { return false; }
+  if (!legacyChecked) {
+    legacyChecked = true;
+    // 배포 전 받은 1시간 해제는 끝까지 준다(관문 11201522 ①) — 저장에 실패해도 이번 실행 동안은 기억(관문 11201525 ③)
+    let legacy = 0;
+    try { legacy = migrateLegacyUnlock(window.localStorage, now); } catch { /* 저장소 없음 */ }
+    if (legacy > now) memUnlocks.set('*', legacy);
+  }
+  if ((memUnlocks.get(scope) ?? 0) > now || (memUnlocks.get('*') ?? 0) > now) return true;
+  try { return scopeUnlockedAt(window.localStorage, scope, now); } catch { return false; }
 };
+/** 화면 쪽에서 ValueWall 과 «같은 판정»으로 범위 잠금을 읽을 때(flow 맥스페인 줄 = flow_chain) */
+export const adScopeUnlockedNow = (scope: string) => scopeUnlockedNow(unlockScopeName(scope));
 
 // IAP_LIVE is the single source of truth in src/config/iap.ts. While false, the
 // "$9.99/mo ad-free" upsell line stays hidden (a non-purchasable price fails App
