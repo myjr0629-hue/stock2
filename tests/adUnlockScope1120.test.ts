@@ -116,9 +116,11 @@ test('③ 소스 계약 — ValueWall 은 범위 키로 판정, 전역 키는 �
   assert.match(f, /setIsLocked\(!adScopeUnlockedNow\('flow_chain'\)\);/, '맥스페인 = ValueWall 과 같은 판정(관문 11201525 ②)');
   assert.match(f, /unlockScope="flow_chain"/);
   assert.match(f, /const timer = setInterval\(checkUnlock, 30_000\);/, '맥스페인도 30초마다 만료 확인(관문 11201528)');
-  assert.equal((f.match(/onUnlock=\{\(\) => setIsLocked\(false\)\}/g) || []).length, 1, '맥스페인은 체인 잠금만 연다(GEX·고래 분석은 안 연다 — 관문 11201525 ①)');
+  // ★11/20 저녁(관문 11201602) — 콜백은 isLocked 를 false 로 고정하지 않고 체인 범위 광고 해제를 다시 읽는다(PRO 는 chainOpen 이 연다 — tests/proMaxPain1120)
+  assert.equal((f.match(/onUnlock=\{\(\) => setIsLocked\(!adScopeUnlockedNow\('flow_chain'\)\)\}/g) || []).length, 1, '맥스페인은 체인 잠금만 연다(GEX·고래 분석은 안 연다 — 관문 11201525 ①)');
+  assert.doesNotMatch(f, /onUnlock=\{\(\) => setIsLocked\(false\)\}/, '구매·복원 성공으로 isLocked 를 고정해 열지 않는다(회수 뒤 30초 열림 방지)');
   const chainAt = f.indexOf('unlockScope="flow_chain"');
-  assert.ok(chainAt > 0 && f.slice(chainAt, chainAt + 300).includes('onUnlock={() => setIsLocked(false)}'), '남은 하나는 체인 잠금');
+  assert.ok(chainAt > 0 && f.slice(chainAt, chainAt + 300).includes("onUnlock={() => setIsLocked(!adScopeUnlockedNow('flow_chain'))}"), '남은 하나는 체인 잠금');
   assert.doesNotMatch(f, /localStorage\.getItem\('signum_ad_unlock'\)/);
   // adManager 의 전역 키(1시간 전면 쉬기)는 그대로
   const a = read('src/services/adManager.ts');

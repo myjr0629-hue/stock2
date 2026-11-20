@@ -4394,7 +4394,7 @@ export default function AppFlowPage() {
                 ctaLabel={whaleCopy.unlockCta}
                 previewChipLabel={whaleCopy.freePreview}
                 unlockScope="flow_chain"
-                onUnlock={() => setIsLocked(false)}
+                onUnlock={() => setIsLocked(!adScopeUnlockedNow('flow_chain'))}
                 onOpenChange={setChainOpen}
                 lockedPreview={
                   <div 
