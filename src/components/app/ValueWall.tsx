@@ -522,6 +522,9 @@ interface ValueWallProps {
   inset?: boolean;
   /** ★11/20 광고 잠금해제 범위(lib/app/adUnlockScope) — 없으면 제목. 같은 범위의 잠금끼리만 같이 열린다 */
   unlockScope?: string;
+  /** ★11/20 이 잠금이 지금 열려 있나(광고 해제 «또는» PRO 구독·코드 — isUnlocked)를 바뀔 때마다 알린다.
+   *  잠금 밖에서 같이 열리는 표시(flow 맥스페인 줄)가 이 잠금과 «같은 판정»을 쓰게 — PRO 인데 광고 해제 키만 봐서 흐리게 남지 않도록 */
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function ValueWall({
@@ -539,6 +542,7 @@ export function ValueWall({
   legalNote,
   inset = false,
   unlockScope,
+  onOpenChange,
 }: ValueWallProps) {
   // NOTE: adFreeLabel prop is kept in ValueWallProps for caller compat but no longer
   // rendered — the paid upgrade is now the proCta button below the free ad CTA.
@@ -547,6 +551,7 @@ export function ValueWall({
     isUnlocked, unlocking, purchasing, proError, proNothing, iapAvailable,
     handleUnlockPress, openPaywall, handleRestore, copy, portals,
   } = useAdUnlockGate(locale, onUnlock, unlockScope ?? title);
+  useEffect(() => { onOpenChange?.(isUnlocked); }, [isUnlocked, onOpenChange]);
   const resolvedCtaLabel = ctaLabel || copy.ctaLabel;
   const resolvedPreviewChipLabel = previewChipLabel || copy.previewChipLabel;
   const resolvedLegalNote = legalNote || copy.legalNote;

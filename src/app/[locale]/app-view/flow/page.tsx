@@ -751,6 +751,8 @@ export default function AppFlowPage() {
   }, [recentTickers, favTickers]);
   const [loading, setLoading] = useState(false);
   const [isLocked, setIsLocked] = useState(true);
+  // ★11/20 체인 잠금(ValueWall 'flow_chain')이 지금 열려 있나 — 광고 해제 또는 PRO(구독·코드). 맥스페인 줄이 PRO 를 못 보고 흐리게 남던 결함 수리
+  const [chainOpen, setChainOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   // Real-time market / price integrations (similar to cmd/page.tsx)
@@ -4393,6 +4395,7 @@ export default function AppFlowPage() {
                 previewChipLabel={whaleCopy.freePreview}
                 unlockScope="flow_chain"
                 onUnlock={() => setIsLocked(false)}
+                onOpenChange={setChainOpen}
                 lockedPreview={
                   <div 
                     className="premium-scroll no-scrollbar" 
@@ -4451,10 +4454,10 @@ export default function AppFlowPage() {
               </div>
             </div>
 
-            {/* Max Pain Info (also blurred if locked) */}
+            {/* Max Pain Info (also blurred if locked) — PRO(구독·코드)면 체인 잠금과 같이 항상 열린다(chainOpen = ValueWall isUnlocked) */}
             <div style={{ 
-              filter: isLocked ? 'blur(5px)' : 'none',
-              opacity: isLocked ? 0.25 : 1,
+              filter: isLocked && !chainOpen ? 'blur(5px)' : 'none',
+              opacity: isLocked && !chainOpen ? 0.25 : 1,
               padding: '12px 14px',
               margin: 0,
               background: 'rgba(30, 41, 59, 0.15)',
