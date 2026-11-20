@@ -113,8 +113,11 @@ test('③ 소스 계약 — ValueWall 은 범위 키로 판정, 전역 키는 �
   // 대시보드 게이트·flow 맥스페인
   assert.match(read('src/app/[locale]/app-view/dash/page.tsx'), /useAdUnlockGate\(locale, undefined, 'dash_gate'\)/);
   const f = read('src/app/[locale]/app-view/flow/page.tsx');
-  assert.match(f, /scopeUnlockedAt\(window\.localStorage, 'flow_chain', Date\.now\(\)\)/);
+  assert.match(f, /setIsLocked\(!adScopeUnlockedNow\('flow_chain'\)\);/, '맥스페인 = ValueWall 과 같은 판정(관문 11201525 ②)');
   assert.match(f, /unlockScope="flow_chain"/);
+  assert.equal((f.match(/onUnlock=\{\(\) => setIsLocked\(false\)\}/g) || []).length, 1, '맥스페인은 체인 잠금만 연다(GEX·고래 분석은 안 연다 — 관문 11201525 ①)');
+  const chainAt = f.indexOf('unlockScope="flow_chain"');
+  assert.ok(chainAt > 0 && f.slice(chainAt, chainAt + 300).includes('onUnlock={() => setIsLocked(false)}'), '남은 하나는 체인 잠금');
   assert.doesNotMatch(f, /localStorage\.getItem\('signum_ad_unlock'\)/);
   // adManager 의 전역 키(1시간 전면 쉬기)는 그대로
   const a = read('src/services/adManager.ts');
@@ -128,7 +131,7 @@ test('① 관문 11201522 — 배포 전 받은 전역 해제는 남은 시간 �
   const t0 = 1_800_000_000_000;
   const s = mem();
   s.m.set('signum_ad_unlock', JSON.stringify({ unlockedUntil: t0 + 20 * 60_000, tier: 'premium' }));
-  sc.migrateLegacyUnlock(s, t0);
+  assert.equal(sc.migrateLegacyUnlock(s, t0), t0 + 20 * 60_000, '옮긴 만료 시각을 돌려준다');
   assert.equal(sc.scopeUnlockedAt(s, 'cmd_ai', t0 + 1), true);
   assert.equal(sc.scopeUnlockedAt(s, 'dash_gate', t0 + 1), true);
   assert.equal(sc.scopeUnlockedAt(s, 'cmd_ai', t0 + 20 * 60_000), false, '남은 시간까지만');
@@ -148,7 +151,10 @@ test('① 관문 11201522 — 배포 전 받은 전역 해제는 남은 시간 �
   const s5 = mem(); s5.m.set('signum_ad_unlock', JSON.stringify({ unlockedUntil: t0 + 99 * H })); sc.migrateLegacyUnlock(s5, t0);
   assert.equal(sc.scopeUnlockedAt(s5, 'x', t0 + H + 1), false, '최대 1시간');
   const blocked = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); } };
-  sc.migrateLegacyUnlock(blocked, t0);
+  assert.equal(sc.migrateLegacyUnlock(blocked, t0), 0);
+  // 읽기는 되고 쓰기만 막힘 — 만료 시각은 돌려준다(부르는 쪽이 이번 실행 동안 기억 · 관문 11201525 ③)
+  const ro = { getItem: (k: string) => (k === 'signum_ad_unlock' ? JSON.stringify({ unlockedUntil: t0 + 10 * 60_000 }) : null), setItem: () => { throw new Error('quota'); } };
+  assert.equal(sc.migrateLegacyUnlock(ro, t0), t0 + 10 * 60_000);
 });
 
 test('③ 관문 11201522 — 잠금 범위는 언어와 무관한 고정 이름 · 저장 실패 시 이번 실행 사본', () => {
@@ -163,7 +169,8 @@ test('③ 관문 11201522 — 잠금 범위는 언어와 무관한 고정 이름
     lines.forEach((l, i) => { if (/^\s*<ValueWall\s*$/.test(l)) assert.ok(lines.slice(i, i + 10).some((x) => x.includes('unlockScope=')), `${rel}:${i + 1}`); });
   }
   const v = read('src/components/app/ValueWall.tsx');
-  assert.match(v, /if \(\(memUnlocks\.get\(scope\) \?\? 0\) > now\) return true;/);
+  assert.match(v, /if \(\(memUnlocks\.get\(scope\) \?\? 0\) > now \|\| \(memUnlocks\.get\('\*'\) \?\? 0\) > now\) return true;/);
   assert.match(v, /memUnlocks\.set\(scopeName, now \+ UNLOCK_MS\);/);
-  assert.match(v, /migrateLegacyUnlock\(window\.localStorage, now\)/);
+  assert.match(v, /legacy = migrateLegacyUnlock\(window\.localStorage, now\)/);
+  assert.match(v, /if \(legacy > now\) memUnlocks\.set\('\*', legacy\);/);
 });
