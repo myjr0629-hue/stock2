@@ -3926,6 +3926,7 @@ function CmdPageContent() {
       {activeTab === 'verdict' && (
         <ValueWall
           locale={locale}
+          unlockScope="cmd_ai"
           title={locale === 'ko' ? 'AI 분석 잠금' : locale === 'ja' ? 'AI分析ロック' : 'AI Analysis Locked'}
           subtitle={locale === 'ko' ? '30초 광고를 시청하고 1시간 프리미엄 분석을 이용하세요' : locale === 'ja' ? '30秒の動画を視聴して1時間プレミアム分析をご利用ください' : 'Watch a 30-second video to unlock premium analysis for 1 hour'}
         >
@@ -4077,6 +4078,7 @@ function CmdPageContent() {
       {activeTab === 'quant' && (
         <ValueWall
           locale={locale}
+          unlockScope="cmd_quant"
           title={locale === 'ko' ? '퀀트 시그널 잠금' : locale === 'ja' ? 'クオンツシグナルロック' : 'Quant Signals Locked'}
           subtitle={locale === 'ko' ? '30초 광고를 시청하고 1시간 프리미엄 분석을 이용하세요' : locale === 'ja' ? '30秒の動画を視聴して1時間プレミアム分析をご利用ください' : 'Watch a 30-second video to unlock premium analysis for 1 hour'}
         >
@@ -4339,6 +4341,7 @@ function CmdPageContent() {
       {activeTab === 'holders' && (
         <ValueWall
           locale={locale}
+          unlockScope="cmd_holdings"
           title={locale === 'ko' ? '기관 보유 잠금' : locale === 'ja' ? '機関保有ロック' : 'Holdings Data Locked'}
           subtitle={locale === 'ko' ? '30초 광고를 시청하고 1시간 프리미엄 분석을 이용하세요' : locale === 'ja' ? '30秒の動画を視聴して1時間プレミアム分析をご利用ください' : 'Watch a 30-second video to unlock premium analysis for 1 hour'}
         >
