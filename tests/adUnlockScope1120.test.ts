@@ -115,6 +115,7 @@ test('③ 소스 계약 — ValueWall 은 범위 키로 판정, 전역 키는 �
   const f = read('src/app/[locale]/app-view/flow/page.tsx');
   assert.match(f, /setIsLocked\(!adScopeUnlockedNow\('flow_chain'\)\);/, '맥스페인 = ValueWall 과 같은 판정(관문 11201525 ②)');
   assert.match(f, /unlockScope="flow_chain"/);
+  assert.match(f, /const timer = setInterval\(checkUnlock, 30_000\);/, '맥스페인도 30초마다 만료 확인(관문 11201528)');
   assert.equal((f.match(/onUnlock=\{\(\) => setIsLocked\(false\)\}/g) || []).length, 1, '맥스페인은 체인 잠금만 연다(GEX·고래 분석은 안 연다 — 관문 11201525 ①)');
   const chainAt = f.indexOf('unlockScope="flow_chain"');
   assert.ok(chainAt > 0 && f.slice(chainAt, chainAt + 300).includes('onUnlock={() => setIsLocked(false)}'), '남은 하나는 체인 잠금');

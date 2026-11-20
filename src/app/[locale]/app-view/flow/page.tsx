@@ -1137,9 +1137,11 @@ export default function AppFlowPage() {
     checkUnlock();
     window.addEventListener('storage', checkUnlock);
     window.addEventListener('signum:unlock', checkUnlock as EventListener);
+    const timer = setInterval(checkUnlock, 30_000); // ValueWall(useUnlockState)과 같은 30초 만료 확인(관문 11201528)
     return () => {
       window.removeEventListener('storage', checkUnlock);
       window.removeEventListener('signum:unlock', checkUnlock as EventListener);
+      clearInterval(timer);
     };
   }, []);
 
