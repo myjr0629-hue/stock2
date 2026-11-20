@@ -193,7 +193,11 @@ const test = async (name: string, fn: () => unknown) => {
       const shareRe = /<InviteShareButton kind="earn"[\s\S]*?className=\{s\.ecRShare\} \/>/;
       const baseShare = baseSrc.match(shareRe)?.[0];
       assert.ok(baseShare, '기준 커밋에 공유 단추가 있다');
-      assert.equal(readFileSync(app, 'utf8').replace(shareRe, baseShare!), baseSrc, `${app} (공유 문구 속성 밖)`);
+      // [11/20] 평점 순간 표식(화면에 그리지 않는 data 속성 하나)을 «내 종목만 → 범위 안 모든 행»으로 넓혔다(tests/reviewPrompt1120) — 그 표식·주석을 기준 형태로 되돌린 뒤 비교
+      const rv1120 = (src: string) => src
+        .replace('<span data-rating-reaction={e.implied?.within === true ? "1" : undefined} className=', '<span data-rating-reaction={myList.has(e.ticker) && e.implied?.within === true ? "1" : undefined} className=')
+        .replace(/\n  \/\/   ★11\/20 «내 종목»만[^\n]*\n  \/\/   표식은 화면에 그리지 않는[^\n]*/, '');
+      assert.equal(rv1120(readFileSync(app, 'utf8')).replace(shareRe, baseShare!), baseSrc, `${app} (공유 문구 속성 밖)`);
     }
     for (const p of [
       'src/app/[locale]/receipts/earnings/page.tsx', 'src/lib/earnings/earningsReceiptsCopy.ts',

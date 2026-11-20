@@ -7,7 +7,7 @@ import { NetworkStatus } from '@/components/app/NetworkStatus';
 import { AppFirstRunOnboarding } from '@/components/app/AppFirstRunOnboarding';
 import { AppAnchorAd } from '@/components/app/AppAnchorAd';
 import { WatchlistHost } from '@/components/app/watchlist/WatchlistHost';
-import { countRatingPush, ratingSessionEligible, RATING_MOMENT_PUSH } from '@/lib/app/ratingMoments';
+import { countRatingPush, ratingSessionEligible, RATING_MOMENT_PUSH, RATING_PUSH_MIN } from '@/lib/app/ratingMoments';
 import { promptRatingMoment } from '@/lib/native/capacitorBridge';
 import { ReviewPromptMoments } from '@/components/app/ReviewPromptMoments';
 import { CouponGuideHost } from '@/components/app/CouponGuideHost';
@@ -138,9 +138,10 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
               || (sigPath ? `/${loc}${sigPath}` : wlPath ? `/${loc}${wlPath}` : trialPath ? `/${loc}${trialPath}` : annPath ? `/${loc}${annPath}` : tvPath ? `/${loc}${tvPath}` : null);
             if (!target) return;
             try {
-              if (countRatingPush(type, localStorage, sessionStorage) >= 3) {
-                // 평점 «좋은 순간» (b) — 실적·이상신호 알림 탭으로 연 3번째 이후 세션. 기존 마일스톤과 따로 판정(관문 11050112 ①)
-                promptRatingMoment(RATING_MOMENT_PUSH, 3000, () => ratingSessionEligible(localStorage, sessionStorage));
+              if (countRatingPush(type, localStorage, sessionStorage) >= RATING_PUSH_MIN) {
+                // 평점 «좋은 순간» (b) — 가치 알림(내 종목 신호·내 종목 알림·모닝·마감) 탭으로 연 세션(★11/20 3번째 → 첫 번째부터, lib/app/ratingMoments).
+                // 기존 마일스톤과 따로 판정(관문 11050112 ①) · 냉시작 탭이면 시작 시트가 닫힌 뒤 다시(retryOnModal)
+                promptRatingMoment(RATING_MOMENT_PUSH, 3000, () => ratingSessionEligible(localStorage, sessionStorage), { retryOnModal: true });
               }
             } catch { /* storage unavailable */ }
             // Re-tapping the same report URL must also close an open sector sheet.

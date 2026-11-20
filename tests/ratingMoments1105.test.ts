@@ -13,21 +13,29 @@ class Mem {
 {
   const local = new Mem();
   let session = new Mem();
+  local.setItem('signum.appSessions', '1');
+  assert.equal(ratingSessionEligible(local, session), false, '첫 실행(세션 1회)은 부적격');
   local.setItem('signum.appSessions', '2');
-  assert.equal(ratingSessionEligible(local, session), false, '세션 2회는 부적격');
-  local.setItem('signum.appSessions', '3');
-  assert.equal(ratingSessionEligible(local, session), true, '세션 3회부터 적격');
+  assert.equal(ratingSessionEligible(local, session), true, '★11/20 세션 2회부터 적격(첫 실행만 피한다)');
   assert.equal(markReactionSeen(session), true);
   assert.equal(markReactionSeen(session), false, '반응 행은 세션 첫 표시 1회');
   markRatingError(session);
   assert.equal(ratingSessionEligible(local, session), false, '오류 세션은 부적격');
-  assert.equal(countRatingPush('morning', local, session), 0);
+  assert.equal(countRatingPush('trial_end', local, session), 0, '체험 알림은 가치 알림이 아니다');
+  assert.equal(countRatingPush('announce', local, session), 0, '공지 알림도 세지 않는다');
+  assert.equal(countRatingPush(undefined, local, session), 0);
   assert.equal(countRatingPush('wl_signal', local, session), 1);
   assert.equal(countRatingPush('wl_signal', local, session), 0, '같은 세션은 한 번만 센다');
   session = new Mem();
   assert.equal(countRatingPush('wl_signal', local, session), 2);
   session = new Mem();
   assert.equal(countRatingPush('wl_signal', local, session), 3);
+  // ★11/20 모닝·마감 리포트·내 종목 알림 탭도 가치 알림으로 센다(세션당 1회 · 누적)
+  for (const [ty, n] of [['morning', 4], ['closing', 5], ['watchlist_alert', 6]] as const) {
+    session = new Mem();
+    assert.equal(countRatingPush(ty, local, session), n, ty);
+    assert.equal(countRatingPush('closing', local, session), 0, '같은 세션 두 번째 알림은 세지 않는다');
+  }
 }
 
 // ── 관문 11050112 ② — 처리된 오류 화면도 세션을 표시한다 ──
@@ -124,12 +132,12 @@ try {
   assert.equal(timers.length, 1); fire();
   assert.equal(requests, 2);
 
-  // 세션 조건(3회 미만)·오류 세션이면 예약조차 안 한다
+  // 세션 조건(첫 실행)·오류 세션이면 예약조차 안 한다
   local.setItem('signumhq.review.prompted', '[]');
   local.setItem('signumhq.review.lastAsked', yesterday); local.setItem('signum.review.lastAnyDay', yesterday);
-  local.setItem('signum.appSessions', '2');
+  local.setItem('signum.appSessions', '1');
   bridge.promptRatingMoment(RATING_MOMENT_REACTION, 3000, eligible);
-  assert.equal(timers.length, 0, '세션 2회는 요청 없음');
+  assert.equal(timers.length, 0, '첫 실행(세션 1회)은 요청 없음');
   local.setItem('signum.appSessions', '6');
   markRatingError(session);
   bridge.promptRatingMoment(RATING_MOMENT_REACTION, 3000, eligible);

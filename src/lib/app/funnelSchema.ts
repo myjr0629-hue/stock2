@@ -37,6 +37,7 @@ export const FUNNEL_STAGES = [
   'trial_push_shown', 'trial_push_accept', 'trial_push_os_granted', 'trial_push_os_denied', 'trial_push_dismiss', // ★11/18 체험자 알림 다시 묻기(lib/app/trialPushOptIn): 시트 보임 · [알림 켜기] · OS 허용 · OS 거절 · [나중에] — 출처 tpush_ai·tpush_day1
   'fr_judge',      // ★11/20 첫 실행 체험 페이월 판정(lib/app/firstRunPaywall · 실행당 한 번씩): 출처 fr_try = 판정 시작 · fr_late = 재시도·늦게 보임 · 그 밖의 fr_* = 안 보인 이유(페이월이 보이면 open/first_run 으로 센다)
   'reward_ok',     // ★11/20 광고 잠금해제(1시간·앱 전역)가 주어졌다(ValueWall useAdUnlockGate) — 출처 value_wall = 보상형 광고 끝까지 봄 · ad_modal = 광고 없을 때 30초 대체 창
+  'rv_cap', 'rv_ask', 'rv_block', 'rv_why', // ★11/20 스토어 평점 요청(lib/app/reviewBeacon — 구매 퍼널 아님): 플러그인 있나(기기당 ET 하루 1회, rv_yes·rv_no) · OS 평점 API 실제 요청 · 순간이 왔지만 못 부름(출처 = 순간 rv_day…rv_pro) · 못 부른 이유(rv_modal…rv_noplug)
 ] as const;
 export type FunnelStage = (typeof FUNNEL_STAGES)[number];
 
@@ -80,6 +81,10 @@ export const FUNNEL_SRCS = [
   // ★11/20 첫 실행 체험 페이월 판정(fr_judge 전용 — 구매 출처로 쓰지 않는다, lib/app/firstRunPaywall FIRST_RUN_SKIPS 와 같아야 한다)
   'fr_try', 'fr_late',              // 판정 시작(네이티브·첫 실행을 막 마침) · 재시도 끝에 또는 예전 상한(8초) 뒤에 보였다
   'fr_pro', 'fr_seen', 'fr_noiap', 'fr_noelig', 'fr_unk', 'fr_nooffer', 'fr_wait', 'fr_chk', 'fr_busy', // 안 보인 이유: PRO(코드 포함)·결제 중 · 이미 봄/저장소 막힘 · 결제 불가 · 체험 자격 없음(확정) · 자격 끝내 모름 · 오퍼링 없음 · PRO 상태 못 받음 · 스토어 재조회 실패 · 다른 시트·페이월과 겹침
+  // ★11/20 스토어 평점 요청(rv_* 전용 — 구매 출처로 쓰지 않는다, lib/app/reviewBeacon)
+  'rv_yes', 'rv_no',                // rv_cap: InAppReview 플러그인 있음 · 없음
+  'rv_day', 'rv_run', 'rv_watch', 'rv_ai', 'rv_intel', 'rv_earn', 'rv_push', 'rv_pro', // 순간: 사용일 2·7 · 앱 실행(3·4·10번째) · 담기 2번째 · ✦AI 한 줄 2번째 · 인텔 열람 2·7 · 실적(발표 완료 행·범위 안 반응) · 알림 탭 · PRO 성공
+  'rv_modal', 'rv_ad', 'rv_gift', 'rv_hidden', 'rv_today', 'rv_gone', 'rv_noplug', // 못 부른 이유: 시트·페이월 떠 있음 · 광고 중·직후 · 선물 안내 직후 · 앱이 뒤로 감 · 오늘 다른 순간이 이미 물음 · 화면 이동·취소 · 플러그인 없음
 ] as const;
 export type FunnelSrc = (typeof FUNNEL_SRCS)[number];
 

@@ -4,7 +4,11 @@ import { APP_SESSION_REVIEW } from './reviewMoments';
 // 새 평점 «좋은 순간» 두 곳(11/5) — OS 평점 API 만(Apple 5.6.1: 자체 별점 팝업·보상·사전 만족도 분기 금지)
 //   (a) 실적 화면에서 내 종목의 «발표 후 실제 반응 · 범위 안» 행이 보였을 때(세션 첫 표시 3초 뒤)
 //   (b) 실적·이상신호 알림(wl_signal)을 탭해 들어온 세션의 3번째 이후(누적)
-// 공통 조건: 누적 세션 3회 이상 · 이번 세션 오류 화면 없음. 요청은 capacitorBridge.promptRatingMoment 가
+//       ★11/20 → 가치 알림(내 종목 이상 신호·내 종목 알림·모닝 브리핑·장 마감 리포트)을 탭해 들어온 «첫» 세션부터
+// 공통 조건: 누적 세션 3회 이상(★11/20 → 2회 이상 = 첫 실행만 아니면) · 이번 세션 오류 화면 없음.
+//   ★11/20 왜 내렸나(실측): 14일 동안 알림 탭은 iOS 91·안드 57회인데 wl_signal 은 iOS 30·안드 7회뿐이라 «3번째 wl_signal 세션»에 닿는 기기가
+//   거의 없었다. 활성 기기일 iOS 311·안드 188 대비 신규 설치 iOS 139·안드 122 — 대부분이 2~3번째 실행 전에 멈춘다.
+//   첫 실행(온보딩)만 피하면 «알림을 열었다·범위 안 결과를 봤다»는 그 자체로 가치 순간이다. 하루 1회·순간당 2회·OS 한도(iOS 365일 3회)는 그대로. 요청은 capacitorBridge.promptRatingMoment 가
 //   기존 하루 1회 표식·순간별 시도 2회 상한·광고/선물 안내 겹침 검사를 그대로 거쳐 한다.
 // ============================================================================
 
@@ -20,8 +24,10 @@ export const RATING_MOMENT_PUSH = 102;
 
 type Store = Pick<Storage, 'getItem' | 'setItem'>;
 
+/** 새 평점 순간의 최소 누적 앱 세션 — 첫 실행(온보딩)만 피한다(★11/20 3 → 2) */
+export const RATING_MIN_SESSIONS = 2;
 export function ratingSessionEligible(local: Store, session: Store): boolean {
-  try { return Number(local.getItem(APP_SESSION_REVIEW.storageKey)) >= 3 && session.getItem(RATING_ERROR_KEY) !== '1'; }
+  try { return Number(local.getItem(APP_SESSION_REVIEW.storageKey)) >= RATING_MIN_SESSIONS && session.getItem(RATING_ERROR_KEY) !== '1'; }
   catch { return false; }
 }
 
@@ -47,8 +53,12 @@ export function markReactionSeen(session: Store): boolean {
   } catch { return false; }
 }
 
+/** 평점 순간 (b)로 세는 알림 종류 — 사용자가 고른 종목·시장 리포트를 «열어 본» 탭(체험·공지 알림은 제외) */
+export const RATING_PUSH_TYPES: readonly string[] = ['wl_signal', 'watchlist_alert', 'morning', 'closing'];
+/** 이 횟수째 가치 알림 세션부터 요청한다(★11/20 3 → 1) */
+export const RATING_PUSH_MIN = 1;
 export function countRatingPush(type: string | undefined, local: Store, session: Store): number {
-  if (type !== 'wl_signal') return 0;
+  if (!type || !RATING_PUSH_TYPES.includes(type)) return 0;
   try {
     if (session.getItem(RATING_PUSH_KEY)) return 0;
     const n = (Number(local.getItem(RATING_PUSH_COUNT)) || 0) + 1;

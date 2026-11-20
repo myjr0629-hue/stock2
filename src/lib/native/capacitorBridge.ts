@@ -328,7 +328,8 @@ export function maybePromptReview(delayMs = 2500): void {
     }, () => {
       // 실행 시점: 예약 뒤 같은 날 다른 경로(새 평점 순간)가 이미 물었으면 건너뛴다(관문 11050217 ②)
       try { return localStorage.getItem(REVIEW_LAST_KEY) !== today; } catch { return false; }
-    });
+    // ★11/20 시작 시트(체험 안내·알림 다시 묻기·선물 안내 등)에 막히면 시트가 닫힌 뒤 같은 실행에서 다시 — 예전엔 다음 냉시작까지 기다렸다(hooks/useReviewPrompt)
+    }, { retryOnModal: true });
   } catch { /* storage unavailable → skip */ }
 }
 
@@ -343,7 +344,7 @@ const localDay = (d = new Date()): string =>
  *   순간당 실제 요청이 한 번 가면 완료(REVIEW_DONE_KEY 목록에 순간 번호). eligible 은 예약 시·실행 시 모두 확인한다.
  * @returns 예약 취소 함수(화면을 떠날 때 부르면 예약 시각을 되돌려 선물 안내를 막지 않는다)
  */
-export function promptRatingMoment(moment: number, delayMs: number, eligible: () => boolean): () => void {
+export function promptRatingMoment(moment: number, delayMs: number, eligible: () => boolean, opts: { retryOnModal?: boolean } = {}): () => void {
   const noop = () => {};
   if (!canRequestReview()) return noop;
   try {
@@ -360,7 +361,7 @@ export function promptRatingMoment(moment: number, delayMs: number, eligible: ()
       // 실행 시점: 같은 날 다른 경로가 이미 물었으면 건너뛴다
       try { if (localStorage.getItem(REVIEW_LAST_KEY) === localDay() || reviewAskedToday()) return false; } catch { return false; }
       return eligible();
-    });
+    }, opts);
   } catch { return noop; }
 }
 

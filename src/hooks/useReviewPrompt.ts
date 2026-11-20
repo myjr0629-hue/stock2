@@ -27,6 +27,8 @@
 import { useCallback } from 'react';
 import { fullScreenAds } from '@/services/fullScreenAdSession';
 import { GIFT_REVIEW_QUIET_MS, readAnnounceState, reannounceShownAt } from '@/lib/gift/giftAnnounce';
+import { reviewBeacon, reviewSrcFor, reviewWhySrc, type ReviewSkipReason } from '@/lib/app/reviewBeacon';
+import { whenNoModal } from '@/lib/app/ratingMoments';
 
 /**
  * ★2026-10-27 마지막으로 OS 평점 시트를 «요청»한 시각(ms, 요청 지연 포함) — 같은 웹뷰 실행 안에서만 의미가 있다.
@@ -39,22 +41,30 @@ const pendingRequests = new Map<number, number>();
 let nextReservation = 1;
 export const reviewRequestedAt = (): number => Math.max(confirmedRequestAt, ...pendingRequests.values());
 
-/** 광고 진행 중·직후 및 선물 안내 직후에는 요청을 건너뛴다. 예약 시와 실행 시 모두 확인한다. */
-export function reviewMomentBlocked(now = Date.now()): boolean {
+/** 막힌 이유(없으면 null) — 광고 진행 중·직후 · 선물 안내 직후 · 앱이 뒤로 감 · 시트·페이월(aria-modal)이 떠 있음. 예약 시와 실행 시 모두 확인한다. */
+export type ReviewBlockReason = 'modal' | 'ad' | 'gift' | 'hidden' | 'err';
+export function reviewBlockReason(now = Date.now()): ReviewBlockReason | null {
   try {
-    if (fullScreenAds.isBusy()) return true;
+    if (fullScreenAds.isBusy()) return 'ad';
     // 보상형은 전면 광고 빈도 기록(lastShownAt)을 남기지 않는다 — 세션이 기록한 «광고가 끝난 시각»으로 함께 막는다
     const ended = fullScreenAds.endedAt();
-    if (ended > 0 && now - ended < GIFT_REVIEW_QUIET_MS) return true;
+    if (ended > 0 && now - ended < GIFT_REVIEW_QUIET_MS) return 'ad';
     const ad = JSON.parse(localStorage.getItem('signum_interstitial_frequency') || '{}');
-    if (typeof ad.lastShownAt === 'number' && ad.lastShownAt > 0 && now - ad.lastShownAt < GIFT_REVIEW_QUIET_MS) return true;
+    if (typeof ad.lastShownAt === 'number' && ad.lastShownAt > 0 && now - ad.lastShownAt < GIFT_REVIEW_QUIET_MS) return 'ad';
     const re = reannounceShownAt();   // 11/5 재안내 — 이번 실행에서 띄웠을 때만(없으면 0 = 예전 그대로)
-    if (re > 0 && now - re < GIFT_REVIEW_QUIET_MS) return true;
+    if (re > 0 && now - re < GIFT_REVIEW_QUIET_MS) return 'gift';
     const gift = readAnnounceState(localStorage);
-    if (gift && gift.last > 0 && now - gift.last < GIFT_REVIEW_QUIET_MS) return true;
-    if (typeof document !== 'undefined' && (document.visibilityState === 'hidden' || document.querySelector('[aria-modal="true"]'))) return true;
-    return false;
-  } catch { return true; }
+    if (gift && gift.last > 0 && now - gift.last < GIFT_REVIEW_QUIET_MS) return 'gift';
+    if (typeof document !== 'undefined') {
+      if (document.visibilityState === 'hidden') return 'hidden';
+      if (document.querySelector('[aria-modal="true"]')) return 'modal';
+    }
+    return null;
+  } catch { return 'err'; }
+}
+/** 광고 진행 중·직후 및 선물 안내 직후에는 요청을 건너뛴다. 예약 시와 실행 시 모두 확인한다. */
+export function reviewMomentBlocked(now = Date.now()): boolean {
+  return reviewBlockReason(now) !== null;
 }
 
 /**
@@ -62,22 +72,23 @@ export function reviewMomentBlocked(now = Date.now()): boolean {
  * 실행 시 막혔거나 순간이 더는 유효하지 않거나(eligible false — 다른 화면으로 이동 등) 취소되면 그 예약을 목록에서 뺀다(겹친 예약도 서로의 시각을 되살리지 않는다)
  * (관문 11050112 ③ — 취소된 요청이 선물 안내를 60초 막지 않게).
  */
-export function scheduleReviewRequest(delayMs: number, request: () => void, guardSignum = true, onBlocked: () => void = () => {}, eligible: () => boolean = () => true): () => void {
-  if (guardSignum && reviewMomentBlocked()) { onBlocked(); return () => {}; }
+export function scheduleReviewRequest(delayMs: number, request: () => void, guardSignum = true, onBlocked: (reason: ReviewSkipReason) => void = () => {}, eligible: () => boolean = () => true): () => void {
+  const early = guardSignum ? reviewBlockReason() : null;
+  if (early) { onBlocked(early); return () => {}; }
   const id = nextReservation++;
   pendingRequests.set(id, Date.now() + delayMs);
   let settled = false;
-  const abandon = () => {
+  const abandon = (reason: ReviewSkipReason) => {
     if (settled) return;
     settled = true;
     pendingRequests.delete(id);
-    onBlocked();
+    onBlocked(reason);
   };
   const timer = window.setTimeout(() => {
     if (settled) return;
-    let ok = false;
-    try { ok = !(guardSignum && reviewMomentBlocked()) && eligible(); } catch { ok = false; }
-    if (!ok) { abandon(); return; }
+    let why: ReviewSkipReason | null = null;
+    try { why = (guardSignum ? reviewBlockReason() : null) ?? (eligible() ? null : 'gone'); } catch { why = 'err'; }
+    if (why) { abandon(why); return; }
     settled = true;
     pendingRequests.delete(id);
     confirmedRequestAt = Date.now();
@@ -86,7 +97,7 @@ export function scheduleReviewRequest(delayMs: number, request: () => void, guar
   return () => {
     if (settled) return;
     try { window.clearTimeout?.(timer); } catch { /* ignore */ }
-    abandon();
+    abandon('cancel');
   };
 }
 
@@ -113,25 +124,58 @@ const inFlight = new Set<string>();
 export function reviewAttempts(key: string, milestone: number): number {
   return Number(localStorage.getItem(`${key}.attempt.${milestone}`)) || 0;
 }
-export function attemptReview(key: string, milestone: number, delay: number, guard: boolean, requested: () => void, eligible: () => boolean = () => true): () => void {
+
+/**
+ * ★11/20 시트·페이월에 막힌 «시작 순간»을 같은 실행 안에서 다시 잡는다.
+ *   예전엔 앱을 켤 때의 순간(사용일 2·7 · 실행 4번째 · 세션 3·10번째)이 체험 안내·알림 다시 묻기·선물 안내 같은 시작 시트에 한 번 막히면
+ *   «다음 냉시작»까지 기다렸다 — 하루 평균 활성 iOS 25대·안드 20대 중 다음 냉시작이 오는 기기는 적다.
+ *   이제 시트(aria-modal)가 닫히면(최대 2분 지켜봄) 같은 순간을 한 번 더 예약한다(순간 자신의 지연 뒤 · 모든 검사 다시).
+ *   실행당 최대 3번. 광고·선물 안내 직후·앱이 뒤로 감·오늘 이미 물음은 다시 잡지 않는다(예전 그대로 다음 기회).
+ *   새 화면은 없다 — OS 평점 API 만 «요청»한다(가이드라인 5.6.1).
+ */
+let modalRetries = 0;
+export const REVIEW_MODAL_RETRY_MAX = 3;
+/** 시험용 — 실행당 재시도 수를 되돌린다 */
+export function resetReviewModalRetries(): void { modalRetries = 0; }
+
+export type AttemptOptions = { retryOnModal?: boolean };
+
+export function attemptReview(key: string, milestone: number, delay: number, guard: boolean, requested: () => void, eligible: () => boolean = () => true, opts: AttemptOptions = {}): () => void {
   const id = `${key}:${milestone}`;
   if (inFlight.has(id) || reviewAttempts(key, milestone) >= 2) return () => {};
   inFlight.add(id);
   const release = () => { inFlight.delete(id); };
+  // 계측은 SIGNUM 순간만(guard = SIGNUM 앱 화면 · UC·WIM 은 보내지 않는다) — lib/app/reviewBeacon
+  const src = guard ? reviewSrcFor(key, milestone) : null;
+  const note = (why: ReviewSkipReason) => {
+    if (!src) return;
+    reviewBeacon('rv_block', src);
+    reviewBeacon('rv_why', reviewWhySrc(why));
+  };
   return scheduleReviewRequest(delay, () => {
     try {
       const plugin = (window as { Capacitor?: any }).Capacitor?.Plugins?.InAppReview;
-      if (typeof plugin?.requestReview !== 'function') return;
+      if (typeof plugin?.requestReview !== 'function') { note('noplug'); return; }
       // 시도 횟수는 OS 시트를 «실제로 요청한» 경우에만 센다 — 광고·안내에 막힌 회차는 기회를 소비하지 않는다
       localStorage.setItem(`${key}.attempt.${milestone}`, String(reviewAttempts(key, milestone) + 1));
       const result = plugin.requestReview();
       Promise.resolve(result).catch(() => {});
       markReviewAskedToday(key);
       requested();
+      if (src) reviewBeacon('rv_ask', src);
     } catch { /* 요청 실패는 앱을 막지 않는다 */ } finally { release(); }
   // 같은 날 다른 경로(새 평점 순간 등)가 이미 물었으면 이번 회차는 «적격 아님»으로 버린다 — 묻지도 기록하지도 않고,
   // 요청 시각(confirmedRequestAt)도 남기지 않아 선물 안내를 막지 않는다(관문 11050239·11050242). 다음 날 다시 기회가 온다
-  }, guard, release, () => !reviewAskedTodayByOther(key) && eligible());
+  }, guard, (reason) => {
+    release();
+    let why: ReviewSkipReason = reason;
+    try { if (reason === 'gone' && reviewAskedTodayByOther(key)) why = 'today'; } catch { /* ignore */ }
+    note(why);
+    if (why === 'modal' && opts.retryOnModal && modalRetries < REVIEW_MODAL_RETRY_MAX && typeof document !== 'undefined') {
+      modalRetries += 1;
+      try { whenNoModal(window, document, () => { attemptReview(key, milestone, delay, guard, requested, eligible, opts); }); } catch { /* 재시도 실패는 무해 */ }
+    }
+  }, () => !reviewAskedTodayByOther(key) && eligible());
 }
 
 type Options = {
@@ -145,6 +189,8 @@ type Options = {
   milestones?: number[];
   /** 성공 순간 직후 얼마나 기다렸다 물어볼지 (화면 전환이 끝난 뒤 뜨게) */
   delayMs?: number;
+  /** ★11/20 시작 시트·페이월에 막히면 시트가 닫힌 뒤 같은 실행에서 한 번 더(attemptReview 머리말) */
+  retryOnModal?: boolean;
 };
 
 /**
@@ -156,6 +202,7 @@ export function useReviewPrompt({
   storageKey,
   milestones = [4, 11],
   delayMs = 1400,
+  retryOnModal = false,
 }: Options) {
   return useCallback(() => {
     if (typeof window === 'undefined') return;
@@ -183,7 +230,7 @@ export function useReviewPrompt({
       attemptReview(storageKey, hit, delayMs, storageKey.startsWith('signum.'), () => {
         const current: number[] = JSON.parse(localStorage.getItem(doneKey) || '[]');
         if (!current.includes(hit)) localStorage.setItem(doneKey, JSON.stringify([...current, hit]));
-      });
+      }, undefined, { retryOnModal });
     } catch { /* localStorage 차단 등 — 평점 요청이 앱을 막으면 안 된다 */ }
-  }, [storageKey, milestones, delayMs]);
+  }, [storageKey, milestones, delayMs, retryOnModal]);
 }

@@ -19,6 +19,7 @@ import {
 import {
   AI_LINE_REVIEW, APP_SESSION_REVIEW, WATCH_ADD_REVIEW, runSessionMoment, subscribeAiLineMoment, subscribeWatchAddMoment,
 } from '@/lib/app/reviewMoments';
+import { reportReviewCapability } from '@/lib/app/reviewBeacon';
 
 export function ReviewPromptMoments() {
   const askOnSession = useReviewPrompt(APP_SESSION_REVIEW);
@@ -37,6 +38,9 @@ export function ReviewPromptMoments() {
     window.addEventListener('unhandledrejection', mark);
     return () => { window.removeEventListener('error', mark); window.removeEventListener('unhandledrejection', mark); };
   }, []);
+
+  // ★11/20 계측 — 네이티브 기기마다 ET 하루 1회 «InAppReview 플러그인이 바이너리에 있나»(rv_cap · rv_yes/rv_no, 식별자 없음 · lib/app/reviewBeacon)
+  useEffect(() => { reportReviewCapability(window); }, []);
 
   // ① 마운트마다 부르되 «세션당 1회»는 runSessionMoment 의 표식이 지킨다(언어 전환 재마운트·StrictMode 두 번 실행 포함)
   useEffect(() => {

@@ -103,6 +103,8 @@ export default function EarningsPage() {
   }), []);
 
   // 평점 «좋은 순간» (a) — 내 종목의 «범위 안» 반응 행이 처음 보인 3초 뒤(세션 1회). 화면을 떠나면 예약을 취소한다(관문 11050112 ③).
+  //   ★11/20 «내 종목»만 → «범위 안»으로 맞은 모든 반응 행(앱의 예상 변동폭이 맞았다는 결과 자체가 가치 순간 — 담은 종목이 없는 사용자도 닿게).
+  //   표식은 화면에 그리지 않는 data 속성 하나뿐이다(배치·문구 변화 없음).
   const cancelRatingRef = useRef<() => void>(() => {});
   useEffect(() => () => cancelRatingRef.current(), []);
   useEffect(() => {
@@ -253,7 +255,7 @@ export default function EarningsPage() {
                         {e.implied && <em className="num">{impliedBasisText(e.implied, locale)}</em>}
                       </span>
                       {calendarReaction(e.implied) && (
-                        <span data-rating-reaction={myList.has(e.ticker) && e.implied?.within === true ? "1" : undefined} className={`${s.ecReaction} ${e.implied?.within ? s.ecWithin : s.ecOutside}`}>
+                        <span data-rating-reaction={e.implied?.within === true ? "1" : undefined} className={`${s.ecReaction} ${e.implied?.within ? s.ecWithin : s.ecOutside}`}>
                           {receipt.columns[2]} {calendarReaction(e.implied)} · {e.implied?.within ? receipt.within : receipt.outside}
                         </span>
                       )}

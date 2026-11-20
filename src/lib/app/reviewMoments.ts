@@ -46,11 +46,13 @@ export interface ReviewMomentConfig {
   milestones: number[];
   /** 순간 직후 얼마나 기다렸다 물어볼지(ms) */
   delayMs: number;
+  /** ★11/20 시작 시트·페이월에 막히면 시트가 닫힌 뒤 같은 실행에서 한 번 더(hooks/useReviewPrompt attemptReview) */
+  retryOnModal?: boolean;
 }
 
 // ⚠️ 모듈 상수로 둔다 — 훅의 useCallback 의존성이 milestones 배열 «참조»라, 렌더마다 새 배열이면 콜백이 매번 바뀐다.
 /** ① 앱 세션 — 3·10번째 세션. 첫 화면이 그려진 뒤(2.5초) 뜨게 한다. */
-export const APP_SESSION_REVIEW: ReviewMomentConfig = { storageKey: 'signum.appSessions', milestones: [3, 10], delayMs: 2500 };
+export const APP_SESSION_REVIEW: ReviewMomentConfig = { storageKey: 'signum.appSessions', milestones: [3, 10], delayMs: 2500, retryOnModal: true };
 /** ② 내 종목 담기 성공 — 2번째 담기. 담기 토스트(2.5초)가 사라진 뒤(3초)에 뜬다(토스트의 «보기»를 가리지 않게). */
 export const WATCH_ADD_REVIEW: ReviewMomentConfig = { storageKey: 'signum.watchAdds', milestones: [2], delayMs: 3000 };
 

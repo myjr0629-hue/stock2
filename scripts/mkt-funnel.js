@@ -16,8 +16,18 @@ const fs = require('fs');
 const path = require('path');
 
 // ── 닫힌 목록 — src/lib/app/funnelSchema.ts 와 같아야 한다(tests/funnel.test.ts 가 대조) ──
-const STAGES = ['open', 'cta', 'buy_ok', 'buy_cancel', 'buy_err', 'restore_ok', 'restore_none', 'restore_err', 'code_open', 'code_cta', 'code_pro', 'push_open', 'active', 'ai_seen', 'ai_tap', 'onb_show', 'onb_done', 'onb_skip', 'onb_pick', 'onb_perm', 'onb_card', 'onb_nudge', 'onb_pin', 'onb_tap', 'onb_check', 'onb_hide', 'trial_notice_show', 'trial_notice_manage', 'trial_notice_snooze', 'cancel_reason:show', 'cancel_reason:skip', 'cancel_reason:price', 'cancel_reason:not_used', 'cancel_reason:missing_feature', 'cancel_reason:other_app', 'cancel_reason:other', 'trial_off_show', 'trial_off_manage', 'trial_off_close', 'trial_off_expired', 'trial_off_plans', 'trial_push_shown', 'trial_push_accept', 'trial_push_os_granted', 'trial_push_os_denied', 'trial_push_dismiss', 'fr_judge', 'reward_ok'];   // fr_judge = 첫 실행 체험 페이월 판정(11/20, 출처 fr_*) · reward_ok = 광고 잠금해제 주어짐(11/20, 출처 value_wall·ad_modal) · onb_* = 첫 실행 «가치 먼저» 단계(2026-10-12, 출처 onb_*) · code_* = 🎟 쿠폰 코드 입력(2026-10-05) · code_cta = 안드 안내 시트 [계속](2026-10-06) · push_open·active = 푸시 탭·앱 활성(2026-10-12) · ai_* = «내 종목» AI 한 줄 보임·누름(2026-10-12, 출처 wl_ai)
-const SRCS = ['settings', 'value_wall', 'ad_modal', 'dash_gate', 'wl_limit', 'wl_upsell', 'wl_paywall', 'preview', 'other', 'push_morning', 'push_closing', 'push_sig_wall', 'push_sig_pain', 'push_sig_dark', 'push_sig_oi', 'push_sig_earn', 'push_sig_price', 'app', 'wl_ai', 'today_picks', 'today_page', 'news_page', 'onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert', 'onb_n1', 'onb_n2', 'onb_n3', 'onb_allow', 'onb_deny', 'onb_ai', 'onb_noai', 'onb_earn', 'onb_lko', 'onb_len', 'onb_lja', 'onb_lrep', 'onb_dflt', 'onb_dkeep', 'onb_dedit', 'trial_notice', 'trial_off', 'trial_off_early', 'push_trial', 'push_trial_d3', 'push_trial_d6', 'push_announce', 'trial_expired', 'trial_expired_offer', 'gate_first', 'ad_nofill', 'first_run', 'trial_announce', 'tpush_ai', 'tpush_day1', 'fr_try', 'fr_late', 'fr_pro', 'fr_seen', 'fr_noiap', 'fr_noelig', 'fr_unk', 'fr_nooffer', 'fr_wait', 'fr_chk', 'fr_busy'];
+const STAGES = ['open', 'cta', 'buy_ok', 'buy_cancel', 'buy_err', 'restore_ok', 'restore_none', 'restore_err', 'code_open', 'code_cta', 'code_pro', 'push_open', 'active', 'ai_seen', 'ai_tap', 'onb_show', 'onb_done', 'onb_skip', 'onb_pick', 'onb_perm', 'onb_card', 'onb_nudge', 'onb_pin', 'onb_tap', 'onb_check', 'onb_hide', 'trial_notice_show', 'trial_notice_manage', 'trial_notice_snooze', 'cancel_reason:show', 'cancel_reason:skip', 'cancel_reason:price', 'cancel_reason:not_used', 'cancel_reason:missing_feature', 'cancel_reason:other_app', 'cancel_reason:other', 'trial_off_show', 'trial_off_manage', 'trial_off_close', 'trial_off_expired', 'trial_off_plans', 'trial_push_shown', 'trial_push_accept', 'trial_push_os_granted', 'trial_push_os_denied', 'trial_push_dismiss', 'fr_judge', 'reward_ok', 'rv_cap', 'rv_ask', 'rv_block', 'rv_why'];   // rv_* = 스토어 평점 요청(11/20, lib/app/reviewBeacon) · fr_judge = 첫 실행 체험 페이월 판정(11/20, 출처 fr_*) · reward_ok = 광고 잠금해제 주어짐(11/20, 출처 value_wall·ad_modal) · onb_* = 첫 실행 «가치 먼저» 단계(2026-10-12, 출처 onb_*) · code_* = 🎟 쿠폰 코드 입력(2026-10-05) · code_cta = 안드 안내 시트 [계속](2026-10-06) · push_open·active = 푸시 탭·앱 활성(2026-10-12) · ai_* = «내 종목» AI 한 줄 보임·누름(2026-10-12, 출처 wl_ai)
+const SRCS = ['settings', 'value_wall', 'ad_modal', 'dash_gate', 'wl_limit', 'wl_upsell', 'wl_paywall', 'preview', 'other', 'push_morning', 'push_closing', 'push_sig_wall', 'push_sig_pain', 'push_sig_dark', 'push_sig_oi', 'push_sig_earn', 'push_sig_price', 'app', 'wl_ai', 'today_picks', 'today_page', 'news_page', 'onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert', 'onb_n1', 'onb_n2', 'onb_n3', 'onb_allow', 'onb_deny', 'onb_ai', 'onb_noai', 'onb_earn', 'onb_lko', 'onb_len', 'onb_lja', 'onb_lrep', 'onb_dflt', 'onb_dkeep', 'onb_dedit', 'trial_notice', 'trial_off', 'trial_off_early', 'push_trial', 'push_trial_d3', 'push_trial_d6', 'push_announce', 'trial_expired', 'trial_expired_offer', 'gate_first', 'ad_nofill', 'first_run', 'trial_announce', 'tpush_ai', 'tpush_day1', 'fr_try', 'fr_late', 'fr_pro', 'fr_seen', 'fr_noiap', 'fr_noelig', 'fr_unk', 'fr_nooffer', 'fr_wait', 'fr_chk', 'fr_busy', 'rv_yes', 'rv_no', 'rv_day', 'rv_run', 'rv_watch', 'rv_ai', 'rv_intel', 'rv_earn', 'rv_push', 'rv_pro', 'rv_modal', 'rv_ad', 'rv_gift', 'rv_hidden', 'rv_today', 'rv_gone', 'rv_noplug'];
+// ★11/20 스토어 평점 요청(rv_*) — 순간·못 부른 이유(lib/app/reviewBeacon). 구매 퍼널이 아니라 아래 «스토어 평점 요청» 칸에서 따로
+const RV_STAGES = ['rv_cap', 'rv_ask', 'rv_block', 'rv_why'];
+const RV_MOMENTS = ['rv_day', 'rv_run', 'rv_watch', 'rv_ai', 'rv_intel', 'rv_earn', 'rv_push', 'rv_pro'];
+const RV_WHYS = ['rv_modal', 'rv_ad', 'rv_gift', 'rv_hidden', 'rv_today', 'rv_gone', 'rv_noplug'];
+const RV_SRCS = ['rv_yes', 'rv_no', ...RV_MOMENTS, ...RV_WHYS];
+const RV_KO = {
+  rv_day: '사용일 2·7번째', rv_run: '앱 실행 3·4·10번째', rv_watch: '내 종목 담기 2번째', rv_ai: '✦AI 한 줄 2번째', rv_intel: '인텔 열람 2·7번째',
+  rv_earn: '실적(발표 완료 행·범위 안 반응)', rv_push: '가치 알림 탭', rv_pro: 'PRO 결제·체험 성공',
+  rv_modal: '시트·페이월 떠 있음', rv_ad: '광고 중·직후', rv_gift: '선물 안내 직후', rv_hidden: '앱이 뒤로 감', rv_today: '오늘 다른 순간이 이미 물음', rv_gone: '화면 이동·취소', rv_noplug: '플러그인 없음',
+};
 // 푸시 탭·앱 활성(2026-10-12)은 구독 퍼널이 아니다 — 이 표에서 빼고 scripts/mkt-push.js 가 따로 보여 준다
 const ONB_STAGES = ['onb_show', 'onb_done', 'onb_skip', 'onb_pick', 'onb_perm', 'onb_card', 'onb_nudge', 'onb_pin', 'onb_tap', 'onb_check', 'onb_hide'];   // onb_nudge = 법적 고지 회색 [계속] 누름(11/17) · onb_pin = 고정 체크 줄 보임(11/19) · onb_tap·onb_check·onb_hide = 법적 고지 진단(11/20)
 const ONB_SRCS = ['onb_legal', 'onb_value', 'onb_notif', 'onb_oldalert', 'onb_n1', 'onb_n2', 'onb_n3', 'onb_allow', 'onb_deny', 'onb_ai', 'onb_noai', 'onb_earn', 'onb_lko', 'onb_len', 'onb_lja', 'onb_lrep', 'onb_dflt', 'onb_dkeep', 'onb_dedit'];
@@ -28,9 +38,9 @@ const TRIAL_PUSH_SRCS = ['tpush_ai', 'tpush_day1'];
 const FR_SRCS = ['fr_try', 'fr_late', 'fr_pro', 'fr_seen', 'fr_noiap', 'fr_noelig', 'fr_unk', 'fr_nooffer', 'fr_wait', 'fr_chk', 'fr_busy'];   // ★11/20 첫 실행 체험 페이월 판정(fr_judge 전용)
 const FR_KO = { fr_pro: 'PRO(코드 포함)·결제 중', fr_seen: '이미 봄·저장소 막힘', fr_noiap: '결제 불가', fr_noelig: '체험 자격 없음(확정)', fr_unk: '자격 끝내 모름', fr_nooffer: '오퍼링 없음', fr_wait: 'PRO 상태 못 받음', fr_chk: '스토어 재조회 실패', fr_busy: '다른 시트·페이월과 겹침' };
 const CANCEL_REASON_STAGES = ['cancel_reason:show', 'cancel_reason:skip', 'cancel_reason:price', 'cancel_reason:not_used', 'cancel_reason:missing_feature', 'cancel_reason:other_app', 'cancel_reason:other'];
-const NON_FUNNEL_STAGES = new Set([...TRIAL_STAGES, ...TRIAL_OFF_STAGES, ...TRIAL_PUSH_STAGES, ...CANCEL_REASON_STAGES, 'push_open', 'active', 'ai_seen', 'ai_tap', ...ONB_STAGES, 'fr_judge', 'reward_ok']);   // fr_judge·reward_ok 는 아래 «첫 실행 체험 페이월 도달»·«광고 잠금해제» 칸에서 따로   // ai_* = «내 종목» AI 한 줄(2026-10-12) — 구독 퍼널 아님
+const NON_FUNNEL_STAGES = new Set([...TRIAL_STAGES, ...TRIAL_OFF_STAGES, ...TRIAL_PUSH_STAGES, ...CANCEL_REASON_STAGES, 'push_open', 'active', 'ai_seen', 'ai_tap', ...ONB_STAGES, ...RV_STAGES, 'fr_judge', 'reward_ok']);   // fr_judge·reward_ok 는 아래 «첫 실행 체험 페이월 도달»·«광고 잠금해제» 칸에서 따로   // ai_* = «내 종목» AI 한 줄(2026-10-12) — 구독 퍼널 아님
 // ★11/11 'trial_off' 는 표에 남긴다 — 체험 종료 안내가 연 페이월의 open·cta·buy_* 가 이 출처로 온다(안내 자체 단계는 NON_FUNNEL_STAGES 로 빠진다)
-const NON_FUNNEL_SRCS = new Set([...TRIAL_PUSH_SRCS, ...FR_SRCS, 'trial_notice', 'push_trial', 'push_trial_d3', 'push_trial_d6', 'push_announce', 'push_morning', 'push_closing', 'push_sig_wall', 'push_sig_pain', 'push_sig_dark', 'push_sig_oi', 'push_sig_earn', 'push_sig_price', 'app', 'wl_ai', 'today_picks', 'today_page', 'news_page', ...ONB_SRCS]);
+const NON_FUNNEL_SRCS = new Set([...TRIAL_PUSH_SRCS, ...FR_SRCS, ...RV_SRCS, 'trial_notice', 'push_trial', 'push_trial_d3', 'push_trial_d6', 'push_announce', 'push_morning', 'push_closing', 'push_sig_wall', 'push_sig_pain', 'push_sig_dark', 'push_sig_oi', 'push_sig_earn', 'push_sig_price', 'app', 'wl_ai', 'today_picks', 'today_page', 'news_page', ...ONB_SRCS]);
 const TABLE_STAGES = STAGES.filter((st) => !NON_FUNNEL_STAGES.has(st));
 const TABLE_SRCS = SRCS.filter((s) => !NON_FUNNEL_SRCS.has(s));
 const PLATS = ['ios', 'android', 'web'];
@@ -255,6 +265,31 @@ async function main() {
     }
   }
 
+  // ★11/20 스토어 평점 요청(lib/app/reviewBeacon) — 횟수(기기 수 아님). rv_ask = OS 평점 API 를 «요청»한 횟수(OS 가 실제로 보였는지는 알 수 없다)
+  {
+    const rvKeys = [];
+    for (const d of dates) for (const p of ['ios', 'android']) {
+      for (const s of ['rv_yes', 'rv_no']) rvKeys.push([`${ns}:rv_cap:${s}:${p}:${d}`, p, 'rv_cap', s]);
+      for (const st of ['rv_ask', 'rv_block']) for (const s of RV_MOMENTS) rvKeys.push([`${ns}:${st}:${s}:${p}:${d}`, p, st, s]);
+      for (const s of RV_WHYS) rvKeys.push([`${ns}:rv_why:${s}:${p}:${d}`, p, 'rv_why', s]);
+      rvKeys.push([`${ns}:active:app:${p}:${d}`, p, 'active', 'app']);
+    }
+    const rvVals = await mget(rvKeys.map((k) => k[0]), KEY, miss);
+    const rv = {}; // plat → "stage:src" → n
+    rvKeys.forEach(([, p, st, s], i) => { const n = Number(rvVals[i]) || 0; if (n) { const r = (rv[p] ||= {}); r[`${st}:${s}`] = (r[`${st}:${s}`] || 0) + n; } });
+    console.log(`\n── 스토어 평점 요청 (최근 ${DAYS}일 · 횟수 · 11/20 배포 뒤부터 · 요청 = OS API 호출, 표시 여부는 OS 가 정함) ──`);
+    for (const p of ['ios', 'android']) {
+      const g = (st, s) => rv[p]?.[`${st}:${s}`] || 0;
+      const ask = RV_MOMENTS.reduce((a, s) => a + g('rv_ask', s), 0);
+      const blk = RV_MOMENTS.reduce((a, s) => a + g('rv_block', s), 0);
+      console.log(`${p}  플러그인 있음 ${g('rv_cap', 'rv_yes')} · 없음 ${g('rv_cap', 'rv_no')} (기기·일, 같은 기간 활성 ${g('active', 'app')}) · 요청 ${ask} · 못 부름 ${blk}`);
+      const moments = RV_MOMENTS.filter((s) => g('rv_ask', s) || g('rv_block', s));
+      if (moments.length) console.log('   └ 순간별(요청/못 부름)  ' + moments.map((s) => `${RV_KO[s]} ${g('rv_ask', s)}/${g('rv_block', s)}`).join(' · '));
+      const whys = RV_WHYS.filter((s) => g('rv_why', s));
+      if (whys.length) console.log('   └ 못 부른 이유          ' + whys.map((s) => `${RV_KO[s]} ${g('rv_why', s)}`).join(' · '));
+    }
+  }
+
   // 체험 안내 집계 — 동의 완료율·실제 유료 전환율과 구분한다.
   console.log('\n── 체험 종료 안내 (횟수 · 고유 사용자/동의 완료/유료 갱신 아님) ──');
   for (const platform of ['ios', 'android']) {
@@ -339,5 +374,5 @@ async function main() {
   if (miss.n) console.log(`⚠ 못 읽은 키 ${miss.n}개 — 위 숫자는 «최소값»이다(프록시 응답 실패).`);
 }
 
-module.exports = { STAGES, SRCS, PLATS, REF_APPS, ONB_STAGES, ONB_SRCS };
+module.exports = { STAGES, SRCS, PLATS, REF_APPS, ONB_STAGES, ONB_SRCS, RV_STAGES, RV_SRCS };
 if (require.main === module) main().catch((e) => { console.error(e); process.exit(1); });
