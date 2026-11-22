@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import { openRedeem, redeemCopy, showRedeemEntry } from '@/lib/app/redeem';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
 import s from './RedeemCodeLink.module.css';
+import { BlackFridayLine } from './BlackFridayLine';
 
 export function RedeemCodeLink({ locale, src, className }: { locale: string; src?: FunnelSrc; className?: string }) {
   // 서버 렌더·첫 그림에는 없다 — 마운트 뒤 네이티브(또는 프리뷰)일 때만(하이드레이션 불일치 없음)
@@ -20,9 +21,13 @@ export function RedeemCodeLink({ locale, src, className }: { locale: string; src
   if (!show) return null;
   const c = redeemCopy(locale);
   return (
-    <p className={className ? `${s.wrap} ${className}` : s.wrap} data-redeem-link="">
-      <span className={s.ask}>{c.ask}</span>
-      <button type="button" className={s.btn} onClick={() => { void openRedeem(src, locale); }}>{c.label}</button>
-    </p>
+    <>
+      <p className={className ? `${s.wrap} ${className}` : s.wrap} data-redeem-link="">
+        <span className={s.ask}>{c.ask}</span>
+        <button type="button" className={s.btn} onClick={() => { void openRedeem(src, locale); }}>{c.label}</button>
+      </p>
+      {/* ★11/22 블랙프라이데이 한 줄(iOS 앱·12/1까지만 — 그 밖엔 아무것도 그리지 않는다) → 같은 시트(components/app/BlackFridayHost) */}
+      <BlackFridayLine locale={locale} />
+    </>
   );
 }

@@ -88,6 +88,9 @@ export const FUNNEL_SRCS = [
   'rv_yes', 'rv_no',                // rv_cap: InAppReview 플러그인 있음 · 없음
   'rv_day', 'rv_run', 'rv_watch', 'rv_ai', 'rv_intel', 'rv_earn', 'rv_push', 'rv_pro', // 순간: 사용일 2·7 · 앱 실행(3·4·10번째) · 담기 2번째 · ✦AI 한 줄 2번째 · 인텔 열람 2·7 · 실적(발표 완료 행·범위 안 반응) · 알림 탭 · PRO 성공
   'rv_modal', 'rv_ad', 'rv_gift', 'rv_hidden', 'rv_today', 'rv_gone', 'rv_noplug', // 못 부른 이유: 시트·페이월 떠 있음 · 광고 중·직후 · 선물 안내 직후 · 앱이 뒤로 감 · 오늘 다른 순간이 이미 물음 · 화면 이동·취소 · 플러그인 없음
+  // ★11/22 블랙프라이데이 앱 안 안내(lib/app/blackFriday): bf_sheet = 자동 1회 시트가 보였다(open) · bf_line = 페이월·설정 블프 줄이 연 시트(open)
+  //   bf_sy·bf_sm = 시트의 연간·월간 단추(code_open → 돌아와 PRO 면 code_pro)
+  'bf_sheet', 'bf_line', 'bf_sy', 'bf_sm',
 ] as const;
 export type FunnelSrc = (typeof FUNNEL_SRCS)[number];
 

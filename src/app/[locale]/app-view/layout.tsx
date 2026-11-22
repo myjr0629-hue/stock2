@@ -15,6 +15,7 @@ import { GiftAnnounceHost } from '@/components/app/GiftAnnounceHost';
 import { InviteHost } from '@/components/app/InviteHost';
 import { TrialAnnounceHost } from '@/components/app/TrialAnnounceHost';
 import { TrialPushOptInHost } from '@/components/app/TrialPushOptInHost';
+import { BlackFridayHost } from '@/components/app/BlackFridayHost';
 import { WATCHLIST_ALERTS_BUILD_FLAG } from '@/lib/app/watchlistFlags';
 import { usePathname } from '@/i18n/routing';
 import { reportPushPath, REPORT_OPEN_EVENT } from '@/lib/app/reportLink';
@@ -346,6 +347,8 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
       <TrialAnnounceHost />
       {/* ★11/18 체험자 알림 권한 다시 묻기 — 체험 첫 AI 한 줄(또는 다음 날 첫 실행)에 기기당 1회 · OS 권한 미결정만 — lib/app/trialPushOptIn */}
       <TrialPushOptInHost />
+      {/* ★11/22 블랙프라이데이 할인 코드 안내(iOS 앱 · 돈 내는 PRO 아님 · 기기당 자동 1회 + 페이월·설정 블프 줄) — lib/app/blackFriday */}
+      <BlackFridayHost />
       <NetworkStatus />
       <AppFirstRunOnboarding />
     </div>

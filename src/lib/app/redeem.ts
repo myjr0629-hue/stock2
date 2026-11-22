@@ -277,3 +277,23 @@ export function canRedeemHere(): boolean {
 export function showRedeemEntry(): boolean {
   return canRedeemHere() || isPreviewHost();
 }
+
+/**
+ * ★11/22 블랙프라이데이 할인 코드(연간 첫 1년 50% · 월간 첫 3개월 50%) — 코드를 미리 채운 애플 적용 주소를 연다(lib/app/blackFriday).
+ *   아이폰 앱만. 프리뷰 호스트(?sgbf=1 확인 모드)는 새 탭으로 주소만 연다. 돌아오면 URL 경로와 같은 PRO 재확인(armReturn('url') → syncPurchases·다시 읽기).
+ */
+export async function openBlackFridayRedeem(plan: 'annual' | 'monthly', src?: FunnelSrc): Promise<boolean> {
+  const { bfRedeemUrl } = await import('@/lib/app/blackFriday');
+  const url = bfRedeemUrl(plan);
+  if (!url) return false;
+  void funnel().then((m) => m.trackFunnel('code_open', { src })).catch(() => {});
+  if (platformOf() !== 'ios') {
+    if (isPreviewHost()) { window.open(url, '_blank', 'noopener'); return true; }
+    return false;
+  }
+  let wasNonPro = false;
+  try { if (await initRevenueCat()) wasNonPro = await confirmedNonProNow(); } catch { /* 확인 못 해도 연다 */ }
+  armReturn('url', src, wasNonPro);
+  void openExternalUrl(url);
+  return true;
+}
