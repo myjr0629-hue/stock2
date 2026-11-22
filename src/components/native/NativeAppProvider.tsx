@@ -10,6 +10,7 @@ import React, { useEffect, useState, useCallback, createContext, useContext } fr
 import { usePathname, useRouter } from 'next/navigation';
 import { useProStatus } from '@/hooks/useProStatus';
 import { resolveAppLocale } from '@/lib/appLocale';
+import { dispatchOnbBack, onbBackAction, onboardingOpenNow } from '@/lib/app/onbBack';
 
 // ---------------------------------------------------------------------------
 // Native Detection (SSR-safe)
@@ -176,7 +177,21 @@ export function NativeAppProvider({ children }: { children: React.ReactNode }) {
 
         // 하드웨어 뒤로가기 (Android)
         if (_platform === 'android') {
+          // ★11/22 첫 실행 안내가 떠 있으면 첫 뒤로 가기는 앱을 닫지 않고 그 화면에 알린다 — 2초 안에 또 누르면 앱을 내린다(lib/app/onbBack)
+          let onbBackAt = 0;
           App.addListener('backButton', ({ canGoBack }) => {
+            const now = Date.now();
+            const act = onbBackAction(onboardingOpenNow(), now, onbBackAt);
+            if (act === 'exit') {
+              onbBackAt = 0;
+              App.minimizeApp();
+              return;
+            }
+            // 첫 실행 화면이 실제로 받아 처리했을 때만 막는다(약관 문서 경로 등 표식만 남은 화면은 예전 동작)
+            if (act === 'nudge' && dispatchOnbBack()) {
+              onbBackAt = now;
+              return;
+            }
             if (canGoBack) {
               window.history.back();
             } else {

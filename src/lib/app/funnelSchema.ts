@@ -30,6 +30,7 @@ export const FUNNEL_STAGES = [
   'onb_nudge',     // ★11/17 법적 고지에서 동의 전 회색 [계속]을 눌렀다(실행당 한 번) → 동의 체크 줄로 굴림·깜빡임(lib/app/legalNudge) — 출처 onb_legal
   'onb_pin',       // ★11/19 법적 고지에서 진짜 동의 체크 줄이 화면 밖이라 [계속] 바로 위에 고정 체크 줄을 띄웠다(실행당 한 번 · lib/app/legalNudge legalPinNext) — 출처 onb_legal
   'onb_tap', 'onb_check', 'onb_hide', // ★11/20 법적 고지 진단(lib/app/legalDiag · 실행당 한 번 · 출처 onb_legal): 화면을 한 번이라도 만졌다 · 동의 체크를 켰다 · 마치기 전에 앱이 뒤로 갔다
+  'onb_back',      // ★11/22 안드 첫 실행 화면에서 뒤로 가기(버튼·제스처)를 눌렀다 — 앱을 닫지 않고 화면에 알림(2초 안 두 번째면 앱 내림 · lib/app/onbBack · 실행당 한 번) — 출처 = 그 단계(onb_legal·onb_value·onb_notif)
   'trial_notice_show', 'trial_notice_manage', 'trial_notice_snooze', // 체험 종료 안내 표시·관리 탭·7일 숨김. 동의 완료/유료 전환이 아님
   'cancel_reason:show', 'cancel_reason:skip', 'cancel_reason:price', 'cancel_reason:not_used', 'cancel_reason:missing_feature', 'cancel_reason:other_app', 'cancel_reason:other',
   'trial_off_show', 'trial_off_manage', 'trial_off_close', 'trial_off_expired', // 갱신 끈 체험 안내의 익명 합계

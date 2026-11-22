@@ -18,6 +18,7 @@ import { firstRunCopy } from '@/lib/app/firstRunCopy';
 import { legalContinueBlocked, legalPinNext, measureLegalAckCovered, nudgeLegalAck } from '@/lib/app/legalNudge';
 import { LEGAL_LOCALE_DONE_GUARD, legalDoneLocaleSrc, legalLocaleSrc, legalSeenBefore, rememberLegalShownLocale } from '@/lib/app/legalDiag';
 import { loadOnbMode, useOnbMode } from './onboardingMode';
+import { ONB_BACK_EVENT } from '@/lib/app/onbBack';
 // 가치·알림 단계(카드·시세·레벨·AI 줄)는 이 오버레이를 «이미 마친 기기»(대부분의 사용자)에는 한 바이트도 싣지 않도록 필요할 때만 불러온다 —
 // 법적 고지의 동의 체크를 누르면 ValuePrefetch 가 같은 조각을 미리 불러오고 데이터도 미리 받는다.
 const FirstRunValueStep = dynamic(() => import('./FirstRunValueStep').then((m) => m.FirstRunValueStep), { ssr: false, loading: () => null });
@@ -467,6 +468,28 @@ export function AppFirstRunOnboarding() {
       } catch { /* 무시 */ }
     };
   }, [legalOn]);
+  // ★11/22 안드 뒤로 가기(버튼·가장자리 스와이프)가 첫 실행 화면 위에서 눌렸다 — 앱을 닫는 대신 NativeAppProvider 가 이 이벤트를 보낸다(lib/app/onbBack)
+  //   법적 고지면 회색 [계속]과 같은 강조(동의 체크 줄로 굴림·깜빡임) · 가치·알림 단계는 그대로 둔다(화면 유지) · 실행당 한 번 센다
+  const backCounted = useRef(false);
+  const backHandlerRef = useRef<() => void>(() => {});
+  backHandlerRef.current = () => {
+    if (step === 'legal' && !localePending) {
+      if (pinAck && pinRef.current) nudgeLegalAck(pinRef.current, null, null, { scroll: false });
+      else nudgeLegalAck(ackRef.current, panelRef.current, actionsRef.current);
+    }
+    if (!backCounted.current) {
+      backCounted.current = true;
+      const src = stepSrc(step, mode);
+      if (claimOnbShow('onb_back', sessionStore())) trackFunnel('onb_back', { src });
+    }
+  };
+  const onbOpen = mounted && visible && !isDocumentRoute;
+  useEffect(() => {
+    if (!onbOpen) return;
+    const onBack = (e: Event) => { e.preventDefault(); try { backHandlerRef.current(); } catch { /* 첫 실행 화면을 깨뜨리지 않는다 */ } };
+    document.addEventListener(ONB_BACK_EVENT, onBack);
+    return () => document.removeEventListener(ONB_BACK_EVENT, onBack);
+  }, [onbOpen]);
   // ★11/20 동의 체크를 켰다(실행당 한 번) — 언어 자가 이동 재마운트로 체크가 되살아나도 같은 세션이면 다시 세지 않는다
   useEffect(() => {
     if (!legalOn || !accepted || checkCounted.current) return;
