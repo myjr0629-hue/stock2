@@ -44,7 +44,7 @@ const NON_FUNNEL_SRCS = new Set([...TRIAL_PUSH_SRCS, ...FR_SRCS, ...RV_SRCS, 'rw
 const TABLE_STAGES = STAGES.filter((st) => !NON_FUNNEL_STAGES.has(st));
 const TABLE_SRCS = SRCS.filter((s) => !NON_FUNNEL_SRCS.has(s));
 const PLATS = ['ios', 'android', 'web'];
-const WEB_PROBE_LAST_ET = '2026-11-20';   // ★11/24 이 날까지 web onb_* 는 자체 점검기 UA(signum-integrity-probe) — funnel-hit 봇 필터 e6c45fa42 가 그 뒤를 막았다
+const WEB_PROBE_LAST_ET = '2026-11-20';   // ★11/24 이 날까지 web onb_* 는 대부분 자체 점검기 UA(signum-integrity-probe) — funnel-hit 봇 필터 e6c45fa42 가 그 뒤를 막았다
 const REF_APPS = ['sg', 'uc', 'wim'];
 const SRC_KO = {
   settings: '설정', value_wall: '가치 벽', ad_modal: '광고 창', dash_gate: '대시보드 게이트', wl_limit: '내 종목 한도',
@@ -194,7 +194,7 @@ async function main() {
   const onbVals = await mget(onbKeys.map((k) => k[0]), KEY, miss);
   const onb = {}; // plat → "stage:src" → n
   onbKeys.forEach(([, p, st, s], i) => { const n = Number(onbVals[i]) || 0; if (n) { const r = (onb[p] ||= {}); r[`${st}:${s}`] = (r[`${st}:${s}`] || 0) + n; } });
-  // ★11/24 web 법적 고지 오독 방지 — ET 11/20 까지 web 노출은 자체 점검기(screenprobe, 11/20 21:59 KST 서버 봇 필터로 차단)였다.
+  // ★11/24 web 법적 고지 오독 방지 — ET 11/20 까지 web 노출은 대부분 자체 점검기(screenprobe, 11/20 21:59 KST 서버 봇 필터로 차단)였다(UA 미구분 — «그 날짜까지 쌓인 수»로만 적는다).
   //   «web 786 → 마침 1» 을 «사람이 벽에 막힌다»로 두 번(11/20·11/24) 읽었다. 그 날짜분을 따로 세어 [web] 머리에 적는다.
   const webProbeEra = onbKeys.reduce((a, [k, p, st, s], i) => a + (p === 'web' && st === 'onb_show' && s === 'onb_legal' && k.slice(-10) <= WEB_PROBE_LAST_ET ? (Number(onbVals[i]) || 0) : 0), 0);
   console.log(`\n── ④ 첫 실행 «가치 먼저» (최근 ${DAYS}일 · 플랫폼별) ──`);
@@ -203,7 +203,7 @@ async function main() {
   for (const p of onbPlats) {
     const g = (st, src) => onb[p][`${st}:${src}`] || 0;
     console.log(`[${p}]`);
-    if (p === 'web') console.log(`  ⚠ web 은 앱 사용자가 아니다 — 노출 중 ${webProbeEra}건은 ET ${WEB_PROBE_LAST_ET} 까지의 자체 점검기(screenprobe), 그 뒤는 우리 검증 접속(ego 브라우저) 포함. 사람 웹 방문은 mkt-funnel-human.js 의 PV 로 본다.`);
+    if (p === 'web') console.log(`  ⚠ web 은 앱 사용자가 아니다 — 노출 중 ${webProbeEra}건은 ET ${WEB_PROBE_LAST_ET} 까지 쌓인 것 — 그 시기는 자체 점검기(screenprobe)가 대부분이다(UA 미구분 · 기동당 4쪽으로 수가 맞음, 11/20 판독). 그 뒤도 우리 검증 접속(ego 브라우저)이 섞인다. 사람 웹 방문은 mkt-funnel-human.js 의 PV 로 본다.`);
     console.log('  법적 고지   노출 ' + lpad(g('onb_show', 'onb_legal'), 4) + ' → 마침 ' + lpad(g('onb_done', 'onb_legal'), 4) + '  (' + pct(g('onb_done', 'onb_legal'), g('onb_show', 'onb_legal')) + ')' + (g('onb_nudge', 'onb_legal') ? ' · 동의 전 회색 [계속] 누름 ' + g('onb_nudge', 'onb_legal') + '(→ 체크 줄로 굴림 · 고정 줄이 떠 있으면 그 줄 깜빡임)' : '') + (g('onb_pin', 'onb_legal') ? ' · 고정 체크 줄 보임 ' + g('onb_pin', 'onb_legal') + '(체크 줄이 화면 밖이던 기기)' : ''));
     {
       // ★11/20 법적 고지 진단(lib/app/legalDiag) — 배포 뒤 날짜부터 쌓인다. 언어별 노출→마침 · 재실행 노출 · 만짐 · 체크 · 떠남
