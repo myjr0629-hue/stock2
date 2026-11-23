@@ -336,7 +336,27 @@ export async function openWarmBfRedeem(plan: 'annual' | 'monthly', src?: FunnelS
     if (isPreviewHost()) { window.open(url, '_blank', 'noopener'); return true; }
     return false;
   }
-  armReturn('url', src, false, true);
+  // 열기 직전 «자동 갱신 꺼짐»이 새 읽기로 확인된 경우만 전환을 센다 — 이미 켠 사람이 열었다 닫은 것을 전환으로 세지 않게(관문 11240021 ③)
+  let wasOff = false;
+  try { wasOff = await warmRenewOffNow(); } catch { wasOff = false; }
+  armReturn('url', src, false, wasOff);
   void openExternalUrl(url);
   return true;
+}
+
+/** 열기 직전 PRO 권한이 활성 + 자동 갱신 꺼짐인가(캐시를 비운 새 읽기 · 1.5초 상한) — 모르면 false */
+async function warmRenewOffNow(capMs = 1500): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const read = (async () => {
+      if (!(await initRevenueCat())) return false;
+      const { Purchases } = await import('@revenuecat/purchases-capacitor');
+      await Purchases.invalidateCustomerInfoCache();
+      const { customerInfo } = await Purchases.getCustomerInfo();
+      const ent = (customerInfo as unknown as { entitlements?: { active?: Record<string, { isActive?: boolean; willRenew?: boolean } | undefined> } })?.entitlements?.active?.[PRO_ENTITLEMENT_ID];
+      return !!ent && ent.isActive === true && ent.willRenew === false;
+    })();
+    const capped = new Promise<false>((r) => { timer = setTimeout(() => r(false), capMs); });
+    return await Promise.race([read, capped]);
+  } catch { return false; } finally { if (timer) clearTimeout(timer); }
 }

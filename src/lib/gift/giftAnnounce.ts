@@ -29,6 +29,7 @@ import { APP_SESSION_REVIEW } from '@/lib/app/reviewMoments';
 import type { GiftLang } from './gift';
 import { trialAnnouncedToday } from '@/lib/app/trialAnnounce';
 import { dailyPaywallShownOn } from '@/lib/app/dailyPaywall';
+import { warmShownOn } from '@/lib/app/warmBf';
 
 export const GIFT_ANNOUNCE_KEY = 'signumhq.gift.announce.v1';
 /** AppFirstRunOnboarding 의 STORAGE_KEY 와 같은 값('accepted' = 첫 안내를 마쳤다) */
@@ -126,7 +127,8 @@ export function giftAnnounceBlock(i: AnnounceInput): AnnounceBlock | null {
   if (i.reviewAt && i.now - i.reviewAt < GIFT_REVIEW_QUIET_MS) return 'review';
   // ★11/16 밤 오늘 «새로 생긴 7일 무료 체험» 안내(trial_announce)가 떴으면 시트가 떠 있는 것과 같게(같은 날 안내 시트 하나 · lib/app/trialAnnounce)
   // ★11/23 오늘 «하루 첫 실행 페이월»(daily_open)을 봤어도 같다(관문 11231810)
-  if (i.dialogOpen || trialAnnouncedToday(i.store, i.now) || dailyPaywallShownOn(i.store, i.now)) return 'busy';
+  // ★11/24 오늘 웜 블프 카드(warm_bf)를 봤어도 같다(관문 11240021 ①)
+  if (i.dialogOpen || trialAnnouncedToday(i.store, i.now) || dailyPaywallShownOn(i.store, i.now) || warmShownOn(i.store, i.now)) return 'busy';
   return null;
 }
 
@@ -186,7 +188,8 @@ export function giftReannounceBlock(i: AnnounceInput): AnnounceBlock | null {
   if (i.reviewAt && i.now - i.reviewAt < GIFT_REVIEW_QUIET_MS) return 'review';
   // ★11/16 밤 오늘 «새로 생긴 7일 무료 체험» 안내(trial_announce)가 떴으면 시트가 떠 있는 것과 같게(같은 날 안내 시트 하나 · lib/app/trialAnnounce)
   // ★11/23 오늘 «하루 첫 실행 페이월»(daily_open)을 봤어도 같다(관문 11231810)
-  if (i.dialogOpen || trialAnnouncedToday(i.store, i.now) || dailyPaywallShownOn(i.store, i.now)) return 'busy';
+  // ★11/24 오늘 웜 블프 카드(warm_bf)를 봤어도 같다(관문 11240021 ①)
+  if (i.dialogOpen || trialAnnouncedToday(i.store, i.now) || dailyPaywallShownOn(i.store, i.now) || warmShownOn(i.store, i.now)) return 'busy';
   return null;
 }
 

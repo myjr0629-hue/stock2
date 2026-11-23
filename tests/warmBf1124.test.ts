@@ -154,7 +154,7 @@ test('⑨ 배선 — 레이아웃 1개 · 요금제 탭 → 웜 카드(블프·A
   assert.match(notice, /onFallback=\{\(\) => \{ const w = warm; setWarm\(null\); setPaywall\(w\); \}\}/, '대상 아님·스위치 꺼짐 = 예전 정가 페이월');
   assert.match(notice, /if \(notice && !preview && warmShownTodaySafe\(\)\) notice = null;/, '웜 카드 본 날은 체험 중 안내 쉼');
   const redeem = read('src/lib/app/redeem.ts');
-  assert.match(redeem, /armReturn\('url', src, false, true\)/);
+  assert.match(redeem, /armReturn\('url', src, false, wasOff\)/, '열기 직전 갱신 꺼짐 확인된 경우만 전환 계측(관문 11240021 ③)');
   assert.match(redeem, /if \(p\.warm\) \{ void warmRenewConfirmed\(\)/);
   const gate = read('src/components/app/WarmBfGate.tsx');
   assert.match(gate, /markGateDay\(localDay\(\)\)/, '보이면 오늘 다른 페이월·안내 쉼');
@@ -170,4 +170,18 @@ test('⑨ 배선 — 레이아웃 1개 · 요금제 탭 → 웜 카드(블프·A
   const route = read('src/app/api/app/warm-bf/route.ts');
   assert.match(route, /getAuthoritativeCache/);
   assert.match(route, /on: false, reason: 'error'/);
+});
+
+test('⑩ 관문 11240021 — 선물 안내는 웜 본 날 busy · 캐시 못 비우면 안 보임 · 늦으면 정가 페이월', () => {
+  const g = require('../src/lib/gift/giftAnnounce');
+  const store = mem({ [g.GIFT_ANNOUNCE_KEY]: JSON.stringify({ n: 0, last: 0 }), [w.WARM_BF_KEY]: w.warmDay(NOW) });
+  const input = { live: true, store, now: NOW, onboardedAtMount: true, moment: true, path: '/ko/app-view/dash', reviewAt: 0, dialogOpen: false };
+  assert.equal(g.giftAnnounceBlock(input), 'busy');
+  assert.equal(g.giftReannounceBlock(input), 'busy');
+  store.m.set(w.WARM_BF_KEY, w.warmDay(NOW - 2 * DAY));
+  assert.notEqual(g.giftAnnounceBlock(input), 'busy', '이틀 전이면 막지 않는다');
+  const gate = read('src/components/app/WarmBfGate.tsx');
+  assert.match(gate, /if \(cleared !== true\) return null;/);
+  assert.match(gate, /WARM_BF_OFFER_WAIT_MS\)/);
+  assert.equal(w.WARM_BF_OFFER_WAIT_MS <= 4000, true);
 });

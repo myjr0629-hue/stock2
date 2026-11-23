@@ -37,6 +37,8 @@ export const WARM_BF_LAST_DAY_MS = 24 * 3_600_000;
 export const WARM_BF_DELAY_MS = 8_000;
 /** 보이기 직전 고객 정보·가격·스위치 조회 상한 */
 export const WARM_BF_VERIFY_MS = 3_000;
+/** 체험 종료 안내 «PRO 요금제 보기»를 누른 뒤 카드 준비를 기다리는 최대 시간 — 넘으면 예전 정가 페이월 */
+export const WARM_BF_OFFER_WAIT_MS = 3_500;
 /** 돌아온 뒤 «갱신 켜짐» 재확인 간격(애플 → RC 반영 지연) */
 export const WARM_BF_CONFIRM_WAITS = [0, 3_000, 8_000] as const;
 
