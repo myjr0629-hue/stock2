@@ -16,7 +16,8 @@ import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { reviewBlockReason, reviewRequestedAt } from '@/hooks/useReviewPrompt';
 import { proPurchaseState } from '@/lib/app/proPurchaseState';
 import { checkStorePro, gatePaywallSlot, localDay, markGateDay, storeProSignal } from '@/lib/app/gatePaywall';
-import { gateFlowActive, otherSheetToday } from '@/lib/app/trialAnnounce';
+import { gateFlowActive, otherSheetToday, TRIAL_OFF_KEYS } from '@/lib/app/trialAnnounce';
+import { trialExpiredNotice } from '@/lib/app/trialExpired';
 import { redeemReturnActive } from '@/lib/app/redeem';
 import { previewFlag } from '@/lib/app/proEntitlement';
 import { initRevenueCat, isProFromCustomerInfo, type PlanOffer } from '@/services/revenueCat';
@@ -56,12 +57,27 @@ function switchOn(platform: DailyPlatform): Promise<boolean> {
   return switchAsk;
 }
 
+/** 마지막 스토어 재조회의 고객 정보 — 체험 만료 1회 페이월 차례인지 보는 데만 쓴다 */
+let lastInfo: unknown = null;
 /** 스토어 «지금 PRO» — SDK 초기화 실패·조회 실패는 던진다(«무료»로 보지 않는다 — PRO 보호) */
 async function fetchProStrict(): Promise<boolean> {
+  lastInfo = null;
   if (!(await initRevenueCat())) throw new Error('rc_init');
   const { Purchases } = await import('@revenuecat/purchases-capacitor');
   const { customerInfo } = await Purchases.getCustomerInfo();
+  lastInfo = customerInfo;
   return isProFromCustomerInfo(customerInfo);
+}
+
+/** ★관문 11231807 — 체험 만료 1회 페이월(TrialRenewalOffNotice · 첫 달 할인 카드)이 오늘 차례인가. 차례면 그쪽이 먼저(이번 회차는 넘긴다).
+ *  같은 규칙 함수(trialExpiredNotice)·같은 기기 표식으로 본다. 모름(고객 정보 없음)은 «차례 아님» — 그 페이월도 같은 정보 없이는 안 뜬다 */
+function expiredPaywallDue(info: unknown, platform: DailyPlatform, store: MiniStore | null): boolean {
+  if (!info || platform === 'web') return false;
+  const get = (k: string) => { try { return store ? store.getItem(k) : null; } catch { return null; } };
+  const [offKey, earlyKey, expiredKey] = TRIAL_OFF_KEYS;
+  try {
+    return !!trialExpiredNotice(info as Parameters<typeof trialExpiredNotice>[0], platform, Date.now(), get(expiredKey), undefined, { offSeen: get(offKey), early: get(earlyKey) });
+  } catch { return false; }
 }
 
 // 프리뷰 확인 모드의 더미 플랜(paywall-preview 와 같은 값 · 실제 앱은 스토어 값만)
@@ -159,6 +175,8 @@ export function DailyPaywallGate() {
             if (st === 'pro') { run.done = true; return; }
             // 모름·결제 진행 중 = 안 보인다. 모름은 다음 포그라운드에 다시(실행당 상한)
             if (st !== 'free') { run.tries += 1; if (run.tries >= DAILY_PAYWALL_MAX_TRIES) run.done = true; return; }
+            // 체험 만료 1회 페이월 차례면 그쪽이 먼저 — 뜨면 그 표식(오늘)으로 오늘은 쉰다. 안 뜨는 경우를 위해 재조회 횟수에 센다(호출 상한)
+            if (expiredPaywallDue(lastInfo, platformNow(), store)) { run.tries += 1; if (run.tries >= DAILY_PAYWALL_MAX_TRIES) run.done = true; return; }
           }
           // 재조회를 기다리는 사이 다른 시트·페이월이 떴거나 PRO·결제 진행 중이 됐으면 다시 본다
           const last = dailyStep(state());

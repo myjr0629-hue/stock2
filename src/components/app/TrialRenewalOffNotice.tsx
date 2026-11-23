@@ -7,6 +7,7 @@ import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { trackFunnel } from '@/lib/app/funnel';
 import { openSubscriptionManagement } from '@/lib/app/subscriptionManagement';
 import { TRIAL_OFF_EARLY_KEY, TRIAL_OFF_STORAGE_KEY, trialRenewalOffNotice, verifiedTrialRenewalOffNotice, type TrialOffKind, type TrialOffNotice } from '@/lib/app/trialRenewalOff';
+import { dailyPaywallShownOn } from '@/lib/app/dailyPaywall';
 import { TRIAL_EXPIRED_STORAGE_KEY, trialExpiredContext, trialExpiredNotice, trialExpiredScorecard, trialUsageDays, verifiedTrialExpiredNotice, type TrialExpiredNotice, type TrialExpiredScore } from '@/lib/app/trialExpired';
 import { scheduleTrialOffExpiry, waitForOtherModal } from '@/lib/app/trialOffLifecycle';
 import { beginTrialRenewalOffEntry, loadFreshTrialRenewalOff, refreshTrialRenewalOffOnResume, verifyTrialRenewalOff } from '@/services/trialRenewalOff';
@@ -72,6 +73,7 @@ function saveExpired(mark: string) {
   sessionExpired = mark;
   try { localStorage.setItem(TRIAL_EXPIRED_STORAGE_KEY, mark); } catch { /* session fallback */ }
 }
+const dailyShownTodaySafe = () => { try { return dailyPaywallShownOn(window.localStorage); } catch { return false; } };
 /** 사용일 기록(capacitorBridge maybePromptReview 가 대시보드마다 남기는 기기 현지 날짜 목록) — 읽기만 */
 const USAGE_DAYS_KEY = 'signumhq.review.days';
 function readUsageRaw(): string | null {
@@ -119,6 +121,8 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
         let lapsed: TrialExpiredNotice | null = notice ? null : previewParam === 'expired'
           ? { store: 'APP_STORE' as const, startedAt: Date.now() - 31 * 86400000, expiresAt: Date.now() - 86400000, period: 'preview', mark: 'preview' }
           : snapshot && trialExpiredNotice(snapshot.customerInfo, snapshot.platform, Date.now(), readExpired(), undefined, marks);
+        // ★11/23 오늘 «하루 첫 실행 페이월»(daily_open)을 이미 봤으면 만료 1회 페이월은 내일(같은 날 페이월 두 번 금지 · 관문 11231807)
+        if (lapsed && !preview && dailyShownTodaySafe()) lapsed = null;
         if (!notice && !lapsed) return;
         // ★11/12 첫 달 할인 대상(과거 결제 0) — 첫 읽기·새 읽기 둘 다 참일 때만. 미리보기는 ?expiredOffer=1
         let offerEligible = preview ? new URLSearchParams(location.search).get('expiredOffer') === '1' : false;

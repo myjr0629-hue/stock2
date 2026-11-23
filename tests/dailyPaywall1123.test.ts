@@ -162,3 +162,16 @@ test('⑧ 같은 날 게이트 페이월 쉬기 — ValueWall 이 daily 를 «�
   assert.match(vw, /announcedToday = announcedTodaySafe\(\)/);
   assert.match(vw, /const stillFree = \(\) => .*!announcedTodaySafe\(\)/);
 });
+
+test('⑨ 체험 만료 1회 페이월과 같은 날 겹치지 않기(관문 11231807)', () => {
+  const root = path.join(__dirname, '..');
+  const gate = fs.readFileSync(path.join(root, 'src/components/app/DailyPaywallGate.tsx'), 'utf8');
+  assert.match(gate, /if \(expiredPaywallDue\(lastInfo, platformNow\(\), store\)\) \{ run\.tries \+= 1;/, '만료 페이월 차례면 daily 는 넘긴다');
+  const tro = fs.readFileSync(path.join(root, 'src/components/app/TrialRenewalOffNotice.tsx'), 'utf8');
+  assert.match(tro, /if \(lapsed && !preview && dailyShownTodaySafe\(\)\) lapsed = null;/, 'daily 를 오늘 봤으면 만료 페이월은 내일');
+  // daily 가 읽는 표식 순서 = 체험 시트·조기·만료
+  const ta = require('../src/lib/app/trialAnnounce');
+  const { TRIAL_OFF_STORAGE_KEY, TRIAL_OFF_EARLY_KEY } = require('../src/lib/app/trialRenewalOff');
+  const { TRIAL_EXPIRED_STORAGE_KEY } = require('../src/lib/app/trialExpired');
+  assert.deepEqual([...ta.TRIAL_OFF_KEYS], [TRIAL_OFF_STORAGE_KEY, TRIAL_OFF_EARLY_KEY, TRIAL_EXPIRED_STORAGE_KEY]);
+});
