@@ -33,6 +33,7 @@ export const GIFT_KEY = 'signumhq.gift.announce.v1';                   // lib/gi
 export const GIFT_RE_KEY = 'signumhq.gift.announce.1105';              // 재안내(띄운 시각)
 /** 어느 출처든 PRO 페이월이 열린 시각(ProPaywall 이 열릴 때 남긴다 — notePaywallOpened). 오늘이면 이 안내는 다음 날 */
 export const PAYWALL_OPEN_KEY = 'signumhq.paywall.open_at';
+export const WARM_BF_DAY_KEY = 'signumhq.warm_bf.v1';                 // ★11/24 lib/app/warmBf WARM_BF_KEY(웜 블프 카드를 본 현지 YYYY-MM-DD)
 export const TRIAL_OFF_KEYS = ['signumhq.trialRenewalOff.v1', 'signumhq.trialRenewalOff.early.v1', 'signumhq.trialExpired.v1'] as const; // «기간|현지 날짜»
 /** 포그라운드가 된 뒤 이만큼 기다렸다 판정 — 체험 종료·만료 시트(SDK 읽기)가 먼저 자리를 잡게. 선물 안내와는 먼저 뜬 쪽이 그날 하나(서로 당일 표식을 읽는다) */
 export const TRIAL_ANNOUNCE_DELAY_MS = 2_500;
@@ -107,6 +108,8 @@ export function otherSheetToday(store: MiniStore | null, now = Date.now()): bool
   const pw = Number(get(store, PAYWALL_OPEN_KEY));
   if (Number.isFinite(pw) && pw > 0 && dayOf(pw) === today) return true;
   if (get(store, GATE_DAY_KEY) === today) return true;
+  // ★11/24 오늘 웜 블프 카드를 봤다(자동·요금제 탭 모두 — 자정 넘어 요금제 탭으로 연 경우 게이트 표식이 없어도, 관문 11240037)
+  if (get(store, WARM_BF_DAY_KEY) === today) return true;
   const gift = get(store, GIFT_KEY);
   if (gift) {
     let last = NaN;

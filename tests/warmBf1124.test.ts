@@ -189,3 +189,11 @@ test('⑩ 관문 11240021 — 선물 안내는 웜 본 날 busy · 캐시 못 �
   assert.match(gate, /if \(!markWarmShown\(localStore\(\)\)\) \{ onFallback\(\); return; \}/, '요금제 탭 경로도 표식 실패 = 카드 안 보임(관문 11240036)');
   assert.equal(w.WARM_BF_OFFER_WAIT_MS <= 4000, true);
 });
+
+test('⑪ 관문 11240037 — otherSheetToday 가 웜 표식(오늘)을 읽는다 · 키 일치', () => {
+  const ta = require('../src/lib/app/trialAnnounce');
+  assert.equal(ta.WARM_BF_DAY_KEY, w.WARM_BF_KEY);
+  assert.equal(ta.otherSheetToday(mem({ [w.WARM_BF_KEY]: w.warmDay(NOW) }), NOW), true);
+  assert.equal(ta.otherSheetToday(mem({ [w.WARM_BF_KEY]: w.warmDay(NOW - DAY) }), NOW), false);
+  assert.match(read('src/components/app/WarmBfGate.tsx'), /markWarmShown\(localStore\(\)\)\) \{ onFallback\(\); return; \} markGateDay\(localDay\(\)\);/);
+});
