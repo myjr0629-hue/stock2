@@ -19,7 +19,7 @@ import { dailyPaywallShownOn } from '@/lib/app/dailyPaywall';
 import { redeemReturnActive } from '@/lib/app/redeem';
 import { previewFlag } from '@/lib/app/proEntitlement';
 import { initRevenueCat } from '@/services/revenueCat';
-import { bfOfferAmount, bfPriceView, type BfPriceView } from '@/lib/app/blackFriday';
+import { bfLive, bfOfferAmount, bfPriceView, type BfPriceView } from '@/lib/app/blackFriday';
 import { WATCHLIST_STORAGE_KEY, parseWatchlist } from '@/lib/app/watchlist';
 import {
   WARM_BF_DELAY_MS, WARM_BF_OFFER_WAIT_MS, WARM_BF_VERIFY_MS, bfSheetSeenToday, markWarmShown, readWarmLast, warmAnnualPerMonth, warmBfTarget, warmDay, warmDue,
@@ -98,6 +98,8 @@ export async function loadWarm(locale: string): Promise<WarmView | null> {
   const plans = { primary: plans0.primary, secondary: plans0.secondary && prices[plans0.secondary].regular ? plans0.secondary : null };
   const amt = bfOfferAmount('annual', sp.annual);
   const perMonth = plans.primary === 'annual' && amt ? warmAnnualPerMonth(amt.offer, amt.currency, locale) : null;
+  // 준비하는 사이 블프 기간이 끝났으면 null — 요금제 탭 경로는 예전 정가 페이월로(관문 11240041 ②)
+  if (!bfLive(Date.now())) return null;
   return { locale, target, plans, prices, perMonth, watchCount: readWatchCount(), preview };
 }
 

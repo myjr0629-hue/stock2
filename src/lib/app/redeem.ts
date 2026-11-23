@@ -341,6 +341,9 @@ export async function openWarmBfRedeem(plan: 'annual' | 'monthly', src?: FunnelS
   // 열기 직전 «자동 갱신 꺼짐»이 새 읽기로 확인된 경우만 전환을 센다 — 이미 켠 사람이 열었다 닫은 것을 전환으로 세지 않게(관문 11240021 ③)
   let wasOff = false;
   try { wasOff = await warmRenewOffNow(); } catch { wasOff = false; }
+  // 기다리는 사이 블프 기간이 끝났으면 만료된 코드 창을 열지 않는다(관문 11240041 ①)
+  const { bfLive } = await import('@/lib/app/blackFriday');
+  if (!bfLive(Date.now())) return false;
   armReturn('url', src, false, true, wasOff);
   void openExternalUrl(url);
   return true;

@@ -203,3 +203,8 @@ test('⑫ 관문 11240040 — 열린 카드도 블프 기간이 끝나면 닫고
   assert.match(sheet, /if \(!bfLive\(Date\.now\(\)\)\) \{ onClose\(\); return; \}/);
   assert.match(sheet, /BF_VALID_UNTIL - Date\.now\(\)/);
 });
+
+test('⑬ 관문 11240041 — 만료 경계: 코드 창 열기 직전·카드 준비 끝에 기간 재확인', () => {
+  assert.match(read('src/lib/app/redeem.ts'), /if \(!bfLive\(Date\.now\(\)\)\) return false;\n  armReturn\('url', src, false, true, wasOff\);/);
+  assert.match(read('src/components/app/WarmBfGate.tsx'), /if \(!bfLive\(Date\.now\(\)\)\) return null;\n  return \{ locale, target/);
+});
