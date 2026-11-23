@@ -186,5 +186,6 @@ test('⑩ 관문 11240021 — 선물 안내는 웜 본 날 busy · 캐시 못 �
   assert.match(gate, /if \(cleared !== true\) return null;/);
   assert.match(gate, /plans0\.secondary && prices\[plans0\.secondary\]\.regular/, '둘째 단추는 정가 있을 때만(관문 11240028 ②)');
   assert.match(gate, /WARM_BF_OFFER_WAIT_MS\)/);
+  assert.match(gate, /if \(!markWarmShown\(localStore\(\)\)\) \{ onFallback\(\); return; \}/, '요금제 탭 경로도 표식 실패 = 카드 안 보임(관문 11240036)');
   assert.equal(w.WARM_BF_OFFER_WAIT_MS <= 4000, true);
 });

@@ -218,7 +218,8 @@ export function WarmBfOffer({ locale, onClose, onFallback }: { locale: string; o
       if (!alive) return;
       alive = false; window.clearTimeout(late);
       if (!v) { onFallback(); return; }
-      if (!v.preview) { markWarmShown(localStore()); track('warm_bf_plans'); }
+      // 오늘 표식을 못 남기면(저장소 막힘) 카드 대신 예전 정가 페이월 — 같은 날 다른 안내가 이어지지 않게(관문 11240036)
+      if (!v.preview) { if (!markWarmShown(localStore())) { onFallback(); return; } track('warm_bf_plans'); }
       setView(v);
     });
     return () => { alive = false; window.clearTimeout(late); };
