@@ -102,6 +102,14 @@ export function bfPriceView(plan: BfPlan, p: BfStorePrice, locale: string): BfPr
   return { regular: p.priceString ? String(p.priceString) : null, offer: null };
 }
 
+/** ★11/24 웜 카드 월 환산용 — 표에 맞으면 애플 할인가 숫자·통화, 아니면 null(화면 값은 bfPriceView 그대로) */
+export function bfOfferAmount(plan: BfPlan, p: BfStorePrice): { offer: number; currency: string } | null {
+  if (!p) return null;
+  const cur = String(p.currencyCode ?? '').toUpperCase();
+  const row = BF_PRICE_TABLE[plan][cur];
+  return row && typeof p.price === 'number' && Math.abs(p.price - row.regular) < 0.001 ? { offer: row.offer, currency: cur } : null;
+}
+
 // ── 문구(주어 «미국 주식 앱 SIGNUM PRO» · 예측·투자 권유 없음 · 3.1.2 고지) ──────────
 export const BF_COPY: Record<BfLang, {
   eyebrow: string;

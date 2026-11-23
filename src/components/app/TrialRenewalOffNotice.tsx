@@ -8,6 +8,8 @@ import { trackFunnel } from '@/lib/app/funnel';
 import { openSubscriptionManagement } from '@/lib/app/subscriptionManagement';
 import { TRIAL_OFF_EARLY_KEY, TRIAL_OFF_STORAGE_KEY, trialRenewalOffNotice, verifiedTrialRenewalOffNotice, type TrialOffKind, type TrialOffNotice } from '@/lib/app/trialRenewalOff';
 import { dailyPaywallShownOn } from '@/lib/app/dailyPaywall';
+import { warmShownOn } from '@/lib/app/warmBf';
+import { bfLive } from '@/lib/app/blackFriday';
 import { TRIAL_EXPIRED_STORAGE_KEY, trialExpiredContext, trialExpiredNotice, trialExpiredScorecard, trialUsageDays, verifiedTrialExpiredNotice, type TrialExpiredNotice, type TrialExpiredScore } from '@/lib/app/trialExpired';
 import { scheduleTrialOffExpiry, waitForOtherModal } from '@/lib/app/trialOffLifecycle';
 import { beginTrialRenewalOffEntry, loadFreshTrialRenewalOff, refreshTrialRenewalOffOnResume, verifyTrialRenewalOff } from '@/services/trialRenewalOff';
@@ -25,6 +27,8 @@ import s from './GiftAnnounceSheet.module.css';
 
 // ★2026-11-11 «PRO 요금제 보기» → 기존 ProPaywall(체험 중에도 열린 채 · 연간 기본 선택은 페이월 규칙 그대로). 누를 때만 받는다.
 const TrialSavePaywall = dynamic(() => import('./TrialSavePaywall'), { ssr: false });
+// ★11/24 블프 기간·iOS App Store 체험의 «PRO 요금제 보기» → 웜 블프 카드(정가 페이월 대신 · 대상 아님/스위치 꺼짐이면 예전 정가 페이월)
+const WarmBfOffer = dynamic(() => import('./WarmBfGate').then((m) => m.WarmBfOffer), { ssr: false, loading: () => null });
 /** 개발 미리보기(?trialOffPreview=1) 전용 더미 요금 — 실제 앱은 스토어 문자열만 쓴다(paywall-preview 와 같은 값) */
 const PREVIEW_PLANS: Record<string, PaywallPlan[]> = {
   ko: [{ plan: 'monthly', priceString: '₩11,900', price: 11900, currencyCode: 'KRW' }, { plan: 'annual', priceString: '₩89,000', price: 89000, currencyCode: 'KRW', pricePerMonthString: '₩7,417' }],
@@ -74,6 +78,8 @@ function saveExpired(mark: string) {
   try { localStorage.setItem(TRIAL_EXPIRED_STORAGE_KEY, mark); } catch { /* session fallback */ }
 }
 const dailyShownTodaySafe = () => { try { return dailyPaywallShownOn(window.localStorage); } catch { return false; } };
+/** ★11/24 오늘 웜 블프 카드를 봤나 — 봤으면 체험 중 안내(조기·D-3)는 내일(같은 날 두 번 금지) */
+const warmShownTodaySafe = () => { try { return warmShownOn(window.localStorage); } catch { return false; } };
 /** 사용일 기록(capacitorBridge maybePromptReview 가 대시보드마다 남기는 기기 현지 날짜 목록) — 읽기만 */
 const USAGE_DAYS_KEY = 'signumhq.review.days';
 function readUsageRaw(): string | null {
@@ -87,6 +93,7 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
   const [view, setView] = useState<View | null>(null);
   const [reason, setReason] = useState(false);
   const [paywall, setPaywall] = useState<{ preview: boolean; kind: TrialOffKind } | null>(null);
+  const [warm, setWarm] = useState<{ preview: boolean; kind: TrialOffKind } | null>(null);
   // ★11/11 체험 만료 뒤 1회 페이월 — 앱이 잠깐 뒤로 가도(안드 결제 창 = onPause) 닫지 않는다(suspend 대상 아님)
   const [expired, setExpired] = useState<(TrialExpiredNotice & { preview: boolean; offerEligible: boolean }) | null>(null);
   const expiredOpen = useRef(false);
@@ -123,6 +130,7 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
           : snapshot && trialExpiredNotice(snapshot.customerInfo, snapshot.platform, Date.now(), readExpired(), undefined, marks);
         // ★11/23 오늘 «하루 첫 실행 페이월»(daily_open)을 이미 봤으면 만료 1회 페이월은 내일(같은 날 페이월 두 번 금지 · 관문 11231807)
         if (lapsed && !preview && dailyShownTodaySafe()) lapsed = null;
+        if (notice && !preview && warmShownTodaySafe()) notice = null;
         if (!notice && !lapsed) return;
         // ★11/12 첫 달 할인 대상(과거 결제 0) — 첫 읽기·새 읽기 둘 다 참일 때만. 미리보기는 ?expiredOffer=1
         let offerEligible = preview ? new URLSearchParams(location.search).get('expiredOffer') === '1' : false;
@@ -190,9 +198,13 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
     if (!active.preview) trackFunnel(stage, { src: srcOf(active.kind) });
     if (stage === 'trial_off_manage' && !active.preview && active.expiresAt > Date.now()) void openSubscriptionManagement(active.store).catch(() => {});
     // 시트의 히스토리 칸을 걷은 «뒤»에 페이월을 연다(늦게 온 popstate 가 새 페이월을 닫지 않게)
-    if (stage === 'trial_off_plans' && active.expiresAt > Date.now()) void afterSheetHistory().then(() => setPaywall({ preview: active.preview, kind: active.kind }));
+    // ★11/24 블프 기간·iOS App Store 체험이면 웜 블프 카드 먼저(정가 페이월은 11/10~23 열림 12·버튼 1·결제 0 — RESULT 2026-11-24/warm-bf) · 아니면 예전 그대로
+    if (stage === 'trial_off_plans' && active.expiresAt > Date.now()) void afterSheetHistory().then(() => {
+      if (active.store === 'APP_STORE' && bfLive(Date.now())) setWarm({ preview: active.preview, kind: active.kind });
+      else setPaywall({ preview: active.preview, kind: active.kind });
+    });
   }, []);
-  return <>{view && <TrialOffSheet view={view} locale={locale} onClose={() => close('trial_off_close')} onLater={() => { const active = current.current; close('trial_off_close'); if (active && !active.preview && canShowCancelReason()) void afterSheetHistory().then(() => { if (canShowCancelReason() && canPresentCancelReason()) setReason(true); }); }} onManage={() => close('trial_off_manage')} onPlans={() => close('trial_off_plans')} onExpired={() => close('trial_off_expired')} />}<CancelReasonPreview locale={locale} />{reason && <CancelReasonSheet locale={locale} preview={false} onDone={() => setReason(false)} />}{paywall && <TrialSavePaywall locale={locale} src={srcOf(paywall.kind)} onClose={() => setPaywall(null)} previewPlans={paywall.preview ? (PREVIEW_PLANS[locale] ?? PREVIEW_PLANS.en) : undefined} />}{expired && <TrialExpiredPaywall notice={expired} locale={locale} onClose={() => { expiredOpen.current = false; setExpired(null); }} />}</>;
+  return <>{view && <TrialOffSheet view={view} locale={locale} onClose={() => close('trial_off_close')} onLater={() => { const active = current.current; close('trial_off_close'); if (active && !active.preview && canShowCancelReason()) void afterSheetHistory().then(() => { if (canShowCancelReason() && canPresentCancelReason()) setReason(true); }); }} onManage={() => close('trial_off_manage')} onPlans={() => close('trial_off_plans')} onExpired={() => close('trial_off_expired')} />}<CancelReasonPreview locale={locale} />{reason && <CancelReasonSheet locale={locale} preview={false} onDone={() => setReason(false)} />}{warm && <WarmBfOffer locale={locale} onClose={() => setWarm(null)} onFallback={() => { const w = warm; setWarm(null); setPaywall(w); }} />}{paywall && <TrialSavePaywall locale={locale} src={srcOf(paywall.kind)} onClose={() => setPaywall(null)} previewPlans={paywall.preview ? (PREVIEW_PLANS[locale] ?? PREVIEW_PLANS.en) : undefined} />}{expired && <TrialExpiredPaywall notice={expired} locale={locale} onClose={() => { expiredOpen.current = false; setExpired(null); }} />}</>;
 }
 
 function CancelReasonPreview({ locale }: { locale: string }) {

@@ -17,6 +17,7 @@ import { TrialAnnounceHost } from '@/components/app/TrialAnnounceHost';
 import { TrialPushOptInHost } from '@/components/app/TrialPushOptInHost';
 import { BlackFridayHost } from '@/components/app/BlackFridayHost';
 import { DailyPaywallHost } from '@/components/app/DailyPaywallHost';
+import { WarmBfHost } from '@/components/app/WarmBfHost';
 import { WATCHLIST_ALERTS_BUILD_FLAG } from '@/lib/app/watchlistFlags';
 import { usePathname } from '@/i18n/routing';
 import { reportPushPath, REPORT_OPEN_EVENT } from '@/lib/app/reportLink';
@@ -352,6 +353,8 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
       <BlackFridayHost />
       {/* ★11/23 무료 네이티브 사용자 «하루 한 번» 앱 열 때 체험 페이월(첫 실행 직후 세션 제외 · 닫기 즉시 · 다른 시트와 같은 날 겹치지 않게 · 끄기 레디스 daily-paywall:off) — lib/app/dailyPaywall */}
       <DailyPaywallHost />
+      {/* ★11/24 웜 블프 카드(iOS 코드·체험 PRO 중 자동 갱신 꺼진 사람 · 블프 기간 · 이틀에 한 번 · 다른 시트와 같은 날 겹치지 않게 · 끄기 레디스 warm-bf:off) — lib/app/warmBf */}
+      <WarmBfHost />
       <NetworkStatus />
       <AppFirstRunOnboarding />
     </div>

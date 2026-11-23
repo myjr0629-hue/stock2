@@ -44,8 +44,8 @@ async function eligibleNow(): Promise<boolean> {
   } catch { return false; }
 }
 
-/** 스토어 연간·월간 상품 값(정가) — 못 받으면 null */
-async function storePrices(locale: string): Promise<{ annual: BfStorePrice; monthly: BfStorePrice }> {
+/** 스토어 연간·월간 상품 값(정가) — 못 받으면 null · ★11/24 웜 블프 카드(WarmBfGate)도 같은 값을 쓴다 */
+export async function storePrices(locale: string): Promise<{ annual: BfStorePrice; monthly: BfStorePrice }> {
   if (!isNative()) {
     // 프리뷰 확인 모드 — 화면 언어의 나라 값(KOR·JPN·USA 정가)으로 그려 본다
     const cur = locale === 'ko' ? 'KRW' : locale === 'ja' ? 'JPY' : 'USD';

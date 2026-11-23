@@ -77,7 +77,8 @@ const funnel = () => import('@/lib/app/funnel');
 const RETURN_WINDOW_MS = 30 * 60_000;   // 코드 입력을 연 뒤 30분 안의 «앱 복귀»만 본다
 // wasNonPro = 코드 화면을 열기 «전» SDK 가 성공적으로 읽어 PRO 아님이었는가. 이미 PRO 였던 사람(열었다 닫음·화면 연 사이 자동 갱신)을
 //   평점 «체험 시작» 순간으로 세지 않는다(관문 11111208 ①·11111224). 복원된 옛 구독은 아래 proPurchasedSince 가 거른다.
-let pending: { path: 'sheet' | 'url'; at: number; src?: FunnelSrc; wasNonPro: boolean } | null = null;
+// warm = ★11/24 웜 블프 카드(lib/app/warmBf) — 원래 PRO(코드·체험)인 사람이라 «PRO 확인»이 아니라 «자동 갱신 켜짐»일 때만 code_pro 를 센다
+let pending: { path: 'sheet' | 'url'; at: number; src?: FunnelSrc; wasNonPro: boolean; warm?: boolean } | null = null;
 
 /** 코드 화면을 열기 직전 — SDK 가 «성공적으로» 읽어 PRO 아님일 때만 true(못 읽으면 false). 열기를 오래 막지 않게 1.5초 상한. */
 export async function confirmedNonProNow(sdkPro?: () => Promise<boolean | null>, capMs = 1500): Promise<boolean> {
@@ -208,14 +209,33 @@ function onAppActive() {
       notifyProPurchased(true);
       // 코드로 체험 시작 = 평점 «좋은 순간»(11/11 · lib/app/ratingMoments) — 코드 화면을 연 뒤 새로 생긴 권한일 때만
       if (p.wasNonPro) void codeStartedProSince(p.at).then((fresh) => { if (fresh) announceProActivated(); }).catch(() => {});
+      if (p.warm) { void warmRenewConfirmed().then((ok) => { if (ok) void funnel().then((m) => m.trackFunnel('code_pro', { src: p.src })).catch(() => {}); }).catch(() => {}); return; }
       void funnel().then((m) => m.trackFunnel('code_pro', { src: p.src })).catch(() => {});
     })
     .catch(() => {})
     .finally(() => { refreshing = false; });
 }
 
-function armReturn(path: 'sheet' | 'url', src?: FunnelSrc, wasNonPro = false) {
-  pending = { path, at: Date.now(), src, wasNonPro };
+/** ★11/24 웜 카드에서 돌아온 뒤 — 캐시를 비운 새 읽기로 «자동 갱신 켜짐»을 0·3·8초에 확인(애플 → RC 반영 지연). 못 읽으면 false */
+async function warmRenewConfirmed(): Promise<boolean> {
+  try {
+    if (!(await initRevenueCat())) return false;
+    const { Purchases } = await import('@revenuecat/purchases-capacitor');
+    const { warmConverted, WARM_BF_CONFIRM_WAITS } = await import('@/lib/app/warmBf');
+    for (const ms of WARM_BF_CONFIRM_WAITS) {
+      if (ms) await sleep(ms);
+      try { await Purchases.invalidateCustomerInfoCache(); } catch { /* 없어도 읽는다 */ }
+      try {
+        const { customerInfo } = await Purchases.getCustomerInfo();
+        if (warmConverted(customerInfo as unknown as Parameters<typeof warmConverted>[0])) return true;
+      } catch { /* 다음 회차 */ }
+    }
+  } catch { /* 모름 = 안 셈 */ }
+  return false;
+}
+
+function armReturn(path: 'sheet' | 'url', src?: FunnelSrc, wasNonPro = false, warm = false) {
+  pending = { path, at: Date.now(), src, wasNonPro, warm };
   if (listening || typeof window === 'undefined') return;
   listening = true;
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') onAppActive(); });
@@ -299,6 +319,24 @@ export async function openBlackFridayRedeem(plan: 'annual' | 'monthly', src?: Fu
   let wasNonPro = false;
   try { if (await initRevenueCat()) wasNonPro = await confirmedNonProNow(); } catch { /* 확인 못 해도 연다 */ }
   armReturn('url', src, wasNonPro);
+  void openExternalUrl(url);
+  return true;
+}
+
+/**
+ * ★11/24 웜 블프 카드(lib/app/warmBf — 코드·체험 PRO 중 자동 갱신 꺼진 사람) — 블프 코드를 채운 애플 적용 주소를 연다(아이폰만, 프리뷰는 새 탭).
+ *   openBlackFridayRedeem 과 같은 주소·같은 복귀 재조회. 다른 점은 성공 계측뿐: 돌아온 뒤 «자동 갱신 켜짐»일 때만 code_pro(src).
+ */
+export async function openWarmBfRedeem(plan: 'annual' | 'monthly', src?: FunnelSrc): Promise<boolean> {
+  const { bfRedeemUrl } = await import('@/lib/app/blackFriday');
+  const url = bfRedeemUrl(plan);
+  if (!url) return false;
+  void funnel().then((m) => m.trackFunnel('code_open', { src })).catch(() => {});
+  if (platformOf() !== 'ios') {
+    if (isPreviewHost()) { window.open(url, '_blank', 'noopener'); return true; }
+    return false;
+  }
+  armReturn('url', src, false, true);
   void openExternalUrl(url);
   return true;
 }

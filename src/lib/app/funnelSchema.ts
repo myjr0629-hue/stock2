@@ -94,6 +94,10 @@ export const FUNNEL_SRCS = [
   'bf_sheet', 'bf_line', 'bf_sy', 'bf_sm',
   // ★11/23 무료 네이티브 사용자 «하루 한 번» 앱 열 때 체험 페이월(lib/app/dailyPaywall — 첫 실행 직후 세션 제외 · 스토어 재조회 무료 확인 · 다른 시트와 같은 날 겹치지 않게): open·cta·buy_*
   'daily_open',
+  // ★11/24 웜 블프 카드(lib/app/warmBf — iOS 코드·체험 PRO 중 자동 갱신 꺼진 사람 · 블프 기간): warm_bf = 자동 카드(open) · warm_bf_plans = 체험 종료 안내 «PRO 요금제 보기»가 연 카드(open)
+  //   단추: 연간 = 그 출처 그대로 · 월간 = warm_bf_m / warm_bf_pm (code_open = 애플 적용 창 열기 · code_pro = 돌아와 «자동 갱신 켜짐» 확인 = 전환)
+  //   warm_bf_reg = 카드의 «다른 요금제 보기»가 연 정가 페이월(open·cta·buy_*)
+  'warm_bf', 'warm_bf_plans', 'warm_bf_m', 'warm_bf_pm', 'warm_bf_reg',
 ] as const;
 export type FunnelSrc = (typeof FUNNEL_SRCS)[number];
 
