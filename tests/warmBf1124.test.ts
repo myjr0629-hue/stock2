@@ -154,8 +154,9 @@ test('⑨ 배선 — 레이아웃 1개 · 요금제 탭 → 웜 카드(블프·A
   assert.match(notice, /onFallback=\{\(\) => \{ const w = warm; setWarm\(null\); setPaywall\(w\); \}\}/, '대상 아님·스위치 꺼짐 = 예전 정가 페이월');
   assert.match(notice, /if \(notice && !preview && warmShownTodaySafe\(\)\) notice = null;/, '웜 카드 본 날은 체험 중 안내 쉼');
   const redeem = read('src/lib/app/redeem.ts');
-  assert.match(redeem, /armReturn\('url', src, false, wasOff\)/, '열기 직전 갱신 꺼짐 확인된 경우만 전환 계측(관문 11240021 ③)');
+  assert.match(redeem, /armReturn\('url', src, false, true, wasOff\)/, '열기 직전 갱신 꺼짐 확인된 경우만 전환 계측(관문 11240021 ③)');
   assert.match(redeem, /if \(p\.warm\) \{ void warmRenewConfirmed\(\)/);
+  assert.match(redeem, /if \(p\.warm && !p\.warmCount\) return;/, '꺼짐 확인 못 했으면 웜 경로는 code_pro 를 세지 않는다(관문 11240028 ①)');
   const gate = read('src/components/app/WarmBfGate.tsx');
   assert.match(gate, /markGateDay\(localDay\(\)\)/, '보이면 오늘 다른 페이월·안내 쉼');
   assert.match(gate, /dailyPaywallShownOn\(store, now\)/);
@@ -182,6 +183,7 @@ test('⑩ 관문 11240021 — 선물 안내는 웜 본 날 busy · 캐시 못 �
   assert.notEqual(g.giftAnnounceBlock(input), 'busy', '이틀 전이면 막지 않는다');
   const gate = read('src/components/app/WarmBfGate.tsx');
   assert.match(gate, /if \(cleared !== true\) return null;/);
+  assert.match(gate, /plans0\.secondary && prices\[plans0\.secondary\]\.regular/, '둘째 단추는 정가 있을 때만(관문 11240028 ②)');
   assert.match(gate, /WARM_BF_OFFER_WAIT_MS\)/);
   assert.equal(w.WARM_BF_OFFER_WAIT_MS <= 4000, true);
 });

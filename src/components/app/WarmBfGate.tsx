@@ -90,10 +90,12 @@ export async function loadWarm(locale: string): Promise<WarmView | null> {
     target = t; annualMode = sw.annual;
   }
   const sp = await storePrices(locale);
-  const plans = warmPlans(target.product, annualMode);
+  const plans0 = warmPlans(target.product, annualMode);
   const prices = { annual: bfPriceView('annual', sp.annual, locale), monthly: bfPriceView('monthly', sp.monthly, locale) };
   // 주 단추의 정가를 스토어에서 못 받았으면 안 보인다(가격을 지어내지 않는다 · 3.1.2 고지에 정가가 들어간다)
-  if (!prices[plans.primary].regular) return null;
+  if (!prices[plans0.primary].regular) return null;
+  // 둘째 단추도 그 정가가 있을 때만(관문 11240028 ② — 할인 뒤 갱신 가격이 화면에 있어야 한다)
+  const plans = { primary: plans0.primary, secondary: plans0.secondary && prices[plans0.secondary].regular ? plans0.secondary : null };
   const amt = bfOfferAmount('annual', sp.annual);
   const perMonth = plans.primary === 'annual' && amt ? warmAnnualPerMonth(amt.offer, amt.currency, locale) : null;
   return { locale, target, plans, prices, perMonth, watchCount: readWatchCount(), preview };

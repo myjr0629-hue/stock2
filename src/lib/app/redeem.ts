@@ -78,7 +78,8 @@ const RETURN_WINDOW_MS = 30 * 60_000;   // 코드 입력을 연 뒤 30분 안의
 // wasNonPro = 코드 화면을 열기 «전» SDK 가 성공적으로 읽어 PRO 아님이었는가. 이미 PRO 였던 사람(열었다 닫음·화면 연 사이 자동 갱신)을
 //   평점 «체험 시작» 순간으로 세지 않는다(관문 11111208 ①·11111224). 복원된 옛 구독은 아래 proPurchasedSince 가 거른다.
 // warm = ★11/24 웜 블프 카드(lib/app/warmBf) — 원래 PRO(코드·체험)인 사람이라 «PRO 확인»이 아니라 «자동 갱신 켜짐»일 때만 code_pro 를 센다
-let pending: { path: 'sheet' | 'url'; at: number; src?: FunnelSrc; wasNonPro: boolean; warm?: boolean } | null = null;
+//   warmCount = 열기 직전 «자동 갱신 꺼짐»이 확인됐나 — 아니면 웜 경로는 code_pro 를 아예 세지 않는다(관문 11240028 ①)
+let pending: { path: 'sheet' | 'url'; at: number; src?: FunnelSrc; wasNonPro: boolean; warm?: boolean; warmCount?: boolean } | null = null;
 
 /** 코드 화면을 열기 직전 — SDK 가 «성공적으로» 읽어 PRO 아님일 때만 true(못 읽으면 false). 열기를 오래 막지 않게 1.5초 상한. */
 export async function confirmedNonProNow(sdkPro?: () => Promise<boolean | null>, capMs = 1500): Promise<boolean> {
@@ -209,6 +210,7 @@ function onAppActive() {
       notifyProPurchased(true);
       // 코드로 체험 시작 = 평점 «좋은 순간»(11/11 · lib/app/ratingMoments) — 코드 화면을 연 뒤 새로 생긴 권한일 때만
       if (p.wasNonPro) void codeStartedProSince(p.at).then((fresh) => { if (fresh) announceProActivated(); }).catch(() => {});
+      if (p.warm && !p.warmCount) return;
       if (p.warm) { void warmRenewConfirmed().then((ok) => { if (ok) void funnel().then((m) => m.trackFunnel('code_pro', { src: p.src })).catch(() => {}); }).catch(() => {}); return; }
       void funnel().then((m) => m.trackFunnel('code_pro', { src: p.src })).catch(() => {});
     })
@@ -234,8 +236,8 @@ async function warmRenewConfirmed(): Promise<boolean> {
   return false;
 }
 
-function armReturn(path: 'sheet' | 'url', src?: FunnelSrc, wasNonPro = false, warm = false) {
-  pending = { path, at: Date.now(), src, wasNonPro, warm };
+function armReturn(path: 'sheet' | 'url', src?: FunnelSrc, wasNonPro = false, warm = false, warmCount = false) {
+  pending = { path, at: Date.now(), src, wasNonPro, warm, warmCount };
   if (listening || typeof window === 'undefined') return;
   listening = true;
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') onAppActive(); });
@@ -339,7 +341,7 @@ export async function openWarmBfRedeem(plan: 'annual' | 'monthly', src?: FunnelS
   // 열기 직전 «자동 갱신 꺼짐»이 새 읽기로 확인된 경우만 전환을 센다 — 이미 켠 사람이 열었다 닫은 것을 전환으로 세지 않게(관문 11240021 ③)
   let wasOff = false;
   try { wasOff = await warmRenewOffNow(); } catch { wasOff = false; }
-  armReturn('url', src, false, wasOff);
+  armReturn('url', src, false, true, wasOff);
   void openExternalUrl(url);
   return true;
 }
