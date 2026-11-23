@@ -130,7 +130,8 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
           : snapshot && trialExpiredNotice(snapshot.customerInfo, snapshot.platform, Date.now(), readExpired(), undefined, marks);
         // ★11/23 오늘 «하루 첫 실행 페이월»(daily_open)을 이미 봤으면 만료 1회 페이월은 내일(같은 날 페이월 두 번 금지 · 관문 11231807)
         if (lapsed && !preview && dailyShownTodaySafe()) lapsed = null;
-        if (notice && !preview && warmShownTodaySafe()) notice = null;
+        // ★11/24 오늘 웜 블프 카드를 봤으면 체험 중 안내·만료 1회 페이월 모두 내일(관문 11240021·11240032 ①)
+        if (!preview && warmShownTodaySafe()) { notice = null; lapsed = null; }
         if (!notice && !lapsed) return;
         // ★11/12 첫 달 할인 대상(과거 결제 0) — 첫 읽기·새 읽기 둘 다 참일 때만. 미리보기는 ?expiredOffer=1
         let offerEligible = preview ? new URLSearchParams(location.search).get('expiredOffer') === '1' : false;
@@ -161,6 +162,8 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
           }
           if (!notice && !lapsed) return;
         }
+        // 새 읽기를 기다리는 사이 웜 카드가 떴다 닫혔으면(오늘 표식) 오늘은 쉰다(관문 11240032 ②)
+        if (!preview && warmShownTodaySafe()) return;
         if (!notice && lapsed) {
           expiredOpen.current = true;
           setExpired({ ...lapsed, preview, offerEligible });
