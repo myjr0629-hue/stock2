@@ -175,3 +175,14 @@ test('⑨ 체험 만료 1회 페이월과 같은 날 겹치지 않기(관문 112
   const { TRIAL_EXPIRED_STORAGE_KEY } = require('../src/lib/app/trialExpired');
   assert.deepEqual([...ta.TRIAL_OFF_KEYS], [TRIAL_OFF_STORAGE_KEY, TRIAL_OFF_EARLY_KEY, TRIAL_EXPIRED_STORAGE_KEY]);
 });
+
+test('⑩ 선물 안내 — 오늘 daily_open 을 봤으면 busy(관문 11231810) · 블프·체험 안내는 게이트 하루 표식으로 쉰다', () => {
+  const g = require('../src/lib/gift/giftAnnounce');
+  const store = mem({ [g.GIFT_ANNOUNCE_KEY]: JSON.stringify({ n: 0, last: 0 }), [dp.DAILY_PAYWALL_KEY]: TODAY });
+  const input = { live: true, store, now: NOW, onboardedAtMount: true, moment: true, path: '/ko/app-view/dash', reviewAt: 0, dialogOpen: false };
+  assert.equal(g.giftAnnounceBlock(input), 'busy');
+  store.m.set(dp.DAILY_PAYWALL_KEY, dp.dailyDay(YDAY));
+  assert.notEqual(g.giftAnnounceBlock(input), 'busy', '어제 봤으면 막지 않는다');
+  const ta = require('../src/lib/app/trialAnnounce');
+  assert.equal(ta.otherSheetToday(mem({ [ta.GATE_DAY_KEY]: TODAY }), NOW), true, 'daily 가 남기는 게이트 하루 표식 = 블프·체험 안내 «오늘 다른 안내 봄»');
+});
