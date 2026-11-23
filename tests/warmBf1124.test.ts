@@ -197,3 +197,9 @@ test('⑪ 관문 11240037 — otherSheetToday 가 웜 표식(오늘)을 읽는�
   assert.equal(ta.otherSheetToday(mem({ [w.WARM_BF_KEY]: w.warmDay(NOW - DAY) }), NOW), false);
   assert.match(read('src/components/app/WarmBfGate.tsx'), /markWarmShown\(localStore\(\)\)\) \{ onFallback\(\); return; \} markGateDay\(localDay\(\)\);/);
 });
+
+test('⑫ 관문 11240040 — 열린 카드도 블프 기간이 끝나면 닫고, 단추는 기간 밖이면 코드를 열지 않는다', () => {
+  const sheet = read('src/components/app/WarmBfSheet.tsx');
+  assert.match(sheet, /if \(!bfLive\(Date\.now\(\)\)\) \{ onClose\(\); return; \}/);
+  assert.match(sheet, /BF_VALID_UNTIL - Date\.now\(\)/);
+});

@@ -14,7 +14,7 @@ import p from './ProPaywall.module.css';
 import s from './BlackFridaySheet.module.css';
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { useBackToClose, useLayer } from '@/components/app/watchlist/BottomSheet';
-import { BF_COPY, type BfPlan, type BfPriceView } from '@/lib/app/blackFriday';
+import { BF_COPY, BF_VALID_UNTIL, bfLive, type BfPlan, type BfPriceView } from '@/lib/app/blackFriday';
 import { WARM_COPY, toWarmLang } from '@/lib/app/warmBf';
 import { trialEndDateText, trialSaveCopy, trialWatchlistLine } from '@/lib/app/trialSave';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
@@ -49,6 +49,15 @@ export function WarmBfSheet({ locale, expiresAt, plans, prices, perMonth, watchC
     const id = window.setTimeout(() => closeBtnRef.current?.focus({ preventScroll: true }), 40);
     return () => window.clearTimeout(id);
   }, []);
+  // 블프 기간이 끝나는 순간 열린 카드도 닫는다 — 만료된 코드를 안내하지 않게(관문 11240040). 앱이 뒤에 있다 돌아와도 다시 본다
+  useEffect(() => {
+    const check = () => { if (!bfLive(Date.now())) onClose(); };
+    check();
+    const left = BF_VALID_UNTIL - Date.now();
+    const t = left > 0 && left < 2 ** 31 - 1 ? window.setTimeout(check, left + 50) : 0;
+    document.addEventListener('visibilitychange', check);
+    return () => { if (t) window.clearTimeout(t); document.removeEventListener('visibilitychange', check); };
+  }, [onClose]);
 
   const trapTab = useCallback((e: ReactKeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'Tab' || !isTop()) return;
@@ -61,6 +70,7 @@ export function WarmBfSheet({ locale, expiresAt, plans, prices, perMonth, watchC
   }, [isTop]);
 
   const go = (plan: BfPlan) => {
+    if (!bfLive(Date.now())) { onClose(); return; }
     const src = plan === 'annual' ? srcs.annual : srcs.monthly;
     // 미리보기(프리뷰 호스트)는 openWarmBfRedeem 이 새 탭으로 주소만 연다 — 결제·계측 없음(프리뷰 퍼널은 fxp)
     if (!preview) void import('@/lib/app/redeem').then((m) => m.openWarmBfRedeem(plan, src)).catch(() => {});
