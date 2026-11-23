@@ -154,7 +154,9 @@ test('④ 반대 방향 배선 — 오늘 이 안내가 떴으면 선물 안내 
   st.setItem(ta.TRIAL_ANNOUNCE_KEY, String(YDAY));
   assert.equal(ga.giftAnnounceBlock(input(st)), null, '어제 안내 = 오늘은 선물 가능');
   const v = require('node:fs').readFileSync(require.resolve('../src/components/app/ValueWall.tsx'), 'utf8') as string;
-  assert.match(v, /announcedToday = trialAnnouncedToday\(window\.localStorage\);[^\n]*\n    if \(\(await runUnlock\(announcedToday\)\) !== 'paywall'\) endFlow\(\);/);
+  // ★11/23 announcedTodaySafe() = trialAnnouncedToday || 오늘 daily_open 봄(관문 11231803 ② — tests/dailyPaywall1123 ⑧)
+  assert.match(v, /announcedToday = (?:trialAnnouncedToday\(window\.localStorage\)|announcedTodaySafe\(\));[^\n]*\n    if \(\(await runUnlock\(announcedToday\)\) !== 'paywall'\) endFlow\(\);/);
+  assert.match(v, /const announcedTodaySafe = \(\) => \{ try \{ return trialAnnouncedToday\(window\.localStorage\)/);
   assert.match(v, /const stillFree = \(\) => !gateProNow\(\) && !proPurchaseState\.getSnapshot\(\) && !announcedTodaySafe\(\);/, '재조회 뒤 gate_first·ad_nofill 도 오늘 안내를 본다');
   const pw = require('node:fs').readFileSync(require.resolve('../src/components/app/ProPaywall.tsx'), 'utf8') as string;
   assert.match(pw, /m\.trackFunnel\('open', \{ src: funnelSrc \}\); \}\)\.catch\(\(\) => \{\}\);\n.*\n    try \{ notePaywallOpened\(window\.localStorage\); \}/, '페이월 열림 표식');

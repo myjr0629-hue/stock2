@@ -45,6 +45,11 @@ export function dailyShownToday(store: MiniStore | null, now = Date.now()): bool
   try { return !store || store.getItem(DAILY_PAYWALL_KEY) === dailyDay(now); } catch { return true; }
 }
 
+/** 오늘 봤나 — 다른 화면(게이트 ValueWall)이 «이미 페이월 본 날»로 읽는다. 저장소가 없거나 던지면 false(그쪽은 예전 그대로) */
+export function dailyPaywallShownOn(store: MiniStore | null, now = Date.now()): boolean {
+  try { return !!store && store.getItem(DAILY_PAYWALL_KEY) === dailyDay(now); } catch { return false; }
+}
+
 /** 보였다고 적는다(현지 날짜) — 다시 읽어 확인. 실패면 false(호출자는 보이지 않는다) */
 export function markDailyShown(store: MiniStore | null, now = Date.now()): boolean {
   try {

@@ -11,9 +11,11 @@ import type { FunnelSrc } from '@/lib/app/funnelSchema';
 import { proPurchaseState } from '@/lib/app/proPurchaseState';
 import { markGateDay, readGateDay, storeProSignal, checkStorePro, gatePaywallSlot, decideFirstGatePaywall, decideNoFillPaywall } from '@/lib/app/gatePaywall';
 import { beginGateFlow, endGateFlow, gateFlowActive, trialAnnouncedToday } from '@/lib/app/trialAnnounce';
+import { dailyPaywallShownOn } from '@/lib/app/dailyPaywall';
 import { trackFunnel } from '@/lib/app/funnelBeacon';
 import { grantScopeUnlock, scopeUnlockedAt, unlockScopeName, noteRewardForFollow, migrateLegacyUnlock } from '@/lib/app/adUnlockScope';
-const announcedTodaySafe = () => { try { return trialAnnouncedToday(window.localStorage); } catch { return false; } };
+// ★11/23 오늘 «하루 첫 실행 페이월»(daily_open)을 봤어도 같다 — 같은 날 게이트에서 페이월을 다시 들이밀지 않는다(관문 11231803 ②)
+const announcedTodaySafe = () => { try { return trialAnnouncedToday(window.localStorage) || dailyPaywallShownOn(window.localStorage); } catch { return false; } };
 
 const UNLOCK_KEY = 'signum_ad_unlock';
 const UNLOCK_MS = 60 * 60 * 1000;
@@ -399,7 +401,7 @@ export function useAdUnlockGate(locale?: string, onUnlock?: () => void, unlockSc
     }
     // ★11/16 밤 오늘 «새로 생긴 7일 무료 체험» 안내(trial_announce)를 봤으면 «이미 페이월 본 탭»과 같게 — 광고 없음(②)에도 페이월을 다시 들이밀지 않는다
     let announcedToday = false;
-    try { announcedToday = trialAnnouncedToday(window.localStorage); } catch { /* 저장소 막힘 = 예전 그대로 */ }
+    try { announcedToday = announcedTodaySafe(); } catch { /* 저장소 막힘 = 예전 그대로 */ }
     if ((await runUnlock(announcedToday)) !== 'paywall') endFlow();
   }, [runUnlock, proCheck]);
 

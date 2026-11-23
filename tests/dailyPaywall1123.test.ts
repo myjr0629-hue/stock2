@@ -122,3 +122,43 @@ test('⑥ 퍼널·레이아웃·판정기 배선', () => {
   assert.match(route, /on: false, reason: 'slow'/);
   assert.match(route, /on: false, reason: 'error'/);
 });
+
+test('⑦ 끄기 스위치 라우트 — 못 읽음(프록시 오류·느림)은 꺼짐 · 키 없음만 켜짐(관문 11231803 ①)', async () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const Module = require('node:module');
+  const id = require.resolve('../src/services/redisClient');
+  let answer: () => Promise<{ ok: boolean; value: unknown }> = async () => ({ ok: true, value: null });
+  require.cache[id] = { id, filename: id, loaded: true, exports: { getAuthoritativeCache: () => answer() } } as unknown as typeof Module;
+  const route = require('../src/app/api/app/daily-paywall/route') as typeof import('../src/app/api/app/daily-paywall/route');
+  const call = async () => { const r = await route.GET(); return { j: await r.json(), cc: r.headers.get('cache-control') }; };
+  delete process.env.DAILY_PAYWALL_OFF;
+  assert.deepEqual((await call()).j, { on: true });
+  answer = async () => ({ ok: false, value: null });
+  let r = await call();
+  assert.deepEqual(r.j, { on: false, reason: 'error' });
+  assert.equal(r.cc, 'no-store');
+  answer = async () => { throw new Error('boom'); };
+  assert.equal((await call()).j.on, false);
+  answer = () => new Promise((res) => setTimeout(() => res({ ok: true, value: null }), 2_000));
+  r = await call();
+  assert.deepEqual(r.j, { on: false, reason: 'slow' });
+  answer = async () => ({ ok: true, value: '1' });
+  assert.deepEqual((await call()).j, { on: false, reason: 'switch' });
+  answer = async () => ({ ok: true, value: 'ios' });
+  assert.deepEqual((await call()).j, { on: true, off: 'ios' });
+  process.env.DAILY_PAYWALL_OFF = '1';
+  answer = async () => ({ ok: true, value: null });
+  assert.deepEqual((await call()).j, { on: false, reason: 'env' });
+  delete process.env.DAILY_PAYWALL_OFF;
+});
+
+test('⑧ 같은 날 게이트 페이월 쉬기 — ValueWall 이 daily 를 «이미 페이월 본 날»로 읽는다(관문 11231803 ②)', () => {
+  const s = mem({ [dp.DAILY_PAYWALL_KEY]: TODAY });
+  assert.equal(dp.dailyPaywallShownOn(s, NOW), true);
+  assert.equal(dp.dailyPaywallShownOn(s, NOW + 24 * 3600_000), false);
+  assert.equal(dp.dailyPaywallShownOn(null, NOW), false, '저장소 없음 = 게이트는 예전 그대로');
+  const vw = fs.readFileSync(path.join(__dirname, '..', 'src/components/app/ValueWall.tsx'), 'utf8');
+  assert.match(vw, /trialAnnouncedToday\(window\.localStorage\) \|\| dailyPaywallShownOn\(window\.localStorage\)/);
+  assert.match(vw, /announcedToday = announcedTodaySafe\(\)/);
+  assert.match(vw, /const stillFree = \(\) => .*!announcedTodaySafe\(\)/);
+});
