@@ -44,6 +44,7 @@ const NON_FUNNEL_SRCS = new Set([...TRIAL_PUSH_SRCS, ...FR_SRCS, ...RV_SRCS, 'rw
 const TABLE_STAGES = STAGES.filter((st) => !NON_FUNNEL_STAGES.has(st));
 const TABLE_SRCS = SRCS.filter((s) => !NON_FUNNEL_SRCS.has(s));
 const PLATS = ['ios', 'android', 'web'];
+const WEB_PROBE_LAST_ET = '2026-11-20';   // ★11/24 이 날까지 web onb_* 는 자체 점검기 UA(signum-integrity-probe) — funnel-hit 봇 필터 e6c45fa42 가 그 뒤를 막았다
 const REF_APPS = ['sg', 'uc', 'wim'];
 const SRC_KO = {
   settings: '설정', value_wall: '가치 벽', ad_modal: '광고 창', dash_gate: '대시보드 게이트', wl_limit: '내 종목 한도',
@@ -172,7 +173,7 @@ async function main() {
 
   // ④ 첫 실행 «가치 먼저» (2026-10-12 · 코드 src/lib/app/firstRunValue.ts) — 하루 합계만, 식별자·종목 없음
   //   퍼널: 법적 고지 노출 → 마침 → 가치 노출 → (고른 수) → 담고 계속/건너뛰기 → 알림 노출 → 알림 받기/나중에 → 권한 허용/거절
-  //   ⚠ 안드로이드 «앱»은 보내지 않는다(위 FUNNEL_SEND_ANDROID). web = 브라우저(내 확인 접속 포함) — 앱 숫자는 iOS 로 본다.
+  //   안드로이드 앱도 보낸다(2026-10-14~, FUNNEL_SEND_ANDROID). web = 브라우저(자체 점검기·내 확인 접속 포함) — 앱 숫자는 ios·android 로 본다.
   const onbKeys = [];
   for (const d of dates) for (const p of PLATS) {
     for (const [st, srcs] of [
@@ -193,12 +194,16 @@ async function main() {
   const onbVals = await mget(onbKeys.map((k) => k[0]), KEY, miss);
   const onb = {}; // plat → "stage:src" → n
   onbKeys.forEach(([, p, st, s], i) => { const n = Number(onbVals[i]) || 0; if (n) { const r = (onb[p] ||= {}); r[`${st}:${s}`] = (r[`${st}:${s}`] || 0) + n; } });
+  // ★11/24 web 법적 고지 오독 방지 — ET 11/20 까지 web 노출은 자체 점검기(screenprobe, 11/20 21:59 KST 서버 봇 필터로 차단)였다.
+  //   «web 786 → 마침 1» 을 «사람이 벽에 막힌다»로 두 번(11/20·11/24) 읽었다. 그 날짜분을 따로 세어 [web] 머리에 적는다.
+  const webProbeEra = onbKeys.reduce((a, [k, p, st, s], i) => a + (p === 'web' && st === 'onb_show' && s === 'onb_legal' && k.slice(-10) <= WEB_PROBE_LAST_ET ? (Number(onbVals[i]) || 0) : 0), 0);
   console.log(`\n── ④ 첫 실행 «가치 먼저» (최근 ${DAYS}일 · 플랫폼별) ──`);
   const onbPlats = PLATS.filter((p) => onb[p]);
   if (!onbPlats.length) console.log('(기록 없음 — 새로 설치한 기기부터 쌓인다. 기존 사용자는 첫 안내를 이미 마쳐 뜨지 않는다)');
   for (const p of onbPlats) {
     const g = (st, src) => onb[p][`${st}:${src}`] || 0;
     console.log(`[${p}]`);
+    if (p === 'web') console.log(`  ⚠ web 은 앱 사용자가 아니다 — 노출 중 ${webProbeEra}건은 ET ${WEB_PROBE_LAST_ET} 까지의 자체 점검기(screenprobe), 그 뒤는 우리 검증 접속(ego 브라우저) 포함. 사람 웹 방문은 mkt-funnel-human.js 의 PV 로 본다.`);
     console.log('  법적 고지   노출 ' + lpad(g('onb_show', 'onb_legal'), 4) + ' → 마침 ' + lpad(g('onb_done', 'onb_legal'), 4) + '  (' + pct(g('onb_done', 'onb_legal'), g('onb_show', 'onb_legal')) + ')' + (g('onb_nudge', 'onb_legal') ? ' · 동의 전 회색 [계속] 누름 ' + g('onb_nudge', 'onb_legal') + '(→ 체크 줄로 굴림 · 고정 줄이 떠 있으면 그 줄 깜빡임)' : '') + (g('onb_pin', 'onb_legal') ? ' · 고정 체크 줄 보임 ' + g('onb_pin', 'onb_legal') + '(체크 줄이 화면 밖이던 기기)' : ''));
     {
       // ★11/20 법적 고지 진단(lib/app/legalDiag) — 배포 뒤 날짜부터 쌓인다. 언어별 노출→마침 · 재실행 노출 · 만짐 · 체크 · 떠남
