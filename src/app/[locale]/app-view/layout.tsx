@@ -16,6 +16,7 @@ import { InviteHost } from '@/components/app/InviteHost';
 import { TrialAnnounceHost } from '@/components/app/TrialAnnounceHost';
 import { TrialPushOptInHost } from '@/components/app/TrialPushOptInHost';
 import { BlackFridayHost } from '@/components/app/BlackFridayHost';
+import { DailyPaywallHost } from '@/components/app/DailyPaywallHost';
 import { WATCHLIST_ALERTS_BUILD_FLAG } from '@/lib/app/watchlistFlags';
 import { usePathname } from '@/i18n/routing';
 import { reportPushPath, REPORT_OPEN_EVENT } from '@/lib/app/reportLink';
@@ -349,6 +350,8 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
       <TrialPushOptInHost />
       {/* ★11/22 블랙프라이데이 할인 코드 안내(iOS 앱 · 돈 내는 PRO 아님 · 기기당 자동 1회 + 페이월·설정 블프 줄) — lib/app/blackFriday */}
       <BlackFridayHost />
+      {/* ★11/23 무료 네이티브 사용자 «하루 한 번» 앱 열 때 체험 페이월(첫 실행 직후 세션 제외 · 닫기 즉시 · 다른 시트와 같은 날 겹치지 않게 · 끄기 레디스 daily-paywall:off) — lib/app/dailyPaywall */}
+      <DailyPaywallHost />
       <NetworkStatus />
       <AppFirstRunOnboarding />
     </div>

@@ -123,6 +123,11 @@ async function codeStartedProSince(since: number): Promise<boolean> {
 let listening = false;
 let refreshing = false;
 
+/** ★11/23 코드 입력 창을 열고 돌아올 때까지(30분 상한)·돌아와 PRO 재조회 중인가 — 하루 첫 페이월(daily_open)이 이 사이엔 뜨지 않게 읽는다(동작 변화 없음) */
+export function redeemReturnActive(now = Date.now()): boolean {
+  return refreshing || (!!pending && now - pending.at <= RETURN_WINDOW_MS);
+}
+
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 /**

@@ -92,6 +92,8 @@ export const FUNNEL_SRCS = [
   // ★11/22 블랙프라이데이 앱 안 안내(lib/app/blackFriday): bf_sheet = 자동 1회 시트가 보였다(open) · bf_line = 페이월·설정 블프 줄이 연 시트(open)
   //   bf_sy·bf_sm = 시트의 연간·월간 단추(code_open → 돌아와 PRO 면 code_pro)
   'bf_sheet', 'bf_line', 'bf_sy', 'bf_sm',
+  // ★11/23 무료 네이티브 사용자 «하루 한 번» 앱 열 때 체험 페이월(lib/app/dailyPaywall — 첫 실행 직후 세션 제외 · 스토어 재조회 무료 확인 · 다른 시트와 같은 날 겹치지 않게): open·cta·buy_*
+  'daily_open',
 ] as const;
 export type FunnelSrc = (typeof FUNNEL_SRCS)[number];
 
