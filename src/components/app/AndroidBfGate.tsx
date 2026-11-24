@@ -141,12 +141,13 @@ export async function androidLinePlan(): Promise<'annual' | 'monthly' | null> {
   return b.length ? b[0].plan : null;
 }
 
-/** 결제 직전 재확인 — 캐시 비운 새 고객 정보로 같은 모양(시트/웜)이고 그 상품이 여전히 허락되는가. 못 읽음 = false(사지 않음) · 프리뷰 = true */
-async function stillEligible(view: AndroidBfView, plan: 'annual' | 'monthly'): Promise<boolean> {
-  if (view.preview) return true;
+/** 결제 직전 재확인 — 캐시 비운 새 고객 정보로 같은 모양(시트/웜)이고 그 상품이 여전히 허락되는가. 못 읽음 = 'unknown'(사지 않음·다시 시도) · 프리뷰 = 'ok' */
+async function stillEligible(view: AndroidBfView, plan: 'annual' | 'monthly'): Promise<'ok' | 'no' | 'unknown'> {
+  if (view.preview) return 'ok';
   const info = await infoNow(true);
-  const aud = info ? androidBfAudience(info as Parameters<typeof androidBfAudience>[0], 'android', Date.now()) : null;
-  return !!aud && aud.kind === view.kind && aud.plans.includes(plan);
+  if (!info) return 'unknown';
+  const aud = androidBfAudience(info as Parameters<typeof androidBfAudience>[0], 'android', Date.now());
+  return !!aud && aud.kind === view.kind && aud.plans.includes(plan) ? 'ok' : 'no';
 }
 
 // 개발 미리보기 전용 정가 더미(정가 페이월 화면 확인) — 실제 앱은 스토어 값만

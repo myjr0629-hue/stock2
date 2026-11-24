@@ -43,8 +43,8 @@ export function AndroidBfSheet({ view, onClose, onFallback, confirm }: {
   view: AndroidBfView;
   onClose: () => void;
   onFallback: (() => Promise<boolean>) | null;
-  /** 결제 직전 «지금도 이 단추를 살 수 있는 사람인가»(캐시 비운 새 고객 정보 — 관문 11241339 ①). false = 카드를 닫는다 */
-  confirm: (plan: 'annual' | 'monthly') => Promise<boolean>;
+  /** 결제 직전 «지금도 이 단추를 살 수 있는 사람인가»(캐시 비운 새 고객 정보 — 관문 11241339 ①). 'no' = 카드를 닫는다 · 'unknown'(조회 실패) = «다시 시도» 줄 */
+  confirm: (plan: 'annual' | 'monthly') => Promise<'ok' | 'no' | 'unknown'>;
 }) {
   const lang = toBfLang(view.locale);
   const bf = BF_COPY[lang];
@@ -96,9 +96,11 @@ export function AndroidBfSheet({ view, onClose, onFallback, confirm }: {
     busyRef.current = true; setBusy(true); setFailed(false);
     void import('@/lib/app/funnel').then((m) => m.trackFunnel('cta', { src })).catch(() => {});
     // 카드를 연 뒤 다른 기기에서 구독했거나 체험 갱신을 다시 켰으면 사지 않고 닫는다(이중 구독·이미 소유 방지)
-    let still = false;
-    try { still = await confirm(pick.plan); } catch { still = false; }
-    if (!still || !bfLive(Date.now())) { busyRef.current = false; setBusy(false); onClose(); return; }
+    let still: 'ok' | 'no' | 'unknown' = 'unknown';
+    try { still = await confirm(pick.plan); } catch { still = 'unknown'; }
+    if (still === 'no' || !bfLive(Date.now())) { busyRef.current = false; setBusy(false); onClose(); return; }
+    // 조회 실패·늦음은 사지 않고 «다시 시도» 줄(말없이 닫지 않는다 — 관문 11241342)
+    if (still !== 'ok') { busyRef.current = false; setBusy(false); setFailed(true); return; }
     let ok = false, cancelled = false;
     try {
       const r = await purchaseOffer(pick, src);

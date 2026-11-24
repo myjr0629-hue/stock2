@@ -217,7 +217,8 @@ test('⑦ 배선 — 레이아웃 1개 · 결제는 purchaseOffer(서비스 한 
   const sheet = read('src/components/app/AndroidBfSheet.tsx');
   assert.match(sheet, /purchaseOffer\(pick, src\)/);
   assert.match(sheet, /if \(onFallback\) \{ try \{ moved = await onFallback\(\); \} catch \{ moved = false; \} \}\n    busyRef\.current = false; setBusy\(false\);\n    if \(!moved\) setFailed\(true\);/, '오류 = 시트는 (확인 뒤) 정가 페이월 · 아니면 다시 시도 줄(죽은 단추 없음)');
-  assert.match(sheet, /try \{ still = await confirm\(pick\.plan\); \} catch \{ still = false; \}\n    if \(!still \|\| !bfLive\(Date\.now\(\)\)\) \{ busyRef\.current = false; setBusy\(false\); onClose\(\); return; \}/, '결제 직전 새 정보로 재확인(관문 11241339 ①)');
+  assert.match(sheet, /try \{ still = await confirm\(pick\.plan\); \} catch \{ still = 'unknown'; \}\n    if \(still === 'no' \|\| !bfLive\(Date\.now\(\)\)\) \{ busyRef\.current = false; setBusy\(false\); onClose\(\); return; \}/, '결제 직전 새 정보로 재확인(관문 11241339 ①)');
+  assert.match(sheet, /if \(still !== 'ok'\) \{ busyRef\.current = false; setBusy\(false\); setFailed\(true\); return; \}/, '조회 실패 = 다시 시도 줄(관문 11241342)');
   assert.ok(sheet.indexOf('await confirm(pick.plan)') < sheet.indexOf('await purchaseOffer(pick, src)'));
   assert.match(sheet, /if \(ok\) \{[^\n]*\}\n    \/\/ [^\n]*\n    if \(!bfLive\(Date\.now\(\)\)\) \{ busyRef\.current = false; setBusy\(false\); onClose\(\); return; \}\n    if \(cancelled\)/, '결제 창 사이 블프 끝 = 닫기(관문 11241339 ②)');
   assert.ok(!/data-warm-other/.test(sheet), '안드 웜엔 «다른 요금제 보기» 없음(같은 상품 재구매 = Play 이미 소유 — 관문 11241325 ②)');
@@ -233,7 +234,8 @@ test('⑦ 배선 — 레이아웃 1개 · 결제는 purchaseOffer(서비스 한 
   assert.match(gate, /if \(!v \|\| v === 'owned'\) \{ window\.dispatchEvent\(new CustomEvent\(ANDROID_BF_LINE_HIDE_EVENT\)\); return; \}/, '줄: 못 보이면 줄만 내림 — 정가 페이월을 새로 열지 않음(관문 11241331 ② · 11241338)');
   assert.ok(!/setRegular\(\{ locale, preview: isPreview\(\) \}\)/.test(gate), '줄 경로에 정가 페이월 없음');
   assert.match(gate, /if \(window\.location\.pathname !== fromPath \|\| !document\.querySelector\('\[data-bf-line\]'\)\) return;/, '줄: 늦은 결과는 떠난 화면에 안 뜸(관문 11241339 ③)');
-  assert.match(gate, /return !!aud && aud\.kind === view\.kind && aud\.plans\.includes\(plan\);/);
+  assert.match(gate, /if \(!info\) return 'unknown';/);
+  assert.match(gate, /return !!aud && aud\.kind === view\.kind && aud\.plans\.includes\(plan\) \? 'ok' : 'no';/);
   assert.match(gate, /confirm=\{\(plan\) => stillEligible\(view, plan\)\}/);
   assert.match(gate, /const info = await infoNow\(true\);\n      const aud = info \? androidBfAudience\(.*\) : null;\n      if \(!aud \|\| aud\.kind !== 'sheet' \|\| !alive\.current\) return false;/, '시트 오류 → 정가 페이월은 새 정보로 «지금도 무료» 확인 뒤에만');
   assert.match(gate, /if \(!buttons\.length\) \{ track\('bf_and_noopt'\); return aud\.kind === 'warm' \? 'owned' : null; \}/, '웜 오퍼 없음 = owned(정가 페이월 안 감)');
