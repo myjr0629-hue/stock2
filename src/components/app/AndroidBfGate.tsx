@@ -24,7 +24,7 @@ import { initRevenueCat, loadAndroidBfPicks } from '@/services/revenueCat';
 import { BF_DELAY_MS, bfLive, markBfSeen, readBfSeen } from '@/lib/app/blackFriday';
 import { WARM_BF_DELAY_MS, WARM_BF_VERIFY_MS, markWarmShown, readWarmLast, warmAndroidFrom, warmDay, warmDue, type MiniStore } from '@/lib/app/warmBf';
 import {
-  ANDROID_BF_PREVIEW_FLAG, androidBfAudience, androidBfAutoOk, androidBfButtons, androidBfStep,
+  ANDROID_BF_LINE_HIDE_EVENT, ANDROID_BF_PREVIEW_FLAG, androidBfAudience, androidBfAutoOk, androidBfButtons, androidBfOwnsSub, androidBfStep,
   type AndroidBfPick, type AndroidBfPicks, type AndroidBfState,
 } from '@/lib/app/androidBf';
 import { WATCHLIST_STORAGE_KEY, parseWatchlist } from '@/lib/app/watchlist';
@@ -90,8 +90,8 @@ function previewPicks(locale: string): AndroidBfPicks {
   return { annual: monthlyOnly ? null : mk('annual', t.a), monthly: mk('monthly', t.m) };
 }
 
-/** 카드에 필요한 것 전부 — 하나라도 안 되면 null */
-export async function loadAndroidBf(locale: string): Promise<AndroidBfView | null> {
+/** 카드에 필요한 것 전부 — 하나라도 안 되면 null · 'owned' = 활성 권한·구독이 있다(블프 줄에서도 정가 페이월로 보내지 않는다) */
+export async function loadAndroidBf(locale: string): Promise<AndroidBfView | 'owned' | null> {
   if (isPreview()) {
     const q = new URLSearchParams(window.location.search);
     const warm = previewFlag('sgbfaw');
@@ -101,24 +101,43 @@ export async function loadAndroidBf(locale: string): Promise<AndroidBfView | nul
   }
   if (!isNative()) return null;
   const [on, info0] = await Promise.all([androidSwitchOn(), infoNow(false)]);
-  if (!on || !info0) return null;
   type Info = Parameters<typeof androidBfAudience>[0];
+  if (info0 && androidBfOwnsSub(info0 as Info) && !androidBfAudience(info0 as Info, 'android', Date.now())) return 'owned';
+  if (!on || !info0) return null;
   const aud0 = androidBfAudience(info0 as Info, 'android', Date.now());
   if (!aud0) return null;
   // 보일 사람이면 캐시를 비운 새 정보로 다시 확인 — 다른 기기에서 막 구독한 사람·이미 결제한 체험자에게 옛 «무료/갱신 꺼짐» 정보로 뜨지 않게
   //   (못 비우면 안 보임 · 모양이 바뀌면 안 보임 — 관문 11241325 ①). 캐시상 대상이 아닌 사람은 네트워크 조회 없이 끝(매 실행 부하 없음)
   const info1 = await infoNow(true);
   const aud = info1 ? androidBfAudience(info1 as Info, 'android', Date.now()) : null;
-  if (!aud || aud.kind !== aud0.kind) return null;
+  if (!aud || aud.kind !== aud0.kind) return info1 && androidBfOwnsSub(info1 as Info) ? 'owned' : null;
+  // 웜(체험 중)은 아래에서 실패해도 'owned' — 블프 줄에서도 정가 페이월로 보내지 않는다
   let picks: AndroidBfPicks | null = null;
   try { picks = await capped(loadAndroidBfPicks(), WARM_BF_VERIFY_MS); } catch { picks = null; }
   const buttons = picks ? androidBfButtons(aud.plans, picks) : [];
-  if (!buttons.length) { track('bf_and_noopt'); return null; }
-  if (!bfLive(Date.now())) return null;
+  if (!buttons.length) { track('bf_and_noopt'); return aud.kind === 'warm' ? 'owned' : null; }
+  if (!bfLive(Date.now())) return aud.kind === 'warm' ? 'owned' : null;
   return {
     locale, kind: aud.kind, buttons, expiresAt: aud.kind === 'warm' ? aud.target.expiresAt : null,
     watchCount: readWatchCount(), preview: false,
   };
+}
+
+/**
+ * 블프 줄을 안드로이드에서 그려도 되나 — 무료(캐시상 시트 대상) · 스위치 켜짐 · 기기에 오퍼가 있을 때만, 그 주 단추 상품(줄 문구가 실제 선택지와 맞게 — 관문 11241331 ③).
+ *   웜(체험 중)·유료는 줄이 없다(웜은 이틀에 한 번 자동 카드). 실패·모름 = null(줄 없음).
+ */
+export async function androidLinePlan(): Promise<'annual' | 'monthly' | null> {
+  if (isPreview()) return new URLSearchParams(window.location.search).get('sgbfam') === '1' ? 'monthly' : 'annual';
+  if (!isNative() || !bfLive(Date.now())) return null;
+  const [on, info] = await Promise.all([androidSwitchOn(), infoNow(false)]);
+  if (!on || !info) return null;
+  const aud = androidBfAudience(info as Parameters<typeof androidBfAudience>[0], 'android', Date.now());
+  if (!aud || aud.kind !== 'sheet') return null;
+  let picks: AndroidBfPicks | null = null;
+  try { picks = await capped(loadAndroidBfPicks(), WARM_BF_VERIFY_MS); } catch { picks = null; }
+  const b = picks ? androidBfButtons(aud.plans, picks) : [];
+  return b.length ? b[0].plan : null;
 }
 
 // 개발 미리보기 전용 정가 더미(정가 페이월 화면 확인) — 실제 앱은 스토어 값만
@@ -156,6 +175,9 @@ export function AndroidBfGate({ auto, request }: { auto: boolean; request: numbe
     // 사용자가 누른 뒤라 오래 비워 두지 않는다 — 4.5초 안에 준비 안 되면 예전 정가 페이월(늦게 온 결과는 버린다)
     void capped(loadAndroidBf(locale).catch(() => null), ANDROID_BF_LINE_WAIT_MS).then((v) => {
       if (!alive.current) return;
+      // 활성 권한·구독이 있으면(체험 중 포함) 정가 페이월로 보내지 않고 줄만 내린다 — 같은 상품 재구매 = Play «이미 소유»(관문 11241331 ②)
+      if (v === 'owned') { window.dispatchEvent(new CustomEvent(ANDROID_BF_LINE_HIDE_EVENT)); return; }
+      // 그 밖(줄은 캐시상 무료인 사람에게만 보인다): 스위치 꺼짐·오퍼 없음·늦음 = 예전 정가 페이월(죽은 단추 없음)
       if (!v) { setRegular({ locale, preview: isPreview() }); return; }
       if (!v.preview) track('bf_and_line');
       setView(v);
@@ -198,7 +220,7 @@ export function AndroidBfGate({ auto, request }: { auto: boolean; request: numbe
           const v = await loadAndroidBf(localeNow());
           if (!alive.current || run.done) return;
           // 대상 아님·스위치 꺼짐·오퍼 없음 = 이번 실행 끝(다음 실행에 다시)
-          if (!v) { run.done = true; return; }
+          if (!v || v === 'owned') { run.done = true; return; }
           if (!androidBfAutoOk(v.kind, state())) { run.done = true; return; }
           // 웜은 체험 종료 안내(조회 뒤 뜸)가 먼저 자리를 잡게 iOS 웜과 같은 8초까지 기다린다
           if (v.kind === 'warm') await sleep(Math.max(0, WARM_BF_DELAY_MS - BF_DELAY_MS));

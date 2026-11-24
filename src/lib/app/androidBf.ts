@@ -18,7 +18,7 @@
 //   결제 오류(취소 아님)도 예전 정가 페이월로 — 죽은 단추를 남기지 않는다. 가격·기간·갱신가는 전부 «스토어가 준 단계 값»으로만 그린다.
 // ============================================================================
 import type { PurchasesPackage, SubscriptionOption } from '@revenuecat/purchases-capacitor';
-import { PRO_ANNUAL_PRODUCT_ID, PRO_ENTITLEMENT_ID } from '@/config/iap';
+import { PRO_ANNUAL_PRODUCT_ID, PRO_ENTITLEMENT_ID, PRO_MONTHLY_PRODUCT_ID } from '@/config/iap';
 import { RC_IGNORE_OFFER_TAG, discountPct, pickExpiredOffer, type ExpiredOfferPick } from './expiredOffer';
 import { readWarmLast, warmBfTargetPlay, warmDay, warmDue, type WarmTarget } from './warmBf';
 import { bfLive, readBfSeen, type BfLang, type BfPlan, type MiniStore } from './blackFriday';
@@ -28,6 +28,8 @@ export const ANDROID_BF_ANNUAL_OFFER_ID = 'bf-annual-50';
 export const ANDROID_BF_ANNUAL_OPTION_ID = `annual:${ANDROID_BF_ANNUAL_OFFER_ID}`;
 /** 프리뷰 확인 모드(로컬·*.vercel.app 만): ?sgbfa=1 = 안드로이드 시트 · ?sgbfaw=1 = 웜 카드(월간 체험 → 연간) · ?sgbfawp=annual = 연간 체험 → 월간 */
 export const ANDROID_BF_PREVIEW_FLAG = 'sgbfa';
+/** 블프 줄을 내리는 창 이벤트(줄에서 열었는데 활성 권한·구독이 있던 사람) */
+export const ANDROID_BF_LINE_HIDE_EVENT = 'signum:bf-line-hide';
 
 /** 화면·결제가 쓰는 한 단추 — 결제는 option 그대로(purchaseExpiredOffer 의 안드로이드 갈래 = purchaseSubscriptionOption) */
 export type AndroidBfPick = Extract<ExpiredOfferPick, { platform: 'android' }> & {
@@ -102,7 +104,19 @@ export function androidBfAudience(info: InfoLike | null | undefined, platform: s
   }
   const target = warmBfTargetPlay(info, platform, now);
   if (!target) return null;
+  // 활성 구독이 «지금 체험 상품 하나뿐»일 때만 — 다른 유료 구독이 함께 살아 있으면(대표 권한이 체험으로 보여도) 안 보인다(관문 11241331 ①)
+  const subs = info.activeSubscriptions;
+  const want = target.product === 'monthly' ? PRO_MONTHLY_PRODUCT_ID : PRO_ANNUAL_PRODUCT_ID;
+  if (!Array.isArray(subs) || subs.length !== 1 || baseProduct(subs[0]) !== want) return null;
   return { kind: 'warm', target, plans: [target.product === 'monthly' ? 'annual' : 'monthly'] };
+}
+
+/** 활성 권한이나 활성 구독이 하나라도 있나 — 블프 줄에서 할인을 못 보일 때 정가 페이월로 보내면 안 되는 사람(같은 상품 재구매 = Play «이미 소유», 관문 11241331 ②) */
+export function androidBfOwnsSub(info: InfoLike | null | undefined): boolean {
+  if (!info || !info.entitlements) return false;
+  const active = info.entitlements.active;
+  if (active && typeof active === 'object' && Object.keys(active).length > 0) return true;
+  return Array.isArray(info.activeSubscriptions) && info.activeSubscriptions.length > 0;
 }
 
 /** 살 수 있는 단추(상품이 허락되고 기기에 오퍼가 정확히 있는 것) — 앞이 주 단추. 비면 안 보인다(줄에서 열었으면 정가 페이월) */
@@ -147,6 +161,8 @@ export type AndroidBfCopy = {
   monthlyLede: string;
   /** 시트 고지 — 있는 단추의 할인가·정가만 */
   fine: (a: AndroidBfPick | null, m: AndroidBfPick | null) => string;
+  /** 블프 줄 — 연간 오퍼가 없고 월간만 있을 때(있으면 BF_COPY.line «연간 첫 1년 50%» 그대로) */
+  lineMonthly: string;
   /** 결제가 오류로 끝났을 때(취소 아님) 웜 카드 한 줄 — 단추는 그대로 다시 누를 수 있다 */
   buyError: string;
   /** 웜 카드 고지 — 지금 체험·오늘 결제·할인 범위·정가 자동 갱신·해지 */
@@ -160,6 +176,7 @@ export const ANDROID_BF_COPY: Record<BfLang, AndroidBfCopy> = {
     monthlySub: (r, o) => `월 ${r} → ${o} (첫 달)`,
     monthlyLede: '지금 이어가면 월간 첫 달 50% — 블랙프라이데이 가격은 12/2까지예요.',
     buyError: '결제를 마치지 못했어요. 잠시 뒤 다시 눌러 주세요.',
+    lineMonthly: 'PRO 월간 첫 달 50% 할인',
     fine: (a, m) => {
       const parts = [a && `연간 첫 1년 ${a.priceString}`, m && `월간 첫 달 ${m.priceString}`].filter(Boolean).join(' 또는 ');
       const after = [a && `연 ${a.regularPriceString}`, m && `월 ${m.regularPriceString}`].filter(Boolean).join(' · ');
@@ -173,6 +190,7 @@ export const ANDROID_BF_COPY: Record<BfLang, AndroidBfCopy> = {
     monthlySub: (r, o) => `${r} → ${o} for the first month`,
     monthlyLede: 'Keep it now and get 50% off your first month. Black Friday pricing ends Dec 2.',
     buyError: 'The purchase didn’t go through. Please try again in a moment.',
+    lineMonthly: 'PRO monthly: 50% off month one',
     fine: (a, m) => {
       const parts = [a && `the first year (annual, ${a.priceString})`, m && `the first month (monthly, ${m.priceString})`].filter(Boolean).join(' or ');
       const after = [a && `${a.regularPriceString}/year`, m && `${m.regularPriceString}/month`].filter(Boolean).join(' · ');
@@ -186,6 +204,7 @@ export const ANDROID_BF_COPY: Record<BfLang, AndroidBfCopy> = {
     monthlySub: (r, o) => `月 ${r} → ${o}（初月）`,
     monthlyLede: '今続けると月額プランが初月50%OFF。ブラックフライデー価格は12/2までです。',
     buyError: '購入を完了できませんでした。少し時間をおいてもう一度お試しください。',
+    lineMonthly: 'PRO月額 初月50%OFF',
     fine: (a, m) => {
       const parts = [a && `年額の初年度（${a.priceString}）`, m && `月額の初月（${m.priceString}）`].filter(Boolean).join('または');
       const after = [a && `年 ${a.regularPriceString}`, m && `月 ${m.regularPriceString}`].filter(Boolean).join(' · ');

@@ -116,7 +116,7 @@ test('③ 대상 — 무료 = 시트 · Play 체험 갱신 끔 = 웜(다른 상�
   const ent = (over: Record<string, unknown> = {}) => ({ isActive: true, periodType: 'TRIAL', store: 'PLAY_STORE', willRenew: false, ownershipType: 'PURCHASED', expirationDate: iso(NOW + 5 * DAY), productIdentifier: 'com.signumhq.app.pro.monthly:monthly', ...over });
   const infoE = (e: Record<string, unknown>) => ({ entitlements: { active: { pro: e } }, activeSubscriptions: ['com.signumhq.app.pro.monthly:monthly'], nonSubscriptionTransactions: [], allPurchasedProductIdentifiers: ['com.signumhq.app.pro.monthly:monthly'] });
   assert.deepEqual(a.androidBfAudience(infoE(ent()), 'android', NOW), { kind: 'warm', target: { expiresAt: NOW + 5 * DAY, product: 'monthly' }, plans: ['annual'] }, '월간 체험 → 연간만');
-  const annualTrial = a.androidBfAudience(infoE(ent({ productIdentifier: 'com.signumhq.app.pro.annual:annual' })), 'android', NOW);
+  const annualTrial = a.androidBfAudience({ ...infoE(ent({ productIdentifier: 'com.signumhq.app.pro.annual:annual' })), activeSubscriptions: ['com.signumhq.app.pro.annual:annual'] }, 'android', NOW);
   assert.deepEqual(annualTrial && annualTrial.plans, ['monthly'], '연간 체험 → 월간만');
   const no: Array<[string, Record<string, unknown>]> = [
     ['갱신 켜진 체험', ent({ willRenew: true })], ['정가 결제', ent({ periodType: 'NORMAL' })], ['소개가', ent({ periodType: 'INTRO' })],
@@ -124,6 +124,16 @@ test('③ 대상 — 무료 = 시트 · Play 체험 갱신 끔 = 웜(다른 상�
     ['끝남', ent({ expirationDate: iso(NOW - 1000) })], ['41일', ent({ expirationDate: iso(NOW + 41 * DAY) })], ['모르는 상품', ent({ productIdentifier: 'x' })],
   ];
   for (const [why, e] of no) assert.equal(a.androidBfAudience(infoE(e), 'android', NOW), null, why);
+  // 활성 구독이 지금 체험 상품 하나뿐일 때만(관문 11241331 ①)
+  assert.equal(a.androidBfAudience({ ...infoE(ent()), activeSubscriptions: ['com.signumhq.app.pro.monthly:monthly', 'com.signumhq.app.pro.annual:annual'] }, 'android', NOW), null, '연간 유료도 활성');
+  assert.equal(a.androidBfAudience({ ...infoE(ent()), activeSubscriptions: ['com.signumhq.app.pro.annual:annual'] }, 'android', NOW), null, '활성 구독이 다른 상품');
+  assert.equal(a.androidBfAudience({ ...infoE(ent()), activeSubscriptions: [] }, 'android', NOW), null, '활성 구독 0(모양 이상)');
+  assert.equal(a.androidBfAudience({ ...infoE(ent()), activeSubscriptions: undefined }, 'android', NOW), null, '구독 목록 모름');
+  // 줄 폴백 금지 판정
+  assert.equal(a.androidBfOwnsSub(free), false);
+  assert.equal(a.androidBfOwnsSub(infoE(ent())), true);
+  assert.equal(a.androidBfOwnsSub({ ...free, activeSubscriptions: ['x'] }), true);
+  assert.equal(a.androidBfOwnsSub(null), false);
   // warmBf iOS 판정은 그대로(안드로이드 = null)
   assert.equal(w.warmBfTarget(infoE(ent()), 'android', NOW), null);
   assert.equal(w.warmBfTarget(infoE(ent({ store: 'APP_STORE' })), 'ios', NOW)?.product, 'monthly');
@@ -217,10 +227,12 @@ test('⑦ 배선 — 레이아웃 1개 · 결제는 purchaseOffer(서비스 한 
   assert.match(rc, /export async function loadAndroidBfPicks/);
   assert.match(rc, /cap\.getPlatform\(\) !== 'android'\) return null/);
   const gate = read('src/components/app/AndroidBfGate.tsx');
-  assert.match(gate, /if \(!buttons\.length\) \{ track\('bf_and_noopt'\); return null; \}/);
-  assert.match(gate, /if \(!v\) \{ setRegular\(\{ locale, preview: isPreview\(\) \}\); return; \}/, '줄에서 못 보이면 정가 페이월');
+  assert.match(gate, /if \(v === 'owned'\) \{ window\.dispatchEvent\(new CustomEvent\(ANDROID_BF_LINE_HIDE_EVENT\)\); return; \}\n      \/\/ [^\n]*\n      if \(!v\) \{ setRegular\(\{ locale, preview: isPreview\(\) \}\); return; \}/, '줄: 활성 권한·구독 = 정가 페이월 안 감(관문 11241331 ②) · 그 밖 못 보이면 정가 페이월');
+  assert.match(gate, /if \(!buttons\.length\) \{ track\('bf_and_noopt'\); return aud\.kind === 'warm' \? 'owned' : null; \}/, '웜 오퍼 없음 = owned(정가 페이월 안 감)');
+  assert.match(gate, /if \(!v \|\| v === 'owned'\) \{ run\.done = true; return; \}/);
+  assert.match(gate, /if \(!aud \|\| aud\.kind !== aud0\.kind\) return info1 && androidBfOwnsSub\(info1 as Info\) \? 'owned' : null;/);
   assert.match(gate, /onFallback=\{view\.kind === 'sheet' \? \(\) => toRegular\(view\.locale, view\.preview\) : null\}/, '정가 폴백은 무료(시트)만');
-  assert.match(gate, /const info1 = await infoNow\(true\);\n  const aud = info1 \? androidBfAudience\(info1 as Info, 'android', Date\.now\(\)\) : null;\n  if \(!aud \|\| aud\.kind !== aud0\.kind\) return null;/, '시트·웜 모두 캐시 비운 새 정보로 확인(관문 11241325 ①)');
+  assert.match(gate, /const info1 = await infoNow\(true\);\n  const aud = info1 \? androidBfAudience\(info1 as Info, 'android', Date\.now\(\)\) : null;\n/, '시트·웜 모두 캐시 비운 새 정보로 확인(관문 11241325 ①)');
   const regular = read('src/components/app/AndroidBfRegular.tsx');
   assert.match(regular, /<ProPaywall locale=\{locale\} src="bf_and_reg"/);
   assert.ok(!/keepOpenWhilePro|TrialSavePaywall/.test(regular.replace(/^\/\/.*$/gm, '')), '체험 문구 없는 일반 페이월(관문 11241325 ③)');
@@ -229,7 +241,10 @@ test('⑦ 배선 — 레이아웃 1개 · 결제는 purchaseOffer(서비스 한 
   assert.match(gate, /androidSwitchOn\(\)/);
   const line = read('src/components/app/BlackFridayLine.tsx');
   assert.match(line, /if \(bfIosHere\(\)\) \{ setShow\(true\); return; \}/, 'iOS 줄 동작 그대로');
-  assert.match(line, /warmAndroidFrom/);
+  assert.match(line, /import\('\.\/AndroidBfGate'\)\.then\(\(m\) => m\.androidLinePlan\(\)\)/, '줄은 무료·스위치·오퍼 확인 뒤에만(관문 11241331 ③)');
+  assert.match(line, /plan === 'monthly' \? ANDROID_BF_COPY\[toBfLang\(locale\)\]\.lineMonthly : c\.line/, '줄 문구 = 실제 주 단추');
+  assert.match(gate, /if \(!aud \|\| aud\.kind !== 'sheet'\) return null;/, '줄은 시트(무료) 대상만');
+  assert.match(gate, /androidSwitchOn\(\), infoNow\(false\)\]\);\n  if \(!on \|\| !info\) return null;/);
   const host = read('src/components/app/AndroidBfHost.tsx');
   assert.match(host, /cap\.getPlatform\?\.\(\) === 'android'/);
   const schema = require('../src/lib/app/funnelSchema') as typeof import('../src/lib/app/funnelSchema');

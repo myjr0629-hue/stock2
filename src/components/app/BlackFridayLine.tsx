@@ -10,34 +10,27 @@
 
 import { useEffect, useState } from 'react';
 import { BF_COPY, BF_OPEN_EVENT, BF_VALID_UNTIL, bfLive, toBfLang } from '@/lib/app/blackFriday';
-import { warmAndroidFrom } from '@/lib/app/warmBf';
+import { ANDROID_BF_COPY, ANDROID_BF_LINE_HIDE_EVENT } from '@/lib/app/androidBf';
 import { bfIosHere } from './BlackFridayHost';
 import { bfAndroidHere } from './AndroidBfHost';
 import s from './BlackFridayLine.module.css';
 
-// ★11/24 오후 안드로이드도(Play 개발자 결정 오퍼 — lib/app/androidBf): 끄기 스위치 /api/app/warm-bf 의 android=true 일 때만 줄을 그린다(실패·늦음 = 안 그림)
-async function androidOn(): Promise<boolean> {
-  const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-  const timer = setTimeout(() => ctl?.abort(), 3_000);
-  try {
-    const r = await fetch('/api/app/warm-bf', ctl ? { signal: ctl.signal, cache: 'no-store' } : { cache: 'no-store' });
-    return r.ok && warmAndroidFrom(await r.json());
-  } catch { return false; } finally { clearTimeout(timer); }
-}
-
+// ★11/24 오후 안드로이드도(Play 개발자 결정 오퍼 — lib/app/androidBf): 무료(캐시상)·끄기 스위치 android=true·기기에 오퍼가 있을 때만 그린다(AndroidBfGate androidLinePlan).
+//   문구는 실제 주 단추에 맞춘다 — 연간 오퍼가 있으면 iOS 와 같은 «연간 첫 1년 50%», 월간만 있으면 «월간 첫 달 50%». 판정기는 안드로이드에서만 동적으로 싣는다.
 export function BlackFridayLine({ locale }: { locale: string }) {
   const [show, setShow] = useState(false);
+  const [plan, setPlan] = useState<'annual' | 'monthly'>('annual');
   useEffect(() => {
     if (!bfLive(Date.now())) return;
     if (bfIosHere()) { setShow(true); return; }
     if (!bfAndroidHere()) return;
-    // 네이티브가 아닌데 여기까지 왔으면 프리뷰 확인 모드(로컬·*.vercel.app) — 스위치 없이 그린다
-    let native = false;
-    try { native = !!(globalThis as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.(); } catch { native = false; }
-    if (!native) { setShow(true); return; }
     let alive = true;
-    void androidOn().then((on) => { if (alive && on && bfLive(Date.now())) setShow(true); });
-    return () => { alive = false; };
+    void import('./AndroidBfGate').then((m) => m.androidLinePlan()).catch(() => null).then((p) => {
+      if (alive && p && bfLive(Date.now())) { setPlan(p); setShow(true); }
+    });
+    const hide = () => setShow(false);
+    window.addEventListener(ANDROID_BF_LINE_HIDE_EVENT, hide);
+    return () => { alive = false; window.removeEventListener(ANDROID_BF_LINE_HIDE_EVENT, hide); };
   }, []);
   // 줄이 떠 있는 채 블프가 끝나면(12/2 07:00 UTC) 줄을 내린다 — 끝난 뒤 누르면 아무 일도 없는 줄이 남지 않게(관문 11241325 ④)
   useEffect(() => {
@@ -51,6 +44,7 @@ export function BlackFridayLine({ locale }: { locale: string }) {
   }, [show]);
   if (!show) return null;
   const c = BF_COPY[toBfLang(locale)];
+  const text = plan === 'monthly' ? ANDROID_BF_COPY[toBfLang(locale)].lineMonthly : c.line;
   return (
     <button
       type="button"
@@ -59,7 +53,7 @@ export function BlackFridayLine({ locale }: { locale: string }) {
       data-bf-line=""
     >
       <span className={s.tag}>BLACK FRIDAY</span>
-      <span className={s.text}>{c.line}</span>
+      <span className={s.text}>{text}</span>
       <i className={s.chev} aria-hidden="true">›</i>
     </button>
   );
