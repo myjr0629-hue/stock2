@@ -46,6 +46,37 @@
   }
 }
 
+/* ★11/25 안드 — 패널을 상태바·내비게이션 바 «사이»에 둔다(안드 네이티브만 · iOS·웹은 위 규칙 그대로).
+   Capacitor 8 + 웹뷰 140 이상 + viewport-fit=cover 이면 웹뷰가 시스템 바 밑까지 그리고 env(safe-area-inset-*)가 바 높이를 준다.
+   그런데 패널 높이 상한은 바와 무관하게 «100dvh − 32px»라, 체크 줄이 화면 밖인 기기(글이 패널보다 긴 화면 — 안드 노출의 절반 이상)에서
+   패널 위쪽은 상태바 밑, 아래쪽 [계속] 버튼은 3버튼 내비게이션 바 밑으로 들어갔다(360×800·글꼴 115%·바 36/48 실측: 패널 위 26px·버튼 7px 가림).
+   여기서는 패널 위·아래 여백 = max(16px, 바 높이 + 8px), 패널 높이 상한 = 100dvh − 두 여백 으로 잡는다.
+   바가 0 인 웹뷰(웹뷰 140 미만은 부모가 바만큼 비켜 준다)에서는 여백 16·16, 상한 100dvh − 32px → 예전과 같은 자리·같은 크기다(가운데 정렬은 위아래 대칭이라 그대로).
+   아래 바는 앱 화면 탭바와 같은 값(--app-bottom-safe: app-view 레이아웃이 env·셸 게시값을 단위까지 보정해 넣는다), 위 바는 env 와 셸 게시값(--sig-top-floor) 중 큰 값(64px 상한 — 옛 셸의 물리 픽셀 값 방어).
+   max()/min() 을 모르는 아주 옛 웹뷰(Chrome 79 미만)는 이 블록을 통째로 건너뛴다(예전 배치 그대로 — 무효 계산값으로 여백·상한이 사라지지 않게). */
+@supports (padding-top: max(0px, min(1px, 2px))) {
+  html:global(.native-android) .shell {
+    --onb-sa-top: min(64px, var(--sig-top-floor, 0px));
+    --onb-sa-bottom: min(64px, var(--app-bottom-safe, 0px));
+    --onb-gap-top: max(16px, calc(var(--onb-sa-top) + 8px));
+    --onb-gap-bottom: max(16px, calc(var(--onb-sa-bottom) + 8px));
+    padding-top: var(--onb-gap-top);
+    padding-bottom: var(--onb-gap-bottom);
+  }
+
+  html:global(.native-android) .panel {
+    max-height: calc(100vh - var(--onb-gap-top) - var(--onb-gap-bottom));
+    max-height: calc(100dvh - var(--onb-gap-top) - var(--onb-gap-bottom));
+  }
+}
+
+/* env() 를 아는 웹뷰만 위 바에 env 를 함께 본다(모르는 웹뷰에서 변수 전체가 무효가 되지 않게 — app-view.css 와 같은 이유) */
+@supports (padding-top: max(0px, env(safe-area-inset-top))) {
+  html:global(.native-android) .shell {
+    --onb-sa-top: min(64px, max(env(safe-area-inset-top, 0px), var(--sig-top-floor, 0px)));
+  }
+}
+
 .panel::-webkit-scrollbar {
   width: 0;
 }
