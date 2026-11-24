@@ -7,7 +7,7 @@
 //   kind 'sheet': 머리 줄 · 제목 · 한 줄 설명 · 할인가 줄 · [연간 첫 1년 50%] · [월간 첫 달 50%] · 고지 · [다음에]
 //   kind 'warm' : 머리 줄 · «PRO가 {날짜}에 끝나요» · 한 줄 설명 · 할인가 줄(+월 환산) · «PRO로 계속 쓰는 것» 2줄 · [주 단추] · 고지 · 다른 요금제 보기 · [다음에]
 // 단추 = 앱 안 Google Play 결제(useProStatus.purchaseOffer → purchaseSubscriptionOption — 개발자 결정 오퍼). 결제 창은 Play 가 띄운다.
-//   성공 = 닫기 · 취소 = 그대로(다른 단추를 고를 수 있게) · 오류 = 시트(무료)는 정가 페이월(onFallback — 죽은 단추 없음) ·
+//   성공 = 닫기 · 취소 = 그대로(다른 단추를 고를 수 있게) · 오류 = 시트(무료)는 «지금도 무료» 재확인 뒤 정가 페이월(onFallback — 죽은 단추 없음) ·
 //   웜(체험 중)은 카드에 «다시 시도» 한 줄(정가 페이월에서 지금 체험 상품을 고르면 Play 가 «이미 소유»로 거절 — 관문 11241325 ②). 웜엔 «다른 요금제 보기»도 없다.
 // ============================================================================
 
@@ -39,7 +39,7 @@ export function androidBfSrc(kind: 'sheet' | 'warm', plan: 'annual' | 'monthly')
   return plan === 'annual' ? 'bf_and_y' : 'bf_and_m';
 }
 
-export function AndroidBfSheet({ view, onClose, onFallback }: { view: AndroidBfView; onClose: () => void; onFallback: (() => void) | null }) {
+export function AndroidBfSheet({ view, onClose, onFallback }: { view: AndroidBfView; onClose: () => void; onFallback: (() => Promise<boolean>) | null }) {
   const lang = toBfLang(view.locale);
   const bf = BF_COPY[lang];
   const ac = ANDROID_BF_COPY[lang];
@@ -94,11 +94,13 @@ export function AndroidBfSheet({ view, onClose, onFallback }: { view: AndroidBfV
       const r = await purchaseOffer(pick, src);
       ok = r.ok; cancelled = !!r.cancelled;
     } catch { /* 오류 = 정가 페이월 */ }
+    if (ok) { busyRef.current = false; setBusy(false); onClose(); return; }
+    if (cancelled) { busyRef.current = false; setBusy(false); return; }
+    // 시트(무료)만 정가 페이월로 — 게이트가 새 고객 정보로 «지금도 무료»를 확인한 경우만 넘어간다(아니면 false → «다시 시도» 줄)
+    let moved = false;
+    if (onFallback) { try { moved = await onFallback(); } catch { moved = false; } }
     busyRef.current = false; setBusy(false);
-    if (ok) { onClose(); return; }
-    if (cancelled) return;
-    if (onFallback) { onFallback(); return; }
-    setFailed(true);
+    if (!moved) setFailed(true);
   };
 
   const [primary, secondary] = view.buttons;

@@ -216,7 +216,7 @@ test('⑦ 배선 — 레이아웃 1개 · 결제는 purchaseOffer(서비스 한 
   assert.equal((layout.match(/<WarmBfHost \/>/g) || []).length, 1, 'iOS 웜 그대로');
   const sheet = read('src/components/app/AndroidBfSheet.tsx');
   assert.match(sheet, /purchaseOffer\(pick, src\)/);
-  assert.match(sheet, /if \(ok\) \{ onClose\(\); return; \}\n    if \(cancelled\) return;\n    if \(onFallback\) \{ onFallback\(\); return; \}\n    setFailed\(true\);/, '오류 = 시트는 정가 페이월 · 웜은 다시 시도 줄(죽은 단추 없음)');
+  assert.match(sheet, /if \(onFallback\) \{ try \{ moved = await onFallback\(\); \} catch \{ moved = false; \} \}\n    busyRef\.current = false; setBusy\(false\);\n    if \(!moved\) setFailed\(true\);/, '오류 = 시트는 (확인 뒤) 정가 페이월 · 아니면 다시 시도 줄(죽은 단추 없음)');
   assert.ok(!/data-warm-other/.test(sheet), '안드 웜엔 «다른 요금제 보기» 없음(같은 상품 재구매 = Play 이미 소유 — 관문 11241325 ②)');
   for (const f of ['src/components/app/AndroidBfSheet.tsx', 'src/components/app/AndroidBfGate.tsx', 'src/components/app/AndroidBfHost.tsx', 'src/components/app/AndroidBfRegular.tsx', 'src/lib/app/androidBf.ts']) {
     const t = read(f);
@@ -227,7 +227,9 @@ test('⑦ 배선 — 레이아웃 1개 · 결제는 purchaseOffer(서비스 한 
   assert.match(rc, /export async function loadAndroidBfPicks/);
   assert.match(rc, /cap\.getPlatform\(\) !== 'android'\) return null/);
   const gate = read('src/components/app/AndroidBfGate.tsx');
-  assert.match(gate, /if \(v === 'owned'\) \{ window\.dispatchEvent\(new CustomEvent\(ANDROID_BF_LINE_HIDE_EVENT\)\); return; \}\n      \/\/ [^\n]*\n      if \(!v\) \{ setRegular\(\{ locale, preview: isPreview\(\) \}\); return; \}/, '줄: 활성 권한·구독 = 정가 페이월 안 감(관문 11241331 ②) · 그 밖 못 보이면 정가 페이월');
+  assert.match(gate, /if \(!v \|\| v === 'owned'\) \{ window\.dispatchEvent\(new CustomEvent\(ANDROID_BF_LINE_HIDE_EVENT\)\); return; \}/, '줄: 못 보이면 줄만 내림 — 정가 페이월을 새로 열지 않음(관문 11241331 ② · 11241338)');
+  assert.ok(!/setRegular\(\{ locale, preview: isPreview\(\) \}\)/.test(gate), '줄 경로에 정가 페이월 없음');
+  assert.match(gate, /const info = await infoNow\(true\);\n      const aud = info \? androidBfAudience\(.*\) : null;\n      if \(!aud \|\| aud\.kind !== 'sheet' \|\| !alive\.current\) return false;/, '시트 오류 → 정가 페이월은 새 정보로 «지금도 무료» 확인 뒤에만');
   assert.match(gate, /if \(!buttons\.length\) \{ track\('bf_and_noopt'\); return aud\.kind === 'warm' \? 'owned' : null; \}/, '웜 오퍼 없음 = owned(정가 페이월 안 감)');
   assert.match(gate, /if \(!v \|\| v === 'owned'\) \{ run\.done = true; return; \}/);
   assert.match(gate, /if \(!aud \|\| aud\.kind !== aud0\.kind\) return info1 && androidBfOwnsSub\(info1 as Info\) \? 'owned' : null;/);

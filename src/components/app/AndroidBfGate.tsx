@@ -6,8 +6,9 @@
 // ① 자동(auto): 앱이 앞으로 올 때마다 androidBfStep 으로 보고 'check' 면 3초 뒤(iOS 블프 시트와 같다 — 하루 첫 페이월 7초보다 먼저) 다시 보고
 //    → 스위치(android=true)·고객 정보·기기 오퍼(loadAndroidBf) → 시트(기기당 1회) 또는 웜 카드(이틀에 한 번 · 5초 더 기다려 체험 종료 안내가 먼저)
 //    → 기기 표식 + 게이트 하루 표식(오늘 다른 페이월·안내 쉼) → 카드(open bf_and / warm_bf_and).
-// ② 블프 줄(request): 같은 loadAndroidBf — 못 보이면(스위치 꺼짐·대상 아님·오퍼 없음) 예전 정가 페이월(bf_and_reg).
-// 시트(무료) 안 결제 오류도 정가 페이월(bf_and_reg — 체험 문구 없는 일반 페이월). 웜 카드(체험 중)는 정가 페이월로 보내지 않는다(같은 상품 재구매 = Play «이미 소유»).
+// ② 블프 줄(request): 같은 loadAndroidBf — 못 보이면 줄만 내린다(줄이 있던 페이월·가치 벽·게이트의 정가 단추가 그대로 남음).
+// 시트(무료) 안 결제 오류 = 새 고객 정보로 «지금도 무료»를 확인한 경우만 정가 페이월(bf_and_reg — 체험 문구 없는 일반 페이월), 아니면 «다시 시도» 줄.
+// 웜 카드(체험 중)는 정가 페이월로 보내지 않는다(같은 상품 재구매 = Play «이미 소유»).
 // 프리뷰 확인 모드(로컬·*.vercel.app 만): ?sgbfa=1 시트 · ?sgbfaw=1 웜(월간 체험 → 연간) · ?sgbfawp=annual(연간 체험 → 월간) · ?sgbfam=1 월간만.
 // ============================================================================
 
@@ -159,9 +160,19 @@ export function AndroidBfGate({ auto, request }: { auto: boolean; request: numbe
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
-  const toRegular = (locale: string, preview: boolean) => {
+  /**
+   * 시트(무료) 결제 오류 → 정가 페이월. 넘기기 직전 캐시를 비운 새 고객 정보로 «지금도 권한·활성 구독 0»을 다시 확인한 경우만(true).
+   *   확인 못 함·권한/구독 있음 = false → 시트에 «다시 시도» 줄(같은 상품 재구매·중복 구독 경로를 만들지 않는다 — 관문 11241338)
+   */
+  const toRegular = async (locale: string, preview: boolean): Promise<boolean> => {
+    if (!preview) {
+      const info = await infoNow(true);
+      const aud = info ? androidBfAudience(info as Parameters<typeof androidBfAudience>[0], 'android', Date.now()) : null;
+      if (!aud || aud.kind !== 'sheet' || !alive.current) return false;
+    }
     setView(null);
     void import('@/components/app/watchlist/BottomSheet').then((m) => m.afterSheetHistory()).catch(() => {}).then(() => { if (alive.current) setRegular({ locale, preview }); });
+    return true;
   };
 
   // ② 블프 줄에서 연다
@@ -172,13 +183,12 @@ export function AndroidBfGate({ auto, request }: { auto: boolean; request: numbe
     run.done = true;            // 줄로 본 사람에게 오늘 자동 안내를 또 띄우지 않는다
     markBfSeen(localStore());
     const locale = localeNow();
-    // 사용자가 누른 뒤라 오래 비워 두지 않는다 — 4.5초 안에 준비 안 되면 예전 정가 페이월(늦게 온 결과는 버린다)
+    // 사용자가 누른 뒤라 오래 비워 두지 않는다 — 4.5초 안에 준비 안 되면 줄을 내린다(늦게 온 결과는 버린다)
     void capped(loadAndroidBf(locale).catch(() => null), ANDROID_BF_LINE_WAIT_MS).then((v) => {
       if (!alive.current) return;
-      // 활성 권한·구독이 있으면(체험 중 포함) 정가 페이월로 보내지 않고 줄만 내린다 — 같은 상품 재구매 = Play «이미 소유»(관문 11241331 ②)
-      if (v === 'owned') { window.dispatchEvent(new CustomEvent(ANDROID_BF_LINE_HIDE_EVENT)); return; }
-      // 그 밖(줄은 캐시상 무료인 사람에게만 보인다): 스위치 꺼짐·오퍼 없음·늦음 = 예전 정가 페이월(죽은 단추 없음)
-      if (!v) { setRegular({ locale, preview: isPreview() }); return; }
+      // 못 보이면(활성 권한·구독·스위치 꺼짐·오퍼 없음·늦음) 줄만 내린다 — 줄은 페이월·가치 벽·게이트 안에 있어 그 화면의 정가 결제 단추가 그대로 남는다.
+      //   여기서 정가 페이월을 새로 열지 않는다: 확인이 끝나기 전엔 체험·구독 중인 사람이 같은 상품을 다시 고를 수 있다(Play «이미 소유» — 관문 11241331 ② · 11241338)
+      if (!v || v === 'owned') { window.dispatchEvent(new CustomEvent(ANDROID_BF_LINE_HIDE_EVENT)); return; }
       if (!v.preview) track('bf_and_line');
       setView(v);
     });
