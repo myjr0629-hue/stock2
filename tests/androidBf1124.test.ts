@@ -206,8 +206,9 @@ test('⑦ 배선 — 레이아웃 1개 · 결제는 purchaseOffer(서비스 한 
   assert.equal((layout.match(/<WarmBfHost \/>/g) || []).length, 1, 'iOS 웜 그대로');
   const sheet = read('src/components/app/AndroidBfSheet.tsx');
   assert.match(sheet, /purchaseOffer\(pick, src\)/);
-  assert.match(sheet, /if \(ok\) \{ onClose\(\); return; \}\n    if \(cancelled\) return;\n    onFallback\(\);/, '오류 = 정가 페이월(죽은 단추 없음)');
-  for (const f of ['src/components/app/AndroidBfSheet.tsx', 'src/components/app/AndroidBfGate.tsx', 'src/components/app/AndroidBfHost.tsx', 'src/lib/app/androidBf.ts']) {
+  assert.match(sheet, /if \(ok\) \{ onClose\(\); return; \}\n    if \(cancelled\) return;\n    if \(onFallback\) \{ onFallback\(\); return; \}\n    setFailed\(true\);/, '오류 = 시트는 정가 페이월 · 웜은 다시 시도 줄(죽은 단추 없음)');
+  assert.ok(!/data-warm-other/.test(sheet), '안드 웜엔 «다른 요금제 보기» 없음(같은 상품 재구매 = Play 이미 소유 — 관문 11241325 ②)');
+  for (const f of ['src/components/app/AndroidBfSheet.tsx', 'src/components/app/AndroidBfGate.tsx', 'src/components/app/AndroidBfHost.tsx', 'src/components/app/AndroidBfRegular.tsx', 'src/lib/app/androidBf.ts']) {
     const t = read(f);
     assert.ok(!/\.(purchaseSubscriptionOption|purchasePackage|purchaseStoreProduct)\(/.test(t), `${f} 는 SDK 결제를 직접 부르지 않는다`);
   }
@@ -218,10 +219,13 @@ test('⑦ 배선 — 레이아웃 1개 · 결제는 purchaseOffer(서비스 한 
   const gate = read('src/components/app/AndroidBfGate.tsx');
   assert.match(gate, /if \(!buttons\.length\) \{ track\('bf_and_noopt'\); return null; \}/);
   assert.match(gate, /if \(!v\) \{ setRegular\(\{ locale, preview: isPreview\(\) \}\); return; \}/, '줄에서 못 보이면 정가 페이월');
-  assert.match(gate, /src="bf_and_reg"/);
-  assert.match(gate, /onFallback=\{\(\) => toRegular\(view\.locale, view\.preview\)\}/);
+  assert.match(gate, /onFallback=\{view\.kind === 'sheet' \? \(\) => toRegular\(view\.locale, view\.preview\) : null\}/, '정가 폴백은 무료(시트)만');
+  assert.match(gate, /const info1 = await infoNow\(true\);\n  const aud = info1 \? androidBfAudience\(info1 as Info, 'android', Date\.now\(\)\) : null;\n  if \(!aud \|\| aud\.kind !== aud0\.kind\) return null;/, '시트·웜 모두 캐시 비운 새 정보로 확인(관문 11241325 ①)');
+  const regular = read('src/components/app/AndroidBfRegular.tsx');
+  assert.match(regular, /<ProPaywall locale=\{locale\} src="bf_and_reg"/);
+  assert.ok(!/keepOpenWhilePro|TrialSavePaywall/.test(regular.replace(/^\/\/.*$/gm, '')), '체험 문구 없는 일반 페이월(관문 11241325 ③)');
   assert.match(gate, /markGateDay\(localDay\(\)\)/);
-  assert.match(gate, /const cleared = await capped\(Purchases\.invalidateCustomerInfoCache\(\)/, '웜은 캐시 비운 새 정보');
+  assert.match(gate, /const cleared = await capped\(Purchases\.invalidateCustomerInfoCache\(\)/, '캐시 비운 새 정보');
   assert.match(gate, /androidSwitchOn\(\)/);
   const line = read('src/components/app/BlackFridayLine.tsx');
   assert.match(line, /if \(bfIosHere\(\)\) \{ setShow\(true\); return; \}/, 'iOS 줄 동작 그대로');
@@ -234,5 +238,7 @@ test('⑦ 배선 — 레이아웃 1개 · 결제는 purchaseOffer(서비스 한 
     assert.ok(schema.isFunnelSrc(s), s);
     assert.match(script, new RegExp(`'${s}'`));
   }
-  assert.match(read('src/components/app/TrialSavePaywall.tsx'), /'warm_bf_reg' \| 'bf_and_reg'/);
+  assert.match(line, /if \(!bfLive\(Date\.now\(\)\)\) \{ setShow\(false\); return; \}/, '끝난 뒤 누르면 줄을 내림(관문 11241325 ④)');
+  assert.match(line, /window\.setTimeout\(\(\) => setShow\(false\), left \+ 50\)/);
+  for (const l of ['ko', 'en', 'ja'] as const) assert.ok(a.ANDROID_BF_COPY[l].buyError.length > 5);
 });

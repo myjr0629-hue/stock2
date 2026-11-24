@@ -7,7 +7,8 @@
 //   kind 'sheet': 머리 줄 · 제목 · 한 줄 설명 · 할인가 줄 · [연간 첫 1년 50%] · [월간 첫 달 50%] · 고지 · [다음에]
 //   kind 'warm' : 머리 줄 · «PRO가 {날짜}에 끝나요» · 한 줄 설명 · 할인가 줄(+월 환산) · «PRO로 계속 쓰는 것» 2줄 · [주 단추] · 고지 · 다른 요금제 보기 · [다음에]
 // 단추 = 앱 안 Google Play 결제(useProStatus.purchaseOffer → purchaseSubscriptionOption — 개발자 결정 오퍼). 결제 창은 Play 가 띄운다.
-//   성공 = 닫기 · 취소 = 그대로(다른 단추를 고를 수 있게) · 오류 = 예전 정가 페이월(onFallback — 죽은 단추 없음).
+//   성공 = 닫기 · 취소 = 그대로(다른 단추를 고를 수 있게) · 오류 = 시트(무료)는 정가 페이월(onFallback — 죽은 단추 없음) ·
+//   웜(체험 중)은 카드에 «다시 시도» 한 줄(정가 페이월에서 지금 체험 상품을 고르면 Play 가 «이미 소유»로 거절 — 관문 11241325 ②). 웜엔 «다른 요금제 보기»도 없다.
 // ============================================================================
 
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
@@ -38,7 +39,7 @@ export function androidBfSrc(kind: 'sheet' | 'warm', plan: 'annual' | 'monthly')
   return plan === 'annual' ? 'bf_and_y' : 'bf_and_m';
 }
 
-export function AndroidBfSheet({ view, onClose, onFallback }: { view: AndroidBfView; onClose: () => void; onFallback: () => void }) {
+export function AndroidBfSheet({ view, onClose, onFallback }: { view: AndroidBfView; onClose: () => void; onFallback: (() => void) | null }) {
   const lang = toBfLang(view.locale);
   const bf = BF_COPY[lang];
   const ac = ANDROID_BF_COPY[lang];
@@ -49,6 +50,7 @@ export function AndroidBfSheet({ view, onClose, onFallback }: { view: AndroidBfV
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const { purchaseOffer } = useProStatus();
   const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
   const busyRef = useRef(false);
 
   useBackToClose(true, onClose);
@@ -85,7 +87,7 @@ export function AndroidBfSheet({ view, onClose, onFallback }: { view: AndroidBfV
     // 프리뷰(로컬·*.vercel.app 확인 모드)는 결제·계측 없이 닫기만
     if (view.preview) { onClose(); return; }
     const src = androidBfSrc(view.kind, pick.plan);
-    busyRef.current = true; setBusy(true);
+    busyRef.current = true; setBusy(true); setFailed(false);
     void import('@/lib/app/funnel').then((m) => m.trackFunnel('cta', { src })).catch(() => {});
     let ok = false, cancelled = false;
     try {
@@ -95,7 +97,8 @@ export function AndroidBfSheet({ view, onClose, onFallback }: { view: AndroidBfV
     busyRef.current = false; setBusy(false);
     if (ok) { onClose(); return; }
     if (cancelled) return;
-    onFallback();
+    if (onFallback) { onFallback(); return; }
+    setFailed(true);
   };
 
   const [primary, secondary] = view.buttons;
@@ -151,10 +154,8 @@ export function AndroidBfSheet({ view, onClose, onFallback }: { view: AndroidBfV
           </button>
         )}
 
+        {failed && <p className={p.fine} role="alert" style={{ color: '#fca5a5' }} data-bf-error="">{ac.buyError}</p>}
         <p className={p.fine} data-bf-fine="">{warm ? ac.warmFine(date, primary) : ac.fine(a, m)}</p>
-        {warm && (
-          <button type="button" className={p.link} style={{ display: 'block', margin: '4px auto 0' }} onClick={onFallback} disabled={busy} data-warm-other="">{wc.other}</button>
-        )}
         <button type="button" className={s.later} onClick={onClose} disabled={busy}>{bf.later}</button>
       </div>
     </div>

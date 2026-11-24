@@ -147,6 +147,8 @@ export type AndroidBfCopy = {
   monthlyLede: string;
   /** 시트 고지 — 있는 단추의 할인가·정가만 */
   fine: (a: AndroidBfPick | null, m: AndroidBfPick | null) => string;
+  /** 결제가 오류로 끝났을 때(취소 아님) 웜 카드 한 줄 — 단추는 그대로 다시 누를 수 있다 */
+  buyError: string;
   /** 웜 카드 고지 — 지금 체험·오늘 결제·할인 범위·정가 자동 갱신·해지 */
   warmFine: (date: string, pick: AndroidBfPick) => string;
 };
@@ -157,18 +159,20 @@ export const ANDROID_BF_COPY: Record<BfLang, AndroidBfCopy> = {
     monthlyCta: (o) => `월간 첫 달 50% · ${o}`,
     monthlySub: (r, o) => `월 ${r} → ${o} (첫 달)`,
     monthlyLede: '지금 이어가면 월간 첫 달 50% — 블랙프라이데이 가격은 12/2까지예요.',
+    buyError: '결제를 마치지 못했어요. 잠시 뒤 다시 눌러 주세요.',
     fine: (a, m) => {
       const parts = [a && `연간 첫 1년 ${a.priceString}`, m && `월간 첫 달 ${m.priceString}`].filter(Boolean).join(' 또는 ');
       const after = [a && `연 ${a.regularPriceString}`, m && `월 ${m.regularPriceString}`].filter(Boolean).join(' · ');
       return `할인은 ${parts}에만 적용되고, 이후 정가(${after})로 자동 갱신됩니다. 결제는 Google Play 결제 창에서 확인한 뒤 진행되며, Google Play 정기 결제에서 언제든 해지할 수 있어요.`;
     },
-    warmFine: (d, p) => `지금 PRO 체험은 ${d}까지 그대로이고, 자동 결제되지 않아요. 단추를 누르면 Google Play 결제 창이 열리고, 확인하면 오늘 ${p.priceString}가 결제되며 새 구독이 시작돼요. 할인은 ${p.plan === 'annual' ? '연간 첫 1년' : '월간 첫 달'}에만 적용되고, 이후 ${p.plan === 'annual' ? `연 ${p.regularPriceString}` : `월 ${p.regularPriceString}`}로 자동 갱신돼요. Google Play 정기 결제에서 언제든 해지할 수 있어요.`,
+    warmFine: (d, p) => `지금 PRO 체험은 ${d}까지 그대로이고, 자동 결제되지 않아요. 단추를 누르면 Google Play 결제 창이 열리고, 확인하면 오늘 결제(${p.priceString})되고 새 구독이 시작돼요. 할인은 ${p.plan === 'annual' ? '연간 첫 1년' : '월간 첫 달'}에만 적용되고, 이후 ${p.plan === 'annual' ? `연 ${p.regularPriceString}` : `월 ${p.regularPriceString}`}로 자동 갱신돼요. Google Play 정기 결제에서 언제든 해지할 수 있어요.`,
   },
   en: {
     titleMonthly: 'SIGNUM PRO, the US stock market app\n50% off your first month',
     monthlyCta: (o) => `Monthly: first month 50% off · ${o}`,
     monthlySub: (r, o) => `${r} → ${o} for the first month`,
     monthlyLede: 'Keep it now and get 50% off your first month. Black Friday pricing ends Dec 2.',
+    buyError: 'The purchase didn’t go through. Please try again in a moment.',
     fine: (a, m) => {
       const parts = [a && `the first year (annual, ${a.priceString})`, m && `the first month (monthly, ${m.priceString})`].filter(Boolean).join(' or ');
       const after = [a && `${a.regularPriceString}/year`, m && `${m.regularPriceString}/month`].filter(Boolean).join(' · ');
@@ -181,6 +185,7 @@ export const ANDROID_BF_COPY: Record<BfLang, AndroidBfCopy> = {
     monthlyCta: (o) => `月額 初月50%OFF · ${o}`,
     monthlySub: (r, o) => `月 ${r} → ${o}（初月）`,
     monthlyLede: '今続けると月額プランが初月50%OFF。ブラックフライデー価格は12/2までです。',
+    buyError: '購入を完了できませんでした。少し時間をおいてもう一度お試しください。',
     fine: (a, m) => {
       const parts = [a && `年額の初年度（${a.priceString}）`, m && `月額の初月（${m.priceString}）`].filter(Boolean).join('または');
       const after = [a && `年 ${a.regularPriceString}`, m && `月 ${m.regularPriceString}`].filter(Boolean).join(' · ');

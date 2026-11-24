@@ -7,7 +7,7 @@
 //    → 스위치(android=true)·고객 정보·기기 오퍼(loadAndroidBf) → 시트(기기당 1회) 또는 웜 카드(이틀에 한 번 · 5초 더 기다려 체험 종료 안내가 먼저)
 //    → 기기 표식 + 게이트 하루 표식(오늘 다른 페이월·안내 쉼) → 카드(open bf_and / warm_bf_and).
 // ② 블프 줄(request): 같은 loadAndroidBf — 못 보이면(스위치 꺼짐·대상 아님·오퍼 없음) 예전 정가 페이월(bf_and_reg).
-// 카드 안 결제 오류·«다른 요금제 보기»도 정가 페이월(bf_and_reg).
+// 시트(무료) 안 결제 오류도 정가 페이월(bf_and_reg — 체험 문구 없는 일반 페이월). 웜 카드(체험 중)는 정가 페이월로 보내지 않는다(같은 상품 재구매 = Play «이미 소유»).
 // 프리뷰 확인 모드(로컬·*.vercel.app 만): ?sgbfa=1 시트 · ?sgbfaw=1 웜(월간 체험 → 연간) · ?sgbfawp=annual(연간 체험 → 월간) · ?sgbfam=1 월간만.
 // ============================================================================
 
@@ -31,7 +31,7 @@ import { WATCHLIST_STORAGE_KEY, parseWatchlist } from '@/lib/app/watchlist';
 import { AndroidBfSheet, type AndroidBfView } from './AndroidBfSheet';
 import type { PaywallPlan } from './ProPaywall';
 
-const TrialSavePaywall = dynamic(() => import('./TrialSavePaywall'), { ssr: false });
+const RegularPaywall = dynamic(() => import('./AndroidBfRegular'), { ssr: false });
 
 function localStore(): MiniStore | null {
   try { return window.localStorage; } catch { return null; }
@@ -103,15 +103,13 @@ export async function loadAndroidBf(locale: string): Promise<AndroidBfView | nul
   const [on, info0] = await Promise.all([androidSwitchOn(), infoNow(false)]);
   if (!on || !info0) return null;
   type Info = Parameters<typeof androidBfAudience>[0];
-  let aud = androidBfAudience(info0 as Info, 'android', Date.now());
-  if (!aud) return null;
-  if (aud.kind === 'warm') {
-    // 웜은 캐시를 비운 새 정보로 다시 — 옛 «갱신 꺼진 체험» 정보로 이미 결제한 사람에게 뜨지 않게(iOS 웜과 같다)
-    const info1 = await infoNow(true);
-    const again = info1 ? androidBfAudience(info1 as Info, 'android', Date.now()) : null;
-    if (!again || again.kind !== 'warm') return null;
-    aud = again;
-  }
+  const aud0 = androidBfAudience(info0 as Info, 'android', Date.now());
+  if (!aud0) return null;
+  // 보일 사람이면 캐시를 비운 새 정보로 다시 확인 — 다른 기기에서 막 구독한 사람·이미 결제한 체험자에게 옛 «무료/갱신 꺼짐» 정보로 뜨지 않게
+  //   (못 비우면 안 보임 · 모양이 바뀌면 안 보임 — 관문 11241325 ①). 캐시상 대상이 아닌 사람은 네트워크 조회 없이 끝(매 실행 부하 없음)
+  const info1 = await infoNow(true);
+  const aud = info1 ? androidBfAudience(info1 as Info, 'android', Date.now()) : null;
+  if (!aud || aud.kind !== aud0.kind) return null;
   let picks: AndroidBfPicks | null = null;
   try { picks = await capped(loadAndroidBfPicks(), WARM_BF_VERIFY_MS); } catch { picks = null; }
   const buttons = picks ? androidBfButtons(aud.plans, picks) : [];
@@ -233,8 +231,9 @@ export function AndroidBfGate({ auto, request }: { auto: boolean; request: numbe
   }, [pathname]);
 
   if (regular) {
-    return <TrialSavePaywall locale={regular.locale} src="bf_and_reg" onClose={() => setRegular(null)} previewPlans={regular.preview ? (PREVIEW_PLANS[regular.locale] ?? PREVIEW_PLANS.en) : undefined} />;
+    return <RegularPaywall locale={regular.locale} onClose={() => setRegular(null)} previewPlans={regular.preview ? (PREVIEW_PLANS[regular.locale] ?? PREVIEW_PLANS.en) : undefined} />;
   }
   if (!view) return null;
-  return <AndroidBfSheet view={view} onClose={() => setView(null)} onFallback={() => toRegular(view.locale, view.preview)} />;
+  // 정가 페이월 폴백은 무료(시트) 사람만 — 웜(체험 중) 사람은 정가 페이월에서 지금 체험 상품을 다시 고르면 Play 가 «이미 소유»로 거절한다(관문 11241325 ②)
+  return <AndroidBfSheet view={view} onClose={() => setView(null)} onFallback={view.kind === 'sheet' ? () => toRegular(view.locale, view.preview) : null} />;
 }

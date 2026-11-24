@@ -17,7 +17,7 @@ import type { ExpiredOffer } from '@/services/revenueCat';
 
 // ★11/11 체험 만료 뒤 1회(src 'trial_expired' · context): 이미 PRO 가 아니므로 keepOpenWhilePro 를 넘기지 않는다(구매·복원으로 PRO 가 되면 평소처럼 닫힘)
 // ★11/12 discountOffer(체험 만료자 첫 달 할인)는 만료 1회 페이월(src 'trial_expired' + context)에서만 ProPaywall 로 넘긴다 — 체험 중 시트 경로엔 없다
-export default function TrialSavePaywall({ locale, onClose, previewPlans, src = 'trial_off', context, discountOffer }: { locale: string; onClose: () => void; previewPlans?: PaywallPlan[]; src?: Extract<FunnelSrc, 'trial_off' | 'trial_off_early' | 'trial_expired' | 'warm_bf_reg' | 'bf_and_reg'>; context?: PaywallContext; discountOffer?: ExpiredOffer | ExpiredOfferView | null }) {
+export default function TrialSavePaywall({ locale, onClose, previewPlans, src = 'trial_off', context, discountOffer }: { locale: string; onClose: () => void; previewPlans?: PaywallPlan[]; src?: Extract<FunnelSrc, 'trial_off' | 'trial_off_early' | 'trial_expired' | 'warm_bf_reg'>; context?: PaywallContext; discountOffer?: ExpiredOffer | ExpiredOfferView | null }) {
   const router = useRouter();
   useBackToClose(true, onClose);
   useBannerSuppression(true);

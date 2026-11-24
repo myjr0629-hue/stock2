@@ -9,7 +9,7 @@
 // ============================================================================
 
 import { useEffect, useState } from 'react';
-import { BF_COPY, BF_OPEN_EVENT, bfLive, toBfLang } from '@/lib/app/blackFriday';
+import { BF_COPY, BF_OPEN_EVENT, BF_VALID_UNTIL, bfLive, toBfLang } from '@/lib/app/blackFriday';
 import { warmAndroidFrom } from '@/lib/app/warmBf';
 import { bfIosHere } from './BlackFridayHost';
 import { bfAndroidHere } from './AndroidBfHost';
@@ -39,13 +39,23 @@ export function BlackFridayLine({ locale }: { locale: string }) {
     void androidOn().then((on) => { if (alive && on && bfLive(Date.now())) setShow(true); });
     return () => { alive = false; };
   }, []);
+  // 줄이 떠 있는 채 블프가 끝나면(12/2 07:00 UTC) 줄을 내린다 — 끝난 뒤 누르면 아무 일도 없는 줄이 남지 않게(관문 11241325 ④)
+  useEffect(() => {
+    if (!show) return;
+    const left = BF_VALID_UNTIL - Date.now();
+    if (left <= 0) { setShow(false); return; }
+    const t = left < 2 ** 31 - 1 ? window.setTimeout(() => setShow(false), left + 50) : 0;
+    const vis = () => { if (!bfLive(Date.now())) setShow(false); };
+    document.addEventListener('visibilitychange', vis);
+    return () => { if (t) window.clearTimeout(t); document.removeEventListener('visibilitychange', vis); };
+  }, [show]);
   if (!show) return null;
   const c = BF_COPY[toBfLang(locale)];
   return (
     <button
       type="button"
       className={s.btn}
-      onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent(BF_OPEN_EVENT)); }}
+      onClick={(e) => { e.stopPropagation(); if (!bfLive(Date.now())) { setShow(false); return; } window.dispatchEvent(new CustomEvent(BF_OPEN_EVENT)); }}
       data-bf-line=""
     >
       <span className={s.tag}>BLACK FRIDAY</span>
