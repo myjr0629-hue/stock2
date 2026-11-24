@@ -141,6 +141,14 @@ export async function androidLinePlan(): Promise<'annual' | 'monthly' | null> {
   return b.length ? b[0].plan : null;
 }
 
+/** 결제 직전 재확인 — 캐시 비운 새 고객 정보로 같은 모양(시트/웜)이고 그 상품이 여전히 허락되는가. 못 읽음 = false(사지 않음) · 프리뷰 = true */
+async function stillEligible(view: AndroidBfView, plan: 'annual' | 'monthly'): Promise<boolean> {
+  if (view.preview) return true;
+  const info = await infoNow(true);
+  const aud = info ? androidBfAudience(info as Parameters<typeof androidBfAudience>[0], 'android', Date.now()) : null;
+  return !!aud && aud.kind === view.kind && aud.plans.includes(plan);
+}
+
 // 개발 미리보기 전용 정가 더미(정가 페이월 화면 확인) — 실제 앱은 스토어 값만
 const PREVIEW_PLANS: Record<string, PaywallPlan[]> = {
   ko: [{ plan: 'monthly', priceString: '₩11,900', price: 11900, currencyCode: 'KRW' }, { plan: 'annual', priceString: '₩89,000', price: 89000, currencyCode: 'KRW', pricePerMonthString: '₩7,417' }],
@@ -183,9 +191,12 @@ export function AndroidBfGate({ auto, request }: { auto: boolean; request: numbe
     run.done = true;            // 줄로 본 사람에게 오늘 자동 안내를 또 띄우지 않는다
     markBfSeen(localStore());
     const locale = localeNow();
+    const fromPath = window.location.pathname;
     // 사용자가 누른 뒤라 오래 비워 두지 않는다 — 4.5초 안에 준비 안 되면 줄을 내린다(늦게 온 결과는 버린다)
     void capped(loadAndroidBf(locale).catch(() => null), ANDROID_BF_LINE_WAIT_MS).then((v) => {
       if (!alive.current) return;
+      // 기다리는 사이 화면을 옮겼거나 줄이 있던 페이월을 닫았으면 버린다 — 떠난 화면 위에 늦게 뜨지 않게(관문 11241339 ③)
+      if (window.location.pathname !== fromPath || !document.querySelector('[data-bf-line]')) return;
       // 못 보이면(활성 권한·구독·스위치 꺼짐·오퍼 없음·늦음) 줄만 내린다 — 줄은 페이월·가치 벽·게이트 안에 있어 그 화면의 정가 결제 단추가 그대로 남는다.
       //   여기서 정가 페이월을 새로 열지 않는다: 확인이 끝나기 전엔 체험·구독 중인 사람이 같은 상품을 다시 고를 수 있다(Play «이미 소유» — 관문 11241331 ② · 11241338)
       if (!v || v === 'owned') { window.dispatchEvent(new CustomEvent(ANDROID_BF_LINE_HIDE_EVENT)); return; }
@@ -267,5 +278,5 @@ export function AndroidBfGate({ auto, request }: { auto: boolean; request: numbe
   }
   if (!view) return null;
   // 정가 페이월 폴백은 무료(시트) 사람만 — 웜(체험 중) 사람은 정가 페이월에서 지금 체험 상품을 다시 고르면 Play 가 «이미 소유»로 거절한다(관문 11241325 ②)
-  return <AndroidBfSheet view={view} onClose={() => setView(null)} onFallback={view.kind === 'sheet' ? () => toRegular(view.locale, view.preview) : null} />;
+  return <AndroidBfSheet view={view} onClose={() => setView(null)} onFallback={view.kind === 'sheet' ? () => toRegular(view.locale, view.preview) : null} confirm={(plan) => stillEligible(view, plan)} />;
 }

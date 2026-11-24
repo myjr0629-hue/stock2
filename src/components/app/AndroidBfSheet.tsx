@@ -39,7 +39,13 @@ export function androidBfSrc(kind: 'sheet' | 'warm', plan: 'annual' | 'monthly')
   return plan === 'annual' ? 'bf_and_y' : 'bf_and_m';
 }
 
-export function AndroidBfSheet({ view, onClose, onFallback }: { view: AndroidBfView; onClose: () => void; onFallback: (() => Promise<boolean>) | null }) {
+export function AndroidBfSheet({ view, onClose, onFallback, confirm }: {
+  view: AndroidBfView;
+  onClose: () => void;
+  onFallback: (() => Promise<boolean>) | null;
+  /** 결제 직전 «지금도 이 단추를 살 수 있는 사람인가»(캐시 비운 새 고객 정보 — 관문 11241339 ①). false = 카드를 닫는다 */
+  confirm: (plan: 'annual' | 'monthly') => Promise<boolean>;
+}) {
   const lang = toBfLang(view.locale);
   const bf = BF_COPY[lang];
   const ac = ANDROID_BF_COPY[lang];
@@ -89,12 +95,18 @@ export function AndroidBfSheet({ view, onClose, onFallback }: { view: AndroidBfV
     const src = androidBfSrc(view.kind, pick.plan);
     busyRef.current = true; setBusy(true); setFailed(false);
     void import('@/lib/app/funnel').then((m) => m.trackFunnel('cta', { src })).catch(() => {});
+    // 카드를 연 뒤 다른 기기에서 구독했거나 체험 갱신을 다시 켰으면 사지 않고 닫는다(이중 구독·이미 소유 방지)
+    let still = false;
+    try { still = await confirm(pick.plan); } catch { still = false; }
+    if (!still || !bfLive(Date.now())) { busyRef.current = false; setBusy(false); onClose(); return; }
     let ok = false, cancelled = false;
     try {
       const r = await purchaseOffer(pick, src);
       ok = r.ok; cancelled = !!r.cancelled;
     } catch { /* 오류 = 정가 페이월 */ }
     if (ok) { busyRef.current = false; setBusy(false); onClose(); return; }
+    // 결제 창이 떠 있는 사이 블프가 끝났으면(12/2 07:00 UTC) 결과와 무관하게 닫는다 — 끝난 할인 카드를 남기지 않는다(관문 11241339 ②)
+    if (!bfLive(Date.now())) { busyRef.current = false; setBusy(false); onClose(); return; }
     if (cancelled) { busyRef.current = false; setBusy(false); return; }
     // 시트(무료)만 정가 페이월로 — 게이트가 새 고객 정보로 «지금도 무료»를 확인한 경우만 넘어간다(아니면 false → «다시 시도» 줄)
     let moved = false;
