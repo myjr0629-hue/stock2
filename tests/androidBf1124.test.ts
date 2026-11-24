@@ -255,6 +255,8 @@ test('⑦ 배선 — 레이아웃 1개 · 결제는 purchaseOffer(서비스 한 
   assert.match(gate, /markGateDay\(localDay\(\)\)/);
   assert.match(gate, /if \(!v\.preview\) \{ markGateDay\(localDay\(\)\); track\('bf_and_line'\); \}/, '줄로 연 시트도 게이트 하루 표식');
   assert.match(gate, /bfToday: bfSheetSeenToday\(store, now\)/);
+  assert.match(gate, /if \(lineBusy\.current \|\| viewRef\.current\) return;/, '줄 연속 누름 무시(관문 11241348)');
+  assert.match(gate, /if \(!alive\.current \|\| seq !== lineSeq\.current \|\| viewRef\.current\) return;/);
   assert.match(gate, /const cleared = await capped\(Purchases\.invalidateCustomerInfoCache\(\)/, '캐시 비운 새 정보');
   assert.match(gate, /androidSwitchOn\(\)/);
   const line = read('src/components/app/BlackFridayLine.tsx');

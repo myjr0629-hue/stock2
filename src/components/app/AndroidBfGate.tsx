@@ -190,16 +190,23 @@ export function AndroidBfGate({ auto, request }: { auto: boolean; request: numbe
 
   // ② 블프 줄에서 연다
   const lastReq = useRef(0);
+  const lineBusy = useRef(false);
+  const lineSeq = useRef(0);
   useEffect(() => {
     if (request <= lastReq.current) return;
     lastReq.current = request;
     run.done = true;            // 줄로 본 사람에게 오늘 자동 안내를 또 띄우지 않는다
     markBfSeen(localStore());
+    // 조회 중 또 누르면 무시 · 결과는 «가장 최근 요청»이고 시트가 안 떠 있을 때만 쓴다 — 닫은 시트가 늦은 결과로 다시 열리지 않게(관문 11241348)
+    if (lineBusy.current || viewRef.current) return;
+    lineBusy.current = true;
+    const seq = ++lineSeq.current;
     const locale = localeNow();
     const fromPath = window.location.pathname;
     // 사용자가 누른 뒤라 오래 비워 두지 않는다 — 4.5초 안에 준비 안 되면 줄을 내린다(늦게 온 결과는 버린다)
     void capped(loadAndroidBf(locale).catch(() => null), ANDROID_BF_LINE_WAIT_MS).then((v) => {
-      if (!alive.current) return;
+      lineBusy.current = false;
+      if (!alive.current || seq !== lineSeq.current || viewRef.current) return;
       // 기다리는 사이 화면을 옮겼거나 줄이 있던 페이월을 닫았으면 버린다 — 떠난 화면 위에 늦게 뜨지 않게(관문 11241339 ③)
       if (window.location.pathname !== fromPath || !document.querySelector('[data-bf-line]')) return;
       // 못 보이면(활성 권한·구독·스위치 꺼짐·오퍼 없음·늦음) 줄만 내린다 — 줄은 페이월·가치 벽·게이트 안에 있어 그 화면의 정가 결제 단추가 그대로 남는다.
