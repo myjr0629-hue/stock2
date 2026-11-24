@@ -72,10 +72,22 @@ const baseId = (v: unknown) => String(v ?? '').split(':')[0];
 
 /** 웜 대상이면 {끝나는 시각, 상품}, 아니면 null(모르면 null) */
 export function warmBfTarget(info: InfoLike, platform: string, now: number): WarmTarget | null {
-  if (platform !== 'ios' || !Number.isFinite(now) || !info || !info.entitlements) return null;
+  return platform === 'ios' ? targetOn(info, 'APP_STORE', now) : null;
+}
+
+/**
+ * ★11/24 오후 안드로이드 웜 대상(lib/app/androidBf) — 같은 규칙, 스토어만 Google Play(PLAY_STORE · 7일 무료 체험 중 자동 갱신 끔).
+ *   Play 는 할인 코드 대신 «개발자 결정» 오퍼를 앱 안에서 직접 산다(purchaseSubscriptionOption).
+ */
+export function warmBfTargetPlay(info: InfoLike, platform: string, now: number): WarmTarget | null {
+  return platform === 'android' ? targetOn(info, 'PLAY_STORE', now) : null;
+}
+
+function targetOn(info: InfoLike, store: 'APP_STORE' | 'PLAY_STORE', now: number): WarmTarget | null {
+  if (!Number.isFinite(now) || !info || !info.entitlements) return null;
   const ent = info.entitlements.active?.[PRO_ENTITLEMENT_ID];
   if (!ent || ent.isActive !== true) return null;
-  if (String(ent.store ?? '').toUpperCase() !== 'APP_STORE') return null;
+  if (String(ent.store ?? '').toUpperCase() !== store) return null;
   if (String(ent.periodType ?? '').toUpperCase() !== 'TRIAL') return null;
   if (ent.willRenew !== false) return null;
   if (String(ent.ownershipType ?? '').toUpperCase() === 'FAMILY_SHARED') return null;
@@ -163,10 +175,21 @@ export function warmStep(s: WarmState): 'stop' | 'later' | 'check' {
 
 // ── 끄기 스위치 ───────────────────────────────────────────────────────────
 const truthy = (v: unknown) => !(v == null || v === '' || v === 0 || v === false || v === '0' || v === 'false');
-/** 서버: 환경변수·레디스 값 → 응답 */
+/** ★11/24 오후 값 'android' = 안드로이드 블프(lib/app/androidBf)만 끔 — iOS 웜 카드는 그대로 */
+const androidOnly = (v: unknown) => String(v ?? '').trim().toLowerCase() === 'android';
+const offAll = (v: unknown) => truthy(v) && !androidOnly(v);
+/** 서버: 환경변수·레디스 값 → 응답(iOS 웜 카드) */
 export function warmSwitchValue(input: { env?: string; off: unknown; annual: unknown }): { on: boolean; annual: boolean } {
-  if (truthy(input.env) || truthy(input.off)) return { on: false, annual: false };
+  if (offAll(input.env) || offAll(input.off)) return { on: false, annual: false };
   return { on: true, annual: String(input.annual ?? '').trim() === '1' };
+}
+/** 서버: 안드로이드 블프(1회 시트·웜 카드·블프 줄) 켜짐 — warm-bf:off 가 'android' 이거나 그 밖의 참 값('1' 등)이면 꺼짐 */
+export function warmSwitchAndroid(input: { env?: string; off: unknown }): boolean {
+  return !truthy(input.env) && !truthy(input.off);
+}
+/** 클라이언트: 응답의 android 가 정확히 true 일 때만 켜짐(옛 응답·모양 다름·못 읽음 = 꺼짐) */
+export function warmAndroidFrom(j: unknown): boolean {
+  return !!j && typeof j === 'object' && (j as { on?: unknown }).on === true && (j as { android?: unknown }).android === true;
 }
 /** 클라이언트: 응답 → 켜짐·연간 모드(모양이 다르면 꺼짐) */
 export function warmSwitchFrom(j: unknown): { on: boolean; annual: boolean } {

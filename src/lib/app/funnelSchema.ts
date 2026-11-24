@@ -98,6 +98,11 @@ export const FUNNEL_SRCS = [
   //   단추: 연간 = 그 출처 그대로 · 월간 = warm_bf_m / warm_bf_pm (code_open = 애플 적용 창 열기 · code_pro = 돌아와 «자동 갱신 켜짐» 확인 = 전환)
   //   warm_bf_reg = 카드의 «다른 요금제 보기»가 연 정가 페이월(open·cta·buy_*)
   'warm_bf', 'warm_bf_plans', 'warm_bf_m', 'warm_bf_pm', 'warm_bf_reg',
+  // ★11/24 오후 안드로이드 블프 «진짜 할인»(lib/app/androidBf — Play 개발자 결정 오퍼 bf-annual-50 · expired-50-1m, 앱 안 결제):
+  //   bf_and = 자동 1회 시트(open) · bf_and_line = 페이월 블프 줄이 연 시트(open) · bf_and_y·bf_and_m = 시트의 연간·월간 단추(cta · buy_ok/cancel/err)
+  //   warm_bf_and = 웜 카드(Play 체험 갱신 끔 · open) · warm_bf_and_y·warm_bf_and_m = 웜 카드 단추(cta · buy_*)
+  //   bf_and_reg = 블프에서 넘어간 정가 페이월(오퍼 없음·결제 오류·다른 요금제 보기 — open·cta·buy_*) · bf_and_noopt = 보이려 했는데 기기에 오퍼가 없었다(open)
+  'bf_and', 'bf_and_line', 'bf_and_y', 'bf_and_m', 'warm_bf_and', 'warm_bf_and_y', 'warm_bf_and_m', 'bf_and_reg', 'bf_and_noopt',
 ] as const;
 export type FunnelSrc = (typeof FUNNEL_SRCS)[number];
 

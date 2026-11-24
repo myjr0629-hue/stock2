@@ -1,0 +1,240 @@
+'use client';
+
+// ============================================================================
+// AndroidBfGate — 안드로이드 블프 «진짜 할인» 판정기 (AndroidBfHost 가 가벼운 문을 통과한 기기에서만 싣는다) · 규칙은 lib/app/androidBf 머리말
+// ----------------------------------------------------------------------------
+// ① 자동(auto): 앱이 앞으로 올 때마다 androidBfStep 으로 보고 'check' 면 3초 뒤(iOS 블프 시트와 같다 — 하루 첫 페이월 7초보다 먼저) 다시 보고
+//    → 스위치(android=true)·고객 정보·기기 오퍼(loadAndroidBf) → 시트(기기당 1회) 또는 웜 카드(이틀에 한 번 · 5초 더 기다려 체험 종료 안내가 먼저)
+//    → 기기 표식 + 게이트 하루 표식(오늘 다른 페이월·안내 쉼) → 카드(open bf_and / warm_bf_and).
+// ② 블프 줄(request): 같은 loadAndroidBf — 못 보이면(스위치 꺼짐·대상 아님·오퍼 없음) 예전 정가 페이월(bf_and_reg).
+// 카드 안 결제 오류·«다른 요금제 보기»도 정가 페이월(bf_and_reg).
+// 프리뷰 확인 모드(로컬·*.vercel.app 만): ?sgbfa=1 시트 · ?sgbfaw=1 웜(월간 체험 → 연간) · ?sgbfawp=annual(연간 체험 → 월간) · ?sgbfam=1 월간만.
+// ============================================================================
+
+import { useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
+import { usePathname } from 'next/navigation';
+import { proPurchaseState } from '@/lib/app/proPurchaseState';
+import { localDay, markGateDay } from '@/lib/app/gatePaywall';
+import { gateFlowActive, otherSheetToday, trialAnnounceRouteOk } from '@/lib/app/trialAnnounce';
+import { dailyPaywallShownOn } from '@/lib/app/dailyPaywall';
+import { redeemReturnActive } from '@/lib/app/redeem';
+import { previewFlag } from '@/lib/app/proEntitlement';
+import { initRevenueCat, loadAndroidBfPicks } from '@/services/revenueCat';
+import { BF_DELAY_MS, bfLive, markBfSeen, readBfSeen } from '@/lib/app/blackFriday';
+import { WARM_BF_DELAY_MS, WARM_BF_VERIFY_MS, markWarmShown, readWarmLast, warmAndroidFrom, warmDay, warmDue, type MiniStore } from '@/lib/app/warmBf';
+import {
+  ANDROID_BF_PREVIEW_FLAG, androidBfAudience, androidBfAutoOk, androidBfButtons, androidBfStep,
+  type AndroidBfPick, type AndroidBfPicks, type AndroidBfState,
+} from '@/lib/app/androidBf';
+import { WATCHLIST_STORAGE_KEY, parseWatchlist } from '@/lib/app/watchlist';
+import { AndroidBfSheet, type AndroidBfView } from './AndroidBfSheet';
+import type { PaywallPlan } from './ProPaywall';
+
+const TrialSavePaywall = dynamic(() => import('./TrialSavePaywall'), { ssr: false });
+
+function localStore(): MiniStore | null {
+  try { return window.localStorage; } catch { return null; }
+}
+const dialogOpen = () => !!document.querySelector('[aria-modal="true"]');
+const isNative = () => {
+  try { return !!(globalThis as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.(); } catch { return false; }
+};
+const capped = <T,>(p: Promise<T>, ms: number) => Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), ms))]);
+const isPreview = () => { try { return !isNative() && (previewFlag(ANDROID_BF_PREVIEW_FLAG) || previewFlag('sgbfaw')); } catch { return false; } };
+const localeNow = () => window.location.pathname.split('/')[1] || 'en';
+const ANDROID_BF_LINE_WAIT_MS = 4_500;
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+function readWatchCount(): number {
+  try { return parseWatchlist(localStorage.getItem(WATCHLIST_STORAGE_KEY)).length; } catch { return 0; }
+}
+const track = (src: 'bf_and' | 'bf_and_line' | 'warm_bf_and' | 'bf_and_noopt') => {
+  void import('@/lib/app/funnel').then((m) => m.trackFunnel('open', { src })).catch(() => {});
+};
+
+/** 끄기 스위치 — 응답의 android 가 true 일 때만(실패·시간 초과·모양 다름 = 꺼짐) */
+async function androidSwitchOn(): Promise<boolean> {
+  const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = setTimeout(() => ctl?.abort(), WARM_BF_VERIFY_MS);
+  try {
+    const r = await fetch('/api/app/warm-bf', ctl ? { signal: ctl.signal, cache: 'no-store' } : { cache: 'no-store' });
+    if (!r.ok) return false;
+    return warmAndroidFrom(await r.json());
+  } catch { return false; } finally { clearTimeout(timer); }
+}
+
+/** 고객 정보 — fresh 면 캐시를 비우고 다시(못 비우면 null). 실패·시간 초과 = null */
+async function infoNow(fresh: boolean): Promise<unknown | null> {
+  try {
+    if (!(await initRevenueCat())) return null;
+    const { Purchases } = await import('@revenuecat/purchases-capacitor');
+    if (fresh) {
+      const cleared = await capped(Purchases.invalidateCustomerInfoCache().then(() => true), WARM_BF_VERIFY_MS);
+      if (cleared !== true) return null;
+    }
+    const r = await capped(Purchases.getCustomerInfo(), WARM_BF_VERIFY_MS);
+    return r ? r.customerInfo : null;
+  } catch { return null; }
+}
+
+// 프리뷰 확인 모드 전용 더미(화면 언어의 나라 값 — Play 콘솔 11/24 판독: KRW 44,500/89,000 · 5,950/11,900 · USD 37.50/74.99 · 5.00/9.99 · JPY 6,550/13,100 · 640/1,280)
+function previewPicks(locale: string): AndroidBfPicks {
+  const t = locale === 'ko' ? { c: 'KRW', a: ['₩44,500', '₩89,000', 44500], m: ['₩5,950', '₩11,900', 5950] }
+    : locale === 'ja' ? { c: 'JPY', a: ['¥6,550', '¥13,100', 6550], m: ['¥640', '¥1,280', 640] }
+      : { c: 'USD', a: ['$37.50', '$74.99', 37.5], m: ['$5.00', '$9.99', 5] };
+  const mk = (plan: 'annual' | 'monthly', v: (string | number)[]) => ({
+    platform: 'android', plan, priceString: v[0], regularPriceString: v[1], offerAmount: v[2], currency: t.c, pct: 50,
+    pkg: {} as never, option: {} as never,
+  }) as unknown as AndroidBfPick;
+  const monthlyOnly = new URLSearchParams(window.location.search).get('sgbfam') === '1';
+  return { annual: monthlyOnly ? null : mk('annual', t.a), monthly: mk('monthly', t.m) };
+}
+
+/** 카드에 필요한 것 전부 — 하나라도 안 되면 null */
+export async function loadAndroidBf(locale: string): Promise<AndroidBfView | null> {
+  if (isPreview()) {
+    const q = new URLSearchParams(window.location.search);
+    const warm = previewFlag('sgbfaw');
+    const picks = previewPicks(locale);
+    const plans = warm ? [q.get('sgbfawp') === 'annual' ? 'monthly' as const : 'annual' as const] : ['annual' as const, 'monthly' as const];
+    return { locale, kind: warm ? 'warm' : 'sheet', buttons: androidBfButtons(plans, picks), expiresAt: warm ? Date.now() + 5 * 86_400_000 : null, watchCount: readWatchCount(), preview: true };
+  }
+  if (!isNative()) return null;
+  const [on, info0] = await Promise.all([androidSwitchOn(), infoNow(false)]);
+  if (!on || !info0) return null;
+  type Info = Parameters<typeof androidBfAudience>[0];
+  let aud = androidBfAudience(info0 as Info, 'android', Date.now());
+  if (!aud) return null;
+  if (aud.kind === 'warm') {
+    // 웜은 캐시를 비운 새 정보로 다시 — 옛 «갱신 꺼진 체험» 정보로 이미 결제한 사람에게 뜨지 않게(iOS 웜과 같다)
+    const info1 = await infoNow(true);
+    const again = info1 ? androidBfAudience(info1 as Info, 'android', Date.now()) : null;
+    if (!again || again.kind !== 'warm') return null;
+    aud = again;
+  }
+  let picks: AndroidBfPicks | null = null;
+  try { picks = await capped(loadAndroidBfPicks(), WARM_BF_VERIFY_MS); } catch { picks = null; }
+  const buttons = picks ? androidBfButtons(aud.plans, picks) : [];
+  if (!buttons.length) { track('bf_and_noopt'); return null; }
+  if (!bfLive(Date.now())) return null;
+  return {
+    locale, kind: aud.kind, buttons, expiresAt: aud.kind === 'warm' ? aud.target.expiresAt : null,
+    watchCount: readWatchCount(), preview: false,
+  };
+}
+
+// 개발 미리보기 전용 정가 더미(정가 페이월 화면 확인) — 실제 앱은 스토어 값만
+const PREVIEW_PLANS: Record<string, PaywallPlan[]> = {
+  ko: [{ plan: 'monthly', priceString: '₩11,900', price: 11900, currencyCode: 'KRW' }, { plan: 'annual', priceString: '₩89,000', price: 89000, currencyCode: 'KRW', pricePerMonthString: '₩7,417' }],
+  ja: [{ plan: 'monthly', priceString: '¥1,280', price: 1280, currencyCode: 'JPY' }, { plan: 'annual', priceString: '¥13,100', price: 13100, currencyCode: 'JPY', pricePerMonthString: '¥1,091' }],
+  en: [{ plan: 'monthly', priceString: '$9.99', price: 9.99, currencyCode: 'USD' }, { plan: 'annual', priceString: '$74.99', price: 74.99, currencyCode: 'USD', pricePerMonthString: '$6.25' }],
+};
+
+// 이번 웹뷰 실행·이 현지 날짜에서 자동 안내가 끝났나
+const run = { done: false, day: '' };
+
+export function AndroidBfGate({ auto, request }: { auto: boolean; request: number }) {
+  const pathname = usePathname() || '';
+  const [view, setView] = useState<AndroidBfView | null>(null);
+  const [regular, setRegular] = useState<{ locale: string; preview: boolean } | null>(null);
+  const [fg, setFg] = useState(0);
+  const checking = useRef(false);
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+
+  const toRegular = (locale: string, preview: boolean) => {
+    setView(null);
+    void import('@/components/app/watchlist/BottomSheet').then((m) => m.afterSheetHistory()).catch(() => {}).then(() => { if (alive.current) setRegular({ locale, preview }); });
+  };
+
+  // ② 블프 줄에서 연다
+  const lastReq = useRef(0);
+  useEffect(() => {
+    if (request <= lastReq.current) return;
+    lastReq.current = request;
+    run.done = true;            // 줄로 본 사람에게 오늘 자동 안내를 또 띄우지 않는다
+    markBfSeen(localStore());
+    const locale = localeNow();
+    // 사용자가 누른 뒤라 오래 비워 두지 않는다 — 4.5초 안에 준비 안 되면 예전 정가 페이월(늦게 온 결과는 버린다)
+    void capped(loadAndroidBf(locale).catch(() => null), ANDROID_BF_LINE_WAIT_MS).then((v) => {
+      if (!alive.current) return;
+      if (!v) { setRegular({ locale, preview: isPreview() }); return; }
+      if (!v.preview) track('bf_and_line');
+      setView(v);
+    });
+  }, [request]);
+
+  useEffect(() => {
+    if (!auto) return;
+    const bump = () => { if (document.visibilityState === 'visible') setFg((n) => n + 1); };
+    document.addEventListener('visibilitychange', bump);
+    document.addEventListener('app:resume', bump);
+    return () => { document.removeEventListener('visibilitychange', bump); document.removeEventListener('app:resume', bump); };
+  }, [auto]);
+
+  // ① 자동
+  useEffect(() => {
+    if (!auto) return;
+    const today = warmDay(Date.now());
+    if (run.day !== today) { run.day = today; run.done = false; }
+    if (run.done || view || regular || checking.current) return;
+    const store = localStore();
+    const state = (): AndroidBfState => {
+      const now = Date.now();
+      const last = readWarmLast(store);
+      return {
+        live: bfLive(now), sheetSeen: readBfSeen(store), warmDue: last !== undefined && warmDue(last, warmDay(now), now),
+        routeOk: trialAnnounceRouteOk(window.location.pathname), otherToday: otherSheetToday(store, now), dailyToday: dailyPaywallShownOn(store, now),
+        dialogOpen: dialogOpen(), visible: document.visibilityState === 'visible', gateFlow: gateFlowActive(now),
+        pending: proPurchaseState.getSnapshot(), redeemBusy: redeemReturnActive(now),
+      };
+    };
+    const step = androidBfStep(state());
+    if (step === 'stop') { run.done = true; return; }
+    if (step !== 'check') return;
+    checking.current = true;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          if (androidBfStep(state()) !== 'check') return;
+          const v = await loadAndroidBf(localeNow());
+          if (!alive.current || run.done) return;
+          // 대상 아님·스위치 꺼짐·오퍼 없음 = 이번 실행 끝(다음 실행에 다시)
+          if (!v) { run.done = true; return; }
+          if (!androidBfAutoOk(v.kind, state())) { run.done = true; return; }
+          // 웜은 체험 종료 안내(조회 뒤 뜸)가 먼저 자리를 잡게 iOS 웜과 같은 8초까지 기다린다
+          if (v.kind === 'warm') await sleep(Math.max(0, WARM_BF_DELAY_MS - BF_DELAY_MS));
+          if (!alive.current || run.done) return;
+          const last = state();
+          const st = androidBfStep(last);
+          if (st !== 'check' || !androidBfAutoOk(v.kind, last)) { if (st === 'stop') run.done = true; return; }
+          if (!bfLive(Date.now())) { run.done = true; return; }
+          if (!v.preview) {
+            const marked = v.kind === 'sheet' ? markBfSeen(store) : markWarmShown(store);
+            if (!marked) { run.done = true; return; }
+          }
+          run.done = true;
+          if (!v.preview) { markGateDay(localDay()); track(v.kind === 'sheet' ? 'bf_and' : 'warm_bf_and'); }
+          setView(v);
+        } finally {
+          checking.current = false;
+        }
+      })();
+    }, BF_DELAY_MS);
+    return () => { window.clearTimeout(timer); checking.current = false; };
+  }, [auto, view, regular, fg, pathname]);
+
+  // 화면을 옮기면 닫는다(블프 시트와 같다)
+  const lastPath = useRef(pathname);
+  useEffect(() => {
+    if (lastPath.current === pathname) return;
+    lastPath.current = pathname;
+    setView(null);
+  }, [pathname]);
+
+  if (regular) {
+    return <TrialSavePaywall locale={regular.locale} src="bf_and_reg" onClose={() => setRegular(null)} previewPlans={regular.preview ? (PREVIEW_PLANS[regular.locale] ?? PREVIEW_PLANS.en) : undefined} />;
+  }
+  if (!view) return null;
+  return <AndroidBfSheet view={view} onClose={() => setView(null)} onFallback={() => toRegular(view.locale, view.preview)} />;
+}

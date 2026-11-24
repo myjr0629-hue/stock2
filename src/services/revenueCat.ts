@@ -364,3 +364,19 @@ export async function purchaseExpiredOffer(offer: ExpiredOffer): Promise<Purchas
     storeFlows = Math.max(0, storeFlows - 1);
   }
 }
+
+// ============================================================================
+// ★2026-11-24 오후 안드로이드 블프 «진짜 할인»(lib/app/androidBf) — 연간 `annual:bf-annual-50` · 월간 `monthly:expired-50-1m`(둘 다 개발자 결정·rc-ignore-offer).
+//   결제는 위 purchaseExpiredOffer 의 안드로이드 갈래(purchaseSubscriptionOption)를 그대로 쓴다 — 일반 purchasePro(purchasePackage)는 무변경.
+//   오퍼링을 못 받거나 옵션 모양이 다르면 그 단추는 null(시트를 안 띄우거나 정가 페이월).
+// ============================================================================
+export async function loadAndroidBfPicks(): Promise<import('@/lib/app/androidBf').AndroidBfPicks | null> {
+  if (!(await initRevenueCat())) return null;
+  const cap = await nativeCapacitor();
+  if (!cap || cap.getPlatform() !== 'android') return null;
+  const { Purchases } = await import('@revenuecat/purchases-capacitor');
+  const { pickAndroidBfAnnual, pickAndroidBfMonthly } = await import('@/lib/app/androidBf');
+  const offerings = await Purchases.getOfferings();
+  const pkgs = offerings.current?.availablePackages ?? [];
+  return { annual: pickAndroidBfAnnual(matchPlanPackage(pkgs, 'annual')), monthly: pickAndroidBfMonthly(matchPlanPackage(pkgs, 'monthly')) };
+}

@@ -167,7 +167,8 @@ test('할인 결제 SDK 호출은 서비스 한 곳(src/services/revenueCat.ts)�
 test('할인 카드는 만료 1회 페이월에서만 — discountOffer·purchaseOffer·loadExpiredOffer 호출부 고정', () => {
   assert.deepEqual(usersOf(/<ProPaywall\b[^>]*\bdiscountOffer=/), ['src/components/app/TrialSavePaywall.tsx']);
   assert.deepEqual(usersOf(/<TrialSavePaywall\b[^>]*\bdiscountOffer=/), ['src/components/app/TrialRenewalOffNotice.tsx']);
-  assert.deepEqual(usersOf(/\bpurchaseOffer\(/), ['src/components/app/ProPaywall.tsx']);
+  // ★11/24 오후 안드로이드 블프 카드(AndroidBfSheet — Play 개발자 결정 오퍼 bf-annual-50·expired-50-1m, lib/app/androidBf)가 같은 할인 결제 경로를 쓴다(tests/androidBf1124)
+  assert.deepEqual(usersOf(/\bpurchaseOffer\(/), ['src/components/app/AndroidBfSheet.tsx', 'src/components/app/ProPaywall.tsx']);
   assert.deepEqual(usersOf(/\bloadExpiredOffer\(/), ['src/components/app/TrialRenewalOffNotice.tsx', 'src/services/revenueCat.ts']);
   const notice = read('src/components/app/TrialRenewalOffNotice.tsx');
   // TrialSavePaywall 에 discountOffer 를 넘기는 곳은 만료 페이월(src="trial_expired") 한 곳
