@@ -135,11 +135,13 @@ export type AndroidBfState = {
   /** 오늘 블프 시트(자동·줄)를 봤나 — 같은 날 웜 카드를 잇따라 띄우지 않는다(lib/app/warmBf bfSheetSeenToday) */
   bfToday: boolean;
   routeOk: boolean; otherToday: boolean; dailyToday: boolean; dialogOpen: boolean; visible: boolean; gateFlow: boolean; pending: boolean; redeemBusy: boolean;
+  /** OS 평점 시트 요청 직후·전면 광고 중(하루 첫 페이월과 같은 대기 — lib/app/dailyPaywall reviewBusyAt · useReviewPrompt reviewBlockReason) */
+  osBusy: boolean;
 };
 /** 'stop' = 이번 실행 끝(기간 밖·시트 봄+웜 차례 아님) · 'later' = 다음 포그라운드 · 'check' = 스위치·고객 정보·오퍼 확인 뒤 보인다 */
 export function androidBfStep(s: AndroidBfState): 'stop' | 'later' | 'check' {
   if (!s.live || (s.sheetSeen && !s.warmDue)) return 'stop';
-  if (s.pending || !s.visible || !s.routeOk || s.otherToday || s.dailyToday || s.dialogOpen || s.gateFlow || s.redeemBusy) return 'later';
+  if (s.pending || !s.visible || !s.routeOk || s.otherToday || s.dailyToday || s.dialogOpen || s.gateFlow || s.redeemBusy || s.osBusy) return 'later';
   return 'check';
 }
 /** 가벼운 문(SDK 를 싣기 전에) — 안드로이드 앱·첫 실행 마친 기기·기간 안 · 시트를 아직 안 봤거나 웜 차례인 날만 */

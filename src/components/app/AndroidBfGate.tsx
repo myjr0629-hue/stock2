@@ -18,7 +18,8 @@ import { usePathname } from 'next/navigation';
 import { proPurchaseState } from '@/lib/app/proPurchaseState';
 import { localDay, markGateDay } from '@/lib/app/gatePaywall';
 import { gateFlowActive, otherSheetToday, trialAnnounceRouteOk } from '@/lib/app/trialAnnounce';
-import { dailyPaywallShownOn } from '@/lib/app/dailyPaywall';
+import { dailyPaywallShownOn, reviewBusyAt } from '@/lib/app/dailyPaywall';
+import { reviewBlockReason, reviewRequestedAt } from '@/hooks/useReviewPrompt';
 import { redeemReturnActive } from '@/lib/app/redeem';
 import { previewFlag } from '@/lib/app/proEntitlement';
 import { initRevenueCat, loadAndroidBfPicks } from '@/services/revenueCat';
@@ -45,6 +46,14 @@ const capped = <T,>(p: Promise<T>, ms: number) => Promise.race([p, new Promise<n
 const isPreview = () => { try { return !isNative() && (previewFlag(ANDROID_BF_PREVIEW_FLAG) || previewFlag('sgbfaw')); } catch { return false; } };
 const localeNow = () => window.location.pathname.split('/')[1] || 'en';
 const ANDROID_BF_LINE_WAIT_MS = 4_500;
+/** OS 평점 시트 요청 직후·전면 광고·선물 안내 중이면 기다린다(하루 첫 페이월과 같다 — 관문 11241350 ②). 모르면 기다림 */
+function osBusyNow(now: number): boolean {
+  let rb = false;
+  try { rb = reviewBusyAt(reviewRequestedAt(), now); } catch { rb = true; }
+  let ad = false;
+  try { const why = reviewBlockReason(now); ad = why === 'ad' || why === 'gift' || why === 'err'; } catch { ad = true; }
+  return rb || ad;
+}
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 function readWatchCount(): number {
   try { return parseWatchlist(localStorage.getItem(WATCHLIST_STORAGE_KEY)).length; } catch { return 0; }
@@ -203,12 +212,14 @@ export function AndroidBfGate({ auto, request }: { auto: boolean; request: numbe
     const seq = ++lineSeq.current;
     const locale = localeNow();
     const fromPath = window.location.pathname;
+    // 누른 줄(들) 자체 — 결과가 왔을 때 그 줄이 아직 화면에 붙어 있어야 연다(닫고 다른 페이월을 열었으면 새 줄이라 버린다 — 관문 11241350 ①)
+    const lines = Array.from(document.querySelectorAll('[data-bf-line]'));
     // 사용자가 누른 뒤라 오래 비워 두지 않는다 — 4.5초 안에 준비 안 되면 줄을 내린다(늦게 온 결과는 버린다)
     void capped(loadAndroidBf(locale).catch(() => null), ANDROID_BF_LINE_WAIT_MS).then((v) => {
       lineBusy.current = false;
       if (!alive.current || seq !== lineSeq.current || viewRef.current) return;
       // 기다리는 사이 화면을 옮겼거나 줄이 있던 페이월을 닫았으면 버린다 — 떠난 화면 위에 늦게 뜨지 않게(관문 11241339 ③)
-      if (window.location.pathname !== fromPath || !document.querySelector('[data-bf-line]')) return;
+      if (window.location.pathname !== fromPath || !lines.some((n) => n.isConnected)) return;
       // 못 보이면(활성 권한·구독·스위치 꺼짐·오퍼 없음·늦음) 줄만 내린다 — 줄은 페이월·가치 벽·게이트 안에 있어 그 화면의 정가 결제 단추가 그대로 남는다.
       //   여기서 정가 페이월을 새로 열지 않는다: 확인이 끝나기 전엔 체험·구독 중인 사람이 같은 상품을 다시 고를 수 있다(Play «이미 소유» — 관문 11241331 ② · 11241338)
       if (!v || v === 'owned') { window.dispatchEvent(new CustomEvent(ANDROID_BF_LINE_HIDE_EVENT)); return; }
@@ -240,7 +251,7 @@ export function AndroidBfGate({ auto, request }: { auto: boolean; request: numbe
         live: bfLive(now), sheetSeen: readBfSeen(store), warmDue: last !== undefined && warmDue(last, warmDay(now), now), bfToday: bfSheetSeenToday(store, now),
         routeOk: trialAnnounceRouteOk(window.location.pathname), otherToday: otherSheetToday(store, now), dailyToday: dailyPaywallShownOn(store, now),
         dialogOpen: dialogOpen(), visible: document.visibilityState === 'visible', gateFlow: gateFlowActive(now),
-        pending: proPurchaseState.getSnapshot(), redeemBusy: redeemReturnActive(now),
+        pending: proPurchaseState.getSnapshot(), redeemBusy: redeemReturnActive(now), osBusy: osBusyNow(now),
       };
     };
     const step = androidBfStep(state());

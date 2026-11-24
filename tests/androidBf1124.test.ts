@@ -153,12 +153,12 @@ test('④ 블프 기간·가벼운 문·단계', () => {
   assert.equal(a.androidBfPreGate({ ...base, store: seen }), true, '시트 봤어도 웜 차례면 판정(웜 대상인지 확인)');
   seen.m.set(w.WARM_BF_KEY, w.warmDay(NOW));
   assert.equal(a.androidBfPreGate({ ...base, store: seen }), false, '시트 봄 + 오늘 웜 봄');
-  const st = { live: true, sheetSeen: false, warmDue: true, bfToday: false, routeOk: true, otherToday: false, dailyToday: false, dialogOpen: false, visible: true, gateFlow: false, pending: false, redeemBusy: false };
+  const st = { live: true, sheetSeen: false, warmDue: true, bfToday: false, routeOk: true, otherToday: false, dailyToday: false, dialogOpen: false, visible: true, gateFlow: false, pending: false, redeemBusy: false, osBusy: false };
   assert.equal(a.androidBfStep(st), 'check');
   assert.equal(a.androidBfStep({ ...st, live: false }), 'stop', '기간 밖');
   assert.equal(a.androidBfStep({ ...st, sheetSeen: true, warmDue: false }), 'stop');
   assert.equal(a.androidBfStep({ ...st, sheetSeen: true }), 'check');
-  for (const k of ['otherToday', 'dailyToday', 'dialogOpen', 'gateFlow', 'pending', 'redeemBusy'] as const) assert.equal(a.androidBfStep({ ...st, [k]: true }), 'later', k);
+  for (const k of ['otherToday', 'dailyToday', 'dialogOpen', 'gateFlow', 'pending', 'redeemBusy', 'osBusy'] as const) assert.equal(a.androidBfStep({ ...st, [k]: true }), 'later', k);
   assert.equal(a.androidBfStep({ ...st, visible: false }), 'later');
   assert.equal(a.androidBfStep({ ...st, routeOk: false }), 'later');
   assert.equal(a.androidBfAutoOk('sheet', { sheetSeen: true, warmDue: true, bfToday: false }), false, '시트는 기기당 1회');
@@ -239,7 +239,7 @@ test('⑦ 배선 — 레이아웃 1개 · 결제는 purchaseOffer(서비스 한 
   const gate = read('src/components/app/AndroidBfGate.tsx');
   assert.match(gate, /if \(!v \|\| v === 'owned'\) \{ window\.dispatchEvent\(new CustomEvent\(ANDROID_BF_LINE_HIDE_EVENT\)\); return; \}/, '줄: 못 보이면 줄만 내림 — 정가 페이월을 새로 열지 않음(관문 11241331 ② · 11241338)');
   assert.ok(!/setRegular\(\{ locale, preview: isPreview\(\) \}\)/.test(gate), '줄 경로에 정가 페이월 없음');
-  assert.match(gate, /if \(window\.location\.pathname !== fromPath \|\| !document\.querySelector\('\[data-bf-line\]'\)\) return;/, '줄: 늦은 결과는 떠난 화면에 안 뜸(관문 11241339 ③)');
+  assert.match(gate, /if \(window\.location\.pathname !== fromPath \|\| !lines\.some\(\(n\) => n\.isConnected\)\) return;/, '줄: 늦은 결과는 떠난 화면에 안 뜸(관문 11241339 ③)');
   assert.match(gate, /if \(!info\) return 'unknown';/);
   assert.match(gate, /return !!aud && aud\.kind === view\.kind && aud\.plans\.includes\(plan\) \? 'ok' : 'no';/);
   assert.match(gate, /confirm=\{\(plan\) => stillEligible\(view, plan\)\}/);
@@ -255,6 +255,7 @@ test('⑦ 배선 — 레이아웃 1개 · 결제는 purchaseOffer(서비스 한 
   assert.match(gate, /markGateDay\(localDay\(\)\)/);
   assert.match(gate, /if \(!v\.preview\) \{ markGateDay\(localDay\(\)\); track\('bf_and_line'\); \}/, '줄로 연 시트도 게이트 하루 표식');
   assert.match(gate, /bfToday: bfSheetSeenToday\(store, now\)/);
+  assert.match(gate, /osBusy: osBusyNow\(now\)/, 'OS 평점 시트·광고 중 대기(관문 11241350 ②)');
   assert.match(gate, /if \(lineBusy\.current \|\| viewRef\.current\) return;/, '줄 연속 누름 무시(관문 11241348)');
   assert.match(gate, /if \(!alive\.current \|\| seq !== lineSeq\.current \|\| viewRef\.current\) return;/);
   assert.match(gate, /const cleared = await capped\(Purchases\.invalidateCustomerInfoCache\(\)/, '캐시 비운 새 정보');
