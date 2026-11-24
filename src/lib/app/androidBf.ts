@@ -132,6 +132,8 @@ export function androidBfButtons(plans: readonly BfPlan[], picks: AndroidBfPicks
 // ── 언제(자동) ──────────────────────────────────────────────────────────────
 export type AndroidBfState = {
   live: boolean; sheetSeen: boolean; warmDue: boolean;
+  /** 오늘 블프 시트(자동·줄)를 봤나 — 같은 날 웜 카드를 잇따라 띄우지 않는다(lib/app/warmBf bfSheetSeenToday) */
+  bfToday: boolean;
   routeOk: boolean; otherToday: boolean; dailyToday: boolean; dialogOpen: boolean; visible: boolean; gateFlow: boolean; pending: boolean; redeemBusy: boolean;
 };
 /** 'stop' = 이번 실행 끝(기간 밖·시트 봄+웜 차례 아님) · 'later' = 다음 포그라운드 · 'check' = 스위치·고객 정보·오퍼 확인 뒤 보인다 */
@@ -147,9 +149,10 @@ export function androidBfPreGate(s: { android: boolean; onboardedAtStart: boolea
   const last = readWarmLast(s.store);
   return last !== undefined && warmDue(last, warmDay(s.now), s.now);
 }
-/** 자동 안내에서 이 모양을 지금 보여도 되나 — 시트는 기기당 1회(BF_SEEN_KEY) · 웜은 이틀에 한 번(WARM_BF_KEY) */
-export function androidBfAutoOk(kind: 'sheet' | 'warm', s: Pick<AndroidBfState, 'sheetSeen' | 'warmDue'>): boolean {
-  return kind === 'sheet' ? !s.sheetSeen : s.warmDue;
+/** 자동 안내에서 이 모양을 지금 보여도 되나 — 시트는 기기당 1회(BF_SEEN_KEY) · 웜은 이틀에 한 번(WARM_BF_KEY)이고 오늘 블프 시트를 안 봤을 때(관문 11241346 ②)
+ *  (자동 안내는 오퍼가 없으면 아무것도 띄우지 않는다 — 정가 페이월을 대신 들이밀지 않는다. 무료 사용자의 하루 첫 페이월은 lib/app/dailyPaywall 이 따로 맡는다) */
+export function androidBfAutoOk(kind: 'sheet' | 'warm', s: Pick<AndroidBfState, 'sheetSeen' | 'warmDue' | 'bfToday'>): boolean {
+  return kind === 'sheet' ? !s.sheetSeen : s.warmDue && !s.bfToday;
 }
 
 // ── 문구(Play 정책: 할인 기간·할인가·이후 정가 자동 갱신·Google Play 에서 해지 — 단계 값만) ─────────────

@@ -23,7 +23,7 @@ import { redeemReturnActive } from '@/lib/app/redeem';
 import { previewFlag } from '@/lib/app/proEntitlement';
 import { initRevenueCat, loadAndroidBfPicks } from '@/services/revenueCat';
 import { BF_DELAY_MS, bfLive, markBfSeen, readBfSeen } from '@/lib/app/blackFriday';
-import { WARM_BF_DELAY_MS, WARM_BF_VERIFY_MS, markWarmShown, readWarmLast, warmAndroidFrom, warmDay, warmDue, type MiniStore } from '@/lib/app/warmBf';
+import { WARM_BF_DELAY_MS, WARM_BF_VERIFY_MS, bfSheetSeenToday, markWarmShown, readWarmLast, warmAndroidFrom, warmDay, warmDue, type MiniStore } from '@/lib/app/warmBf';
 import {
   ANDROID_BF_LINE_HIDE_EVENT, ANDROID_BF_PREVIEW_FLAG, androidBfAudience, androidBfAutoOk, androidBfButtons, androidBfOwnsSub, androidBfStep,
   type AndroidBfPick, type AndroidBfPicks, type AndroidBfState,
@@ -205,7 +205,8 @@ export function AndroidBfGate({ auto, request }: { auto: boolean; request: numbe
       // 못 보이면(활성 권한·구독·스위치 꺼짐·오퍼 없음·늦음) 줄만 내린다 — 줄은 페이월·가치 벽·게이트 안에 있어 그 화면의 정가 결제 단추가 그대로 남는다.
       //   여기서 정가 페이월을 새로 열지 않는다: 확인이 끝나기 전엔 체험·구독 중인 사람이 같은 상품을 다시 고를 수 있다(Play «이미 소유» — 관문 11241331 ② · 11241338)
       if (!v || v === 'owned') { window.dispatchEvent(new CustomEvent(ANDROID_BF_LINE_HIDE_EVENT)); return; }
-      if (!v.preview) track('bf_and_line');
+      // 오늘 다른 페이월·안내(하루 첫 페이월·체험 안내·웜 카드)는 쉬게 한다 — 자동 시트와 같다(관문 11241346 ②)
+      if (!v.preview) { markGateDay(localDay()); track('bf_and_line'); }
       setView(v);
     });
   }, [request]);
@@ -229,7 +230,7 @@ export function AndroidBfGate({ auto, request }: { auto: boolean; request: numbe
       const now = Date.now();
       const last = readWarmLast(store);
       return {
-        live: bfLive(now), sheetSeen: readBfSeen(store), warmDue: last !== undefined && warmDue(last, warmDay(now), now),
+        live: bfLive(now), sheetSeen: readBfSeen(store), warmDue: last !== undefined && warmDue(last, warmDay(now), now), bfToday: bfSheetSeenToday(store, now),
         routeOk: trialAnnounceRouteOk(window.location.pathname), otherToday: otherSheetToday(store, now), dailyToday: dailyPaywallShownOn(store, now),
         dialogOpen: dialogOpen(), visible: document.visibilityState === 'visible', gateFlow: gateFlowActive(now),
         pending: proPurchaseState.getSnapshot(), redeemBusy: redeemReturnActive(now),

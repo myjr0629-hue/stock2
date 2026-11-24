@@ -153,7 +153,7 @@ test('④ 블프 기간·가벼운 문·단계', () => {
   assert.equal(a.androidBfPreGate({ ...base, store: seen }), true, '시트 봤어도 웜 차례면 판정(웜 대상인지 확인)');
   seen.m.set(w.WARM_BF_KEY, w.warmDay(NOW));
   assert.equal(a.androidBfPreGate({ ...base, store: seen }), false, '시트 봄 + 오늘 웜 봄');
-  const st = { live: true, sheetSeen: false, warmDue: true, routeOk: true, otherToday: false, dailyToday: false, dialogOpen: false, visible: true, gateFlow: false, pending: false, redeemBusy: false };
+  const st = { live: true, sheetSeen: false, warmDue: true, bfToday: false, routeOk: true, otherToday: false, dailyToday: false, dialogOpen: false, visible: true, gateFlow: false, pending: false, redeemBusy: false };
   assert.equal(a.androidBfStep(st), 'check');
   assert.equal(a.androidBfStep({ ...st, live: false }), 'stop', '기간 밖');
   assert.equal(a.androidBfStep({ ...st, sheetSeen: true, warmDue: false }), 'stop');
@@ -161,9 +161,10 @@ test('④ 블프 기간·가벼운 문·단계', () => {
   for (const k of ['otherToday', 'dailyToday', 'dialogOpen', 'gateFlow', 'pending', 'redeemBusy'] as const) assert.equal(a.androidBfStep({ ...st, [k]: true }), 'later', k);
   assert.equal(a.androidBfStep({ ...st, visible: false }), 'later');
   assert.equal(a.androidBfStep({ ...st, routeOk: false }), 'later');
-  assert.equal(a.androidBfAutoOk('sheet', { sheetSeen: true, warmDue: true }), false, '시트는 기기당 1회');
-  assert.equal(a.androidBfAutoOk('warm', { sheetSeen: true, warmDue: true }), true);
-  assert.equal(a.androidBfAutoOk('warm', { sheetSeen: false, warmDue: false }), false, '웜은 이틀에 한 번');
+  assert.equal(a.androidBfAutoOk('sheet', { sheetSeen: true, warmDue: true, bfToday: false }), false, '시트는 기기당 1회');
+  assert.equal(a.androidBfAutoOk('warm', { sheetSeen: true, warmDue: true, bfToday: false }), true);
+  assert.equal(a.androidBfAutoOk('warm', { sheetSeen: false, warmDue: false, bfToday: false }), false, '웜은 이틀에 한 번');
+  assert.equal(a.androidBfAutoOk('warm', { sheetSeen: true, warmDue: true, bfToday: true }), false, '오늘 블프 시트를 봤으면 웜 쉼(관문 11241346 ②)');
 });
 
 test("⑤ 끄기 스위치 — warm-bf:off 'android' = 안드만 끔(iOS 웜 그대로) · '1' = 전부 · 응답에 android 없으면 꺼짐", () => {
@@ -252,6 +253,8 @@ test('⑦ 배선 — 레이아웃 1개 · 결제는 purchaseOffer(서비스 한 
   assert.match(regular, /<ProPaywall locale=\{locale\} src="bf_and_reg"/);
   assert.ok(!/keepOpenWhilePro|TrialSavePaywall/.test(regular.replace(/^\/\/.*$/gm, '')), '체험 문구 없는 일반 페이월(관문 11241325 ③)');
   assert.match(gate, /markGateDay\(localDay\(\)\)/);
+  assert.match(gate, /if \(!v\.preview\) \{ markGateDay\(localDay\(\)\); track\('bf_and_line'\); \}/, '줄로 연 시트도 게이트 하루 표식');
+  assert.match(gate, /bfToday: bfSheetSeenToday\(store, now\)/);
   assert.match(gate, /const cleared = await capped\(Purchases\.invalidateCustomerInfoCache\(\)/, '캐시 비운 새 정보');
   assert.match(gate, /androidSwitchOn\(\)/);
   const line = read('src/components/app/BlackFridayLine.tsx');
