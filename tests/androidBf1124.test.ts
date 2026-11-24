@@ -216,11 +216,16 @@ test('⑦ 배선 — 레이아웃 1개 · 결제는 purchaseOffer(서비스 한 
   assert.equal((layout.match(/<WarmBfHost \/>/g) || []).length, 1, 'iOS 웜 그대로');
   const sheet = read('src/components/app/AndroidBfSheet.tsx');
   assert.match(sheet, /purchaseOffer\(pick, src\)/);
-  assert.match(sheet, /if \(onFallback\) \{ try \{ moved = await onFallback\(\); \} catch \{ moved = false; \} \}\n    busyRef\.current = false; setBusy\(false\);\n    if \(!moved\) setFailed\(true\);/, '오류 = 시트는 (확인 뒤) 정가 페이월 · 아니면 다시 시도 줄(죽은 단추 없음)');
-  assert.match(sheet, /try \{ still = await confirm\(pick\.plan\); \} catch \{ still = 'unknown'; \}\n    if \(still === 'no' \|\| !bfLive\(Date\.now\(\)\)\) \{ busyRef\.current = false; setBusy\(false\); onClose\(\); return; \}/, '결제 직전 새 정보로 재확인(관문 11241339 ①)');
+  assert.match(sheet, /if \(onFallback && !closedRef\.current\) \{ try \{ moved = await onFallback\(\); \} catch \{ moved = false; \} \}\n    busyRef\.current = false; setBusy\(false\);\n    if \(!moved\) setFailed\(true\);/, '오류 = 시트는 (확인 뒤) 정가 페이월 · 아니면 다시 시도 줄(죽은 단추 없음)');
+  assert.match(sheet, /try \{ still = await confirm\(pick\.plan\); \} catch \{ still = 'unknown'; \}\n    if \(closedRef\.current\) \{ busyRef\.current = false; return; \}\n    if \(still === 'no' \|\| !bfLive\(Date\.now\(\)\)\) \{ busyRef\.current = false; setBusy\(false\); close\(\); return; \}/, '결제 직전 새 정보로 재확인(관문 11241339 ①)');
+  assert.match(sheet, /if \(closedRef\.current\) \{ busyRef\.current = false; return; \}/, '확인 중 닫으면 결제 창 안 엶(관문 11241343)');
+  assert.ok(sheet.indexOf('if (closedRef.current) { busyRef.current = false; return; }') < sheet.indexOf('await purchaseOffer(pick, src)'));
+  assert.match(sheet, /useBackToClose\(true, close\);/);
+  assert.match(sheet, /useLayer\(true, close, sheetRef\)/);
+  assert.match(read('src/components/app/AndroidBfGate.tsx'), /if \(!viewRef\.current\) return false;/);
   assert.match(sheet, /if \(still !== 'ok'\) \{ busyRef\.current = false; setBusy\(false\); setFailed\(true\); return; \}/, '조회 실패 = 다시 시도 줄(관문 11241342)');
   assert.ok(sheet.indexOf('await confirm(pick.plan)') < sheet.indexOf('await purchaseOffer(pick, src)'));
-  assert.match(sheet, /if \(ok\) \{[^\n]*\}\n    \/\/ [^\n]*\n    if \(!bfLive\(Date\.now\(\)\)\) \{ busyRef\.current = false; setBusy\(false\); onClose\(\); return; \}\n    if \(cancelled\)/, '결제 창 사이 블프 끝 = 닫기(관문 11241339 ②)');
+  assert.match(sheet, /if \(ok\) \{[^\n]*\}\n    \/\/ [^\n]*\n    if \(!bfLive\(Date\.now\(\)\)\) \{ busyRef\.current = false; setBusy\(false\); close\(\); return; \}\n    if \(cancelled\)/, '결제 창 사이 블프 끝 = 닫기(관문 11241339 ②)');
   assert.ok(!/data-warm-other/.test(sheet), '안드 웜엔 «다른 요금제 보기» 없음(같은 상품 재구매 = Play 이미 소유 — 관문 11241325 ②)');
   for (const f of ['src/components/app/AndroidBfSheet.tsx', 'src/components/app/AndroidBfGate.tsx', 'src/components/app/AndroidBfHost.tsx', 'src/components/app/AndroidBfRegular.tsx', 'src/lib/app/androidBf.ts']) {
     const t = read(f);

@@ -59,9 +59,13 @@ export function AndroidBfSheet({ view, onClose, onFallback, confirm }: {
   const [failed, setFailed] = useState(false);
   const busyRef = useRef(false);
 
-  useBackToClose(true, onClose);
+  // 닫힌 뒤(뒤로가기·Esc·화면 이동 포함)엔 진행 중이던 결제 확인이 끝나도 결제 창을 열지 않는다(관문 11241343)
+  const closedRef = useRef(false);
+  useEffect(() => { closedRef.current = false; return () => { closedRef.current = true; }; }, []);
+  const close = useCallback(() => { closedRef.current = true; onClose(); }, [onClose]);
+  useBackToClose(true, close);
   useBannerSuppression(true);
-  const isTop = useLayer(true, onClose, sheetRef);
+  const isTop = useLayer(true, close, sheetRef);
 
   useEffect(() => {
     const id = window.setTimeout(() => closeBtnRef.current?.focus({ preventScroll: true }), 40);
@@ -69,13 +73,13 @@ export function AndroidBfSheet({ view, onClose, onFallback, confirm }: {
   }, []);
   // 블프 기간이 끝나는 순간 열린 카드도 닫는다(웜 카드와 같다) — 결제 중이면 결과를 기다린다
   useEffect(() => {
-    const check = () => { if (!bfLive(Date.now()) && !busyRef.current) onClose(); };
+    const check = () => { if (!bfLive(Date.now()) && !busyRef.current) close(); };
     check();
     const left = BF_VALID_UNTIL - Date.now();
     const t = left > 0 && left < 2 ** 31 - 1 ? window.setTimeout(check, left + 50) : 0;
     document.addEventListener('visibilitychange', check);
     return () => { if (t) window.clearTimeout(t); document.removeEventListener('visibilitychange', check); };
-  }, [onClose]);
+  }, [close]);
 
   const trapTab = useCallback((e: ReactKeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'Tab' || !isTop()) return;
@@ -89,16 +93,17 @@ export function AndroidBfSheet({ view, onClose, onFallback, confirm }: {
 
   const buy = async (pick: AndroidBfPick) => {
     if (busyRef.current) return;
-    if (!bfLive(Date.now())) { onClose(); return; }
+    if (!bfLive(Date.now())) { close(); return; }
     // 프리뷰(로컬·*.vercel.app 확인 모드)는 결제·계측 없이 닫기만
-    if (view.preview) { onClose(); return; }
+    if (view.preview) { close(); return; }
     const src = androidBfSrc(view.kind, pick.plan);
     busyRef.current = true; setBusy(true); setFailed(false);
     void import('@/lib/app/funnel').then((m) => m.trackFunnel('cta', { src })).catch(() => {});
     // 카드를 연 뒤 다른 기기에서 구독했거나 체험 갱신을 다시 켰으면 사지 않고 닫는다(이중 구독·이미 소유 방지)
     let still: 'ok' | 'no' | 'unknown' = 'unknown';
     try { still = await confirm(pick.plan); } catch { still = 'unknown'; }
-    if (still === 'no' || !bfLive(Date.now())) { busyRef.current = false; setBusy(false); onClose(); return; }
+    if (closedRef.current) { busyRef.current = false; return; }
+    if (still === 'no' || !bfLive(Date.now())) { busyRef.current = false; setBusy(false); close(); return; }
     // 조회 실패·늦음은 사지 않고 «다시 시도» 줄(말없이 닫지 않는다 — 관문 11241342)
     if (still !== 'ok') { busyRef.current = false; setBusy(false); setFailed(true); return; }
     let ok = false, cancelled = false;
@@ -106,13 +111,13 @@ export function AndroidBfSheet({ view, onClose, onFallback, confirm }: {
       const r = await purchaseOffer(pick, src);
       ok = r.ok; cancelled = !!r.cancelled;
     } catch { /* 오류 = 정가 페이월 */ }
-    if (ok) { busyRef.current = false; setBusy(false); onClose(); return; }
+    if (ok) { busyRef.current = false; setBusy(false); close(); return; }
     // 결제 창이 떠 있는 사이 블프가 끝났으면(12/2 07:00 UTC) 결과와 무관하게 닫는다 — 끝난 할인 카드를 남기지 않는다(관문 11241339 ②)
-    if (!bfLive(Date.now())) { busyRef.current = false; setBusy(false); onClose(); return; }
+    if (!bfLive(Date.now())) { busyRef.current = false; setBusy(false); close(); return; }
     if (cancelled) { busyRef.current = false; setBusy(false); return; }
     // 시트(무료)만 정가 페이월로 — 게이트가 새 고객 정보로 «지금도 무료»를 확인한 경우만 넘어간다(아니면 false → «다시 시도» 줄)
     let moved = false;
-    if (onFallback) { try { moved = await onFallback(); } catch { moved = false; } }
+    if (onFallback && !closedRef.current) { try { moved = await onFallback(); } catch { moved = false; } }
     busyRef.current = false; setBusy(false);
     if (!moved) setFailed(true);
   };
@@ -134,11 +139,11 @@ export function AndroidBfSheet({ view, onClose, onFallback, confirm }: {
     <div
       className={p.overlay}
       style={{ zIndex: 10060 }}
-      onClick={(e) => { if (e.target === e.currentTarget && !busyRef.current) onClose(); }}
+      onClick={(e) => { if (e.target === e.currentTarget && !busyRef.current) close(); }}
       data-android-bf={view.kind}
     >
       <div ref={sheetRef} className={`${p.sheet} ${s.box}`} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-busy={busy || undefined} onKeyDown={trapTab}>
-        <button ref={closeBtnRef} type="button" className={p.close} onClick={onClose} aria-label={bf.close} disabled={busy}>
+        <button ref={closeBtnRef} type="button" className={p.close} onClick={close} aria-label={bf.close} disabled={busy}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
           </svg>
@@ -172,7 +177,7 @@ export function AndroidBfSheet({ view, onClose, onFallback, confirm }: {
 
         {failed && <p className={p.fine} role="alert" style={{ color: '#fca5a5' }} data-bf-error="">{ac.buyError}</p>}
         <p className={p.fine} data-bf-fine="">{warm ? ac.warmFine(date, primary) : ac.fine(a, m)}</p>
-        <button type="button" className={s.later} onClick={onClose} disabled={busy}>{bf.later}</button>
+        <button type="button" className={s.later} onClick={close} disabled={busy}>{bf.later}</button>
       </div>
     </div>
   );

@@ -163,6 +163,8 @@ const run = { done: false, day: '' };
 export function AndroidBfGate({ auto, request }: { auto: boolean; request: number }) {
   const pathname = usePathname() || '';
   const [view, setView] = useState<AndroidBfView | null>(null);
+  const viewRef = useRef<AndroidBfView | null>(null);
+  viewRef.current = view;
   const [regular, setRegular] = useState<{ locale: string; preview: boolean } | null>(null);
   const [fg, setFg] = useState(0);
   const checking = useRef(false);
@@ -179,6 +181,8 @@ export function AndroidBfGate({ auto, request }: { auto: boolean; request: numbe
       const aud = info ? androidBfAudience(info as Parameters<typeof androidBfAudience>[0], 'android', Date.now()) : null;
       if (!aud || aud.kind !== 'sheet' || !alive.current) return false;
     }
+    // 확인하는 사이 시트를 닫았으면(뒤로가기 등) 정가 페이월을 열지 않는다
+    if (!viewRef.current) return false;
     setView(null);
     void import('@/components/app/watchlist/BottomSheet').then((m) => m.afterSheetHistory()).catch(() => {}).then(() => { if (alive.current) setRegular({ locale, preview }); });
     return true;
