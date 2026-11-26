@@ -139,8 +139,9 @@ const EXTRA = LIB.CALENDAR_ONLY_EARNINGS.map((c) => c.ticker);
   });
   // 11/3 T55: 공통 목록에 10/26~11/12 회사 공지(유니버스 안 83종목)를 더해 해시를 갱신했다 — 캘린더 전용 종목은 여전히 0
   // 11/9 T55 재점검: CEG·OXY·DIS·HD·NVDA·PANW·TJX 회사 일정 공지(유니버스 안 7종목)를 더해 해시를 갱신했다 — 캘린더 전용 종목은 여전히 0
+  // 11/26: 11/9 뒤 갱신 0 으로 11/20~ 대상 0 → LOW·CRWD·ZS·SYM·DELL·WDAY·DE(8-K 원문)·12/1~12/17 회사 일정 공지 11종목(유니버스 안 18종목)을 더해 해시를 갱신했다 — 캘린더 전용 종목은 여전히 0
   await t('CONFIRMED_EARNINGS(영수증 크론·SEO·오늘 볼 것·알림) 해시 = 고정값 · 캘린더 전용 종목 0', () => {
-    assert.equal(sha(CONF.CONFIRMED_EARNINGS.map((x) => `${x.ticker}|${x.date}|${x.hour}`)), 'f69eeec062a11e0056296eeab5bcb79aaa1073253a78816c7a108b77de89b871');
+    assert.equal(sha(CONF.CONFIRMED_EARNINGS.map((x) => `${x.ticker}|${x.date}|${x.hour}`)), '8aaac5a8a4563f1e154c13753936e385748be9c3996c3899b7b7673281df5759');
     for (const x of EXTRA) assert.ok(!CONF.CONFIRMED_EARNINGS.some((c) => c.ticker === x), `${x} 가 공통 공지 목록에 있다`);
   });
 

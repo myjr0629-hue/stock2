@@ -121,6 +121,30 @@ const freeze = <T,>(o: T): T => { const f = (x: any): any => { if (x && typeof x
     for (const c of [...C.CONFIRMED_EARNINGS, ...C.PENDING_EARNINGS]) assert.ok(universe.has(c.ticker), `${c.ticker} 는 캘린더 유니버스 밖`);
   });
 
+  t('[11/26] 목록 남은 기간 경보 — 마지막 미래 발표일 7일 안 · 다음 7일 발표 0 · 11/20 사고 재현 · 지금 목록은 경보 없음', () => {
+    const L = (...d: string[]) => d.map((date) => ({ date }));
+    // 11/20 사고: 목록 마지막 미래 날짜 = 11/19(WMT) → 11/20 엔 미래 0
+    assert.deepEqual(C.confirmedListRunway('2026-11-20', L('2026-11-17', '2026-11-19')).alerts, ['runway_short', 'none_in_window']);
+    // 11/13: 마지막 11/19 가 6일 뒤 → 남은 기간 짧음(다음 7일엔 있음)
+    assert.deepEqual(C.confirmedListRunway('2026-11-13', L('2026-11-17', '2026-11-19')).alerts, ['runway_short']);
+    // 다음 7일 비고 먼 날짜만 있음 → 0건 경보만
+    const far = C.confirmedListRunway('2026-12-20', L('2026-12-17', '2027-01-14'));
+    assert.deepEqual(far.alerts, ['none_in_window']); assert.equal(far.lastFuture, '2027-01-14'); assert.equal(far.nextWindowCount, 0);
+    // 경계: 오늘 발표는 «다음 7일»에 든다 · 7일 뒤(오늘+7)는 창 밖이지만 남은 기간은 충분
+    const edge = C.confirmedListRunway('2026-11-26', L('2026-11-26', '2026-12-03'));
+    assert.deepEqual(edge.alerts, []); assert.equal(edge.nextWindowCount, 1);
+    assert.deepEqual(C.confirmedListRunway('2026-11-26', []).alerts, ['runway_short', 'none_in_window']);
+    // 지금(11/26) 목록 — 12/1 MDB·MRVL·OKTA … 12/17 NKE·MU 까지
+    const now = C.confirmedListRunway('2026-11-26');
+    assert.deepEqual(now.alerts, [], JSON.stringify(now)); assert.ok(now.nextWindowCount >= 5);
+  });
+  t('[11/26] 이번 주 발표(11/23 주) — SYM·CRWD·ZS 11/23 · DELL·WDAY 11/24 장후 · DE 11/25 장전 (8-K 원문)', () => {
+    const by = Object.fromEntries(C.CONFIRMED_EARNINGS.map((c) => [c.ticker, c]));
+    for (const [tk, d, h] of [['SYM', '2026-11-23', 'amc'], ['CRWD', '2026-11-23', 'bmo'], ['ZS', '2026-11-23', 'bmo'], ['DELL', '2026-11-24', 'amc'], ['WDAY', '2026-11-24', 'amc'], ['DE', '2026-11-25', 'bmo']]) {
+      assert.equal(by[tk]?.date, d, tk); assert.equal(by[tk]?.hour, h, tk); assert.equal(by[tk]?.sourceKind, 'sec-8k', tk);
+    }
+  });
+
   // ═══════════════════════════════════════════════════════════════════════════
   console.log('━━━ 2. 덮기(순수 함수) ━━━');
   t('★ TSLA — FMP 추정 10/28 이 회사 공지 10/21 로 바뀐다(옛 날짜 dateFrom · 시각 amc · 다음 분기 행은 그대로)', () => {

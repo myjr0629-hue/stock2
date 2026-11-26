@@ -10,7 +10,7 @@
 // ============================================================================
 import { NextRequest, NextResponse } from 'next/server';
 import { runActualsCycle, syncActualsLatestPointers, ACTUALS_RUN_LOCK_SEC } from '@/services/earningsActualsService';
-import { CONFIRMED_EARNINGS } from '@/lib/earningsConfirmed';
+import { CONFIRMED_EARNINGS, confirmedListRunway } from '@/lib/earningsConfirmed';
 import { resultEnvMode, runEarningsResultStep, SET_IF_EQ_LUA, DEL_IF_EQ_LUA } from '@/lib/signals/earningsResult';
 
 export const dynamic = 'force-dynamic';
@@ -61,5 +61,8 @@ export async function GET(req: NextRequest) {
         } catch (e) { console.error('[Cron/EarningsActuals] latest pointers failed', e instanceof Error ? e.message : 'unknown'); }
     }
     console.log(`[Cron/EarningsActuals] ${JSON.stringify({ today: r.today, considered: r.considered, expected: r.expectedSaved, actuals: r.actualsSaved, rechecked: r.rechecked, skipped: r.skipped.length, why: r.skipped.filter((x) => /^(fmp|recheck|actual:(error|vendor|bar|impl))/.test(x.reason)).slice(0, 6), dryRun })}`);
-    return NextResponse.json({ success: true, dryRun, ...r });
+    // [11/26] 확인 목록 «남은 기간» 경보 — 목록이 마르면(11/9 뒤 갱신 0 → 11/20~ 대상 0) 이 크론·채점표·결과 알림이 조용히 멈춘다. 회차마다 운영 로그에 남긴다.
+    const listRunway = confirmedListRunway(r.today, CONFIRMED_EARNINGS);
+    if (listRunway.alerts.length) console.warn(`[Cron/EarningsActuals] ALERT confirmed_list_runway ${JSON.stringify(listRunway)} — src/lib/earningsConfirmed.ts 에 회사 공지 일정을 더한다`);
+    return NextResponse.json({ success: true, dryRun, ...r, listRunway });
 }
