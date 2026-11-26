@@ -45,6 +45,8 @@ export function BlackFridayHost() {
       if (pass()) { setAuto(true); return; }
       t2 = window.setTimeout(() => { if (pass()) setAuto(true); }, 2_000);
     }, 0);
+    // ★11/26 정가 페이월 블프 카드 스위치를 미리 읽어 둔다(lib/app/bfPaywall) — 페이월이 열릴 때 기다리지 않고 첫 그림부터 카드가 있게
+    if (bfIosHere() && bfLive(Date.now())) void import('@/lib/app/bfPaywall').then((m) => m.bfPwSwitch()).catch(() => {});
     const onOpen = () => { if (bfIosHere() && bfLive(Date.now())) setReq((n) => n + 1); };
     window.addEventListener(BF_OPEN_EVENT, onOpen);
     return () => { window.clearTimeout(t1); window.clearTimeout(t2); window.removeEventListener(BF_OPEN_EVENT, onOpen); };

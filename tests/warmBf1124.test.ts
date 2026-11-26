@@ -183,7 +183,7 @@ test('⑩ 관문 11240021 — 선물 안내는 웜 본 날 busy · 캐시 못 �
   store.m.set(w.WARM_BF_KEY, w.warmDay(NOW - 2 * DAY));
   assert.notEqual(g.giftAnnounceBlock(input), 'busy', '이틀 전이면 막지 않는다');
   const gate = read('src/components/app/WarmBfGate.tsx');
-  assert.match(gate, /if \(cleared !== true\) return null;/);
+  assert.match(gate, /if \(cleared !== true\) return 'wb_noinfo';/);   // ★11/26 이유 코드로(안 보임은 같다 — loadWarm 이 null)
   assert.match(gate, /plans0\.secondary && prices\[plans0\.secondary\]\.regular/, '둘째 단추는 정가 있을 때만(관문 11240028 ②)');
   assert.match(gate, /WARM_BF_OFFER_WAIT_MS\)/);
   assert.match(gate, /if \(!markWarmShown\(localStore\(\)\)\) \{ onFallback\(\); return; \}/, '요금제 탭 경로도 표식 실패 = 카드 안 보임(관문 11240036)');
@@ -206,5 +206,5 @@ test('⑫ 관문 11240040 — 열린 카드도 블프 기간이 끝나면 닫고
 
 test('⑬ 관문 11240041 — 만료 경계: 코드 창 열기 직전·카드 준비 끝에 기간 재확인', () => {
   assert.match(read('src/lib/app/redeem.ts'), /if \(!bfLive\(Date\.now\(\)\)\) return false;\n  armReturn\('url', src, false, true, wasOff\);/);
-  assert.match(read('src/components/app/WarmBfGate.tsx'), /if \(!bfLive\(Date\.now\(\)\)\) return null;\n  return \{ locale, target/);
+  assert.match(read('src/components/app/WarmBfGate.tsx'), /if \(!bfLive\(Date\.now\(\)\)\) return null;\n  if \(!preview\) trackWarmWhy\('wb_ok'\);\n  return \{ locale, target/);
 });

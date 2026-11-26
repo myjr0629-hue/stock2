@@ -39,6 +39,7 @@ export const FUNNEL_STAGES = [
   'fr_judge',      // ★11/20 첫 실행 체험 페이월 판정(lib/app/firstRunPaywall · 실행당 한 번씩): 출처 fr_try = 판정 시작 · fr_late = 재시도·늦게 보임 · 그 밖의 fr_* = 안 보인 이유(페이월이 보이면 open/first_run 으로 센다)
   'reward_ok',     // ★11/20 광고 잠금해제(1시간 · 11/20 오후부터 누른 잠금 하나만 — lib/app/adUnlockScope)가 주어졌다(ValueWall useAdUnlockGate) — 출처 value_wall = 보상형 광고 끝까지 봄 · ad_modal = 광고 없을 때 30초 대체 창 · rw_more = 위 둘 중 다른 잠금이 이미 열린 채 또 열었다(같은 해제에 덧붙여 한 번 더)
   'rv_cap', 'rv_ask', 'rv_block', 'rv_why', // ★11/20 스토어 평점 요청(lib/app/reviewBeacon — 구매 퍼널 아님): 플러그인 있나(기기당 ET 하루 1회, rv_yes·rv_no) · OS 평점 API 실제 요청 · 순간이 왔지만 못 부름(출처 = 순간 rv_day…rv_pro) · 못 부른 이유(rv_modal…rv_noplug)
+  'wb_why',        // ★11/26 웜 블프 카드 준비(loadWarm · iOS · 운영만) 결과 — 출처 wb_try = 준비 시작 · wb_ok = 카드 준비됨 · 그 밖의 wb_* = 안 된 이유(스위치·고객 정보·대상 조건·가격·요금제 탭 3.5초 초과)
   'rw_then',       // ★11/20 해제 뒤 24시간 안에 이 기기에서 처음 일어난 페이월 열림·구매 버튼·결제 성공(기기 안에서만 잇고 서버엔 하루 합계만) — 출처 rw_open·rw_cta·rw_buy
 ] as const;
 export type FunnelStage = (typeof FUNNEL_STAGES)[number];
@@ -102,6 +103,8 @@ export const FUNNEL_SRCS = [
   //   bf_and = 자동 1회 시트(open) · bf_and_line = 페이월 블프 줄이 연 시트(open) · bf_and_y·bf_and_m = 시트의 연간·월간 단추(cta · buy_ok/cancel/err)
   //   warm_bf_and = 웜 카드(Play 체험 갱신 끔 · open) · warm_bf_and_y·warm_bf_and_m = 웜 카드 단추(cta · buy_*)
   //   bf_and_reg = 블프에서 넘어간 정가 페이월(오퍼 없음·결제 오류·다른 요금제 보기 — open·cta·buy_*) · bf_and_noopt = 보이려 했는데 기기에 오퍼가 없었다(open)
+  'bf_pw',          // ★11/26 정가 페이월 안 «블프 연간 첫 1년 50%» 카드(lib/app/bfPaywall): open = 카드가 보였다 · cta = 카드가 고른 채 결제 단추 · code_open·code_pro = 애플 적용 창·복귀
+  'wb_try', 'wb_ok', 'wb_off', 'wb_noinfo', 'wb_nopro', 'wb_store', 'wb_period', 'wb_renew', 'wb_family', 'wb_paid', 'wb_exp', 'wb_prod', 'wb_noprice', 'wb_late', // wb_why 전용
   'bf_and', 'bf_and_line', 'bf_and_y', 'bf_and_m', 'warm_bf_and', 'warm_bf_and_y', 'warm_bf_and_m', 'bf_and_reg', 'bf_and_noopt',
 ] as const;
 export type FunnelSrc = (typeof FUNNEL_SRCS)[number];

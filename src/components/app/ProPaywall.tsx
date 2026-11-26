@@ -46,6 +46,8 @@ import { goToWatchlistAfterTrial, purchaseWithTrialStart } from '@/lib/app/trial
 import { wlUI } from '@/lib/app/watchlistUI';
 import { afterSheetHistory } from '@/components/app/watchlist/BottomSheet';
 import { notePaywallOpened } from '@/lib/app/trialAnnounce';
+import { BF_PW_LATE_MS, bfDefaultSelected, bfPaywallCard, bfPwCachedOn, bfPwCopy, bfPwSwitch } from '@/lib/app/bfPaywall';
+import { previewFlag } from '@/lib/app/proEntitlement';
 
 type PaywallLocale = 'ko' | 'en' | 'ja';
 
@@ -370,6 +372,15 @@ export function useLineEdgeDots(ref: RefObject<HTMLElement | null>) {
   }, [ref]);
 }
 
+/** ★11/26 블프 카드용 — iOS 앱인가 · 프리뷰 확인 모드(?sgbfpw=1 — 로컬·*.vercel.app 만, 운영 도메인에선 previewFlag 가 항상 false — 스위치도 켜짐으로 본다) */
+function bfPwHere(): { ios: boolean; preview: boolean } {
+  try {
+    const cap = (globalThis as unknown as { Capacitor?: { isNativePlatform?: () => boolean; getPlatform?: () => string } }).Capacitor;
+    if (cap?.isNativePlatform?.()) return { ios: cap.getPlatform?.() === 'ios', preview: false };
+  } catch { /* 웹 */ }
+  try { const p = previewFlag('sgbfpw'); return { ios: p, preview: p }; } catch { return { ios: false, preview: false }; }
+}
+
 /** ★11/11 체험 만료 뒤 1회 페이월 — 머리·버튼 문구와 «체험 동안 / 무료에서 달라지는 것» 묶음(lib/app/trialExpired). 가격·고지·복원은 그대로 */
 export type PaywallContext = { title: string; lede: string; cta: string; sections: { label: string; items: string[] }[] };
 
@@ -472,7 +483,37 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
   const savePct = multi ? annualSavePct(plans.find((p) => p.plan === 'monthly'), plans.find((p) => p.plan === 'annual')) : null;
   // ★11/16 무료 체험 — 고른 플랜(또는 한 줄 화면의 월간)에 스토어가 «자격 확인된» 체험을 줄 때만. 할인 카드를 고르면 없음
   const trialPlan: PaywallPlan | null = offerSelected ? null : multi ? (plans.find((p) => p.plan === selected) ?? null) : (monthly ?? null);
-  const trialDays = trialPlan && trialPlan.plan !== 'lifetime' && trialPlan.trialDays ? trialPlan.trialDays : null;
+  const trialDays0 = trialPlan && trialPlan.plan !== 'lifetime' && trialPlan.trialDays ? trialPlan.trialDays : null;
+
+  // ★11/26 블프 연간 첫 1년 50% 카드(lib/app/bfPaywall) — 체험이 적용되지 않는 정가 페이월에서만, 맨 위 한 장 + 기본 선택.
+  //   스위치는 앱 시작 때 미리 읽어 둔다(BlackFridayHost). 아직이면 열린 뒤 BF_PW_LATE_MS 안에 확인될 때만 끼운다(늦게 밀려 잘못 누르지 않게)
+  const [bfSw, setBfSw] = useState<boolean>(() => bfPwCachedOn());
+  const [bfHere] = useState(() => bfPwHere());
+  const bfIos = bfHere.ios;
+  useEffect(() => {
+    if (bfSw || !bfIos || bfHere.preview) return;
+    const t0 = Date.now();
+    let live = true;
+    void bfPwSwitch().then((on) => { if (live && on && Date.now() - t0 <= BF_PW_LATE_MS) setBfSw(true); }).catch(() => {});
+    return () => { live = false; };
+    // 열릴 때 한 번
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const bfCard = bfPaywallCard({
+    ios: bfIos, now: Date.now(), switchOn: bfSw || bfHere.preview, src: funnelSrc, context: !!context, discount: !!offer, trialHead,
+    plans, locale: loc,
+  });
+  const bfc = bfPwCopy(loc);
+  // 기본 선택 = 블프 카드(체험이 적용되면 체험 플랜) · 다른 카드를 누르면 그 카드(예전 구매) · 블프 카드를 다시 누르면 블프
+  const [bfPick, setBfPick] = useState<boolean | null>(null);
+  const bfSelected = !!bfCard && !offerSelected && bfDefaultSelected(bfPick, plans);
+  const trialDays = bfSelected ? null : trialDays0;
+  const bfSeen = useRef(false);
+  useEffect(() => {
+    if (!bfCard || bfSeen.current) return;
+    bfSeen.current = true;
+    void funnel().then((m) => m.trackFunnel('open', { src: 'bf_pw' })).catch(() => {});
+  }, [bfCard]);
 
   // 열었는데 가격이 없다 = 마운트 때 오퍼링을 못 받았다는 뜻. 여기서 한 번 더 받는다.
   useEffect(() => {
@@ -490,6 +531,18 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
 
   const handleSubscribe = useCallback(async () => {
     if (busy || purchasePending) return;
+    if (bfSelected) {
+      // ★11/26 블프 카드 — 코드가 채워진 애플 적용 창(블프 시트와 같은 경로 · lib/app/redeem). 구매 호출(RevenueCat purchase)은 쓰지 않는다.
+      //   새로 PRO 가 되면 위 effect 가 닫는다. 체험 중(keepOpenWhilePro)이면 창을 연 뒤 닫는다(돌아와 열린 채 남지 않게)
+      void funnel().then((m) => { m.trackFunnel('cta', { src: funnelSrc }); m.trackFunnel('cta', { src: 'bf_pw' }); }).catch(() => {});
+      setBusy(true);
+      setNote(null);
+      const opened = await import('@/lib/app/redeem').then((m) => m.openBlackFridayRedeem('annual', 'bf_pw')).catch(() => false);
+      if (alive.current) setBusy(false);
+      if (!opened) { if (alive.current) setNote(t.failed); return; }
+      if (keepOpenWhilePro && alive.current && !closedByUser.current) onClose();
+      return;
+    }
     if (offerSelected) {
       // 할인 결제 — 스토어 오퍼가 아니면(미리보기) 아무것도 하지 않는다. 실패해도 정가 결제로 넘기지 않는다
       if (!offerReal) return;
@@ -530,7 +583,7 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
     if (res.ok && res.isPro) { if (onProConfirmed) onProConfirmed(); else if (keepOpenWhilePro) onClose(); return; } // 평소엔 위 effect 가 닫는다
     // 사용자가 스토어 시트를 직접 닫은 경우는 «실패»가 아니다 — 조용히 둔다.
     if (!res.ok && !res.cancelled) { markSessionError(); setNote(t.failed); }
-  }, [busy, purchasePending, selectedOffer, purchase, t, funnelSrc, keepOpenWhilePro, onClose, onProConfirmed, router, loc, offerSelected, offerReal, purchaseOffer]);
+  }, [busy, purchasePending, selectedOffer, purchase, t, funnelSrc, keepOpenWhilePro, onClose, onProConfirmed, router, loc, offerSelected, offerReal, purchaseOffer, bfSelected]);
 
   const handleRestore = useCallback(async () => {
     if (busy) return;
@@ -596,9 +649,10 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
   //   가격보다 가치·«오늘 무료» 일정이 먼저 보이게: 머리 설명 대신 가치 3줄(체크) · 연간 카드 위 · 버튼 바로 위 체험 일정 3단(가격·자동 갱신·해지 장소).
   //   결제(구매 호출·패키지·선택 규칙)는 그대로 — 화면 표현만. 체험이 없거나 다른 화면이면 예전 그대로
   const trialScreen = !!trialDays && trialHead && !context && !keepOpenWhilePro;
-  const head = !trialDays ? head0
+  const head1 = !trialDays ? head0
     : trialScreen ? { title: t.trialHeadTitle(trialDays), lede: '', cta: t.ctaTrial(trialDays) }
     : { ...head0, cta: t.ctaTrial(trialDays) };
+  const head = bfSelected && bfCard ? { ...head1, cta: bfc.cta(bfCard.offer) } : head1;
   // 해지하는 곳 — 네이티브 앱은 window.Capacitor(동기). 웹·미리보기·시험은 «기기의 구독 관리»
   const storeOs = (() => {
     if (!trialScreen) return 'other' as const;
@@ -662,8 +716,32 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
 
         {/* 가격 — 스토어가 준 현지화 문자열만 쓴다.
             ★11/9 연간·평생이 «스토어에 있을 때만» 플랜 카드 3장(기본 선택 연간). 없으면 아래 예전 가격 한 줄 그대로. */}
-        {multi || offer ? (
+        {multi || offer || bfCard ? (
           <div className={s.plans} role="radiogroup" aria-label={t.plansLabel}>
+            {/* ★11/26 블프 연간 첫 1년 50% — 맨 위 한 장(기본 선택). 할인가·기간·이후 정가를 카드에, 자동 갱신·해지·결제 확인 위치는 아래 고지문에 */}
+            {bfCard && (
+              <button
+                type="button"
+                role="radio"
+                aria-checked={bfSelected}
+                data-plan="annual-bf"
+                data-offer="bf"
+                className={bfSelected ? `${s.plan} ${s.planOn}` : s.plan}
+                onClick={() => { setBfPick(true); setOfferOn(false); }}
+              >
+                <span className={s.planMain}>
+                  <span className={s.planName}>
+                    {bfc.name}
+                    <span className={s.planBadge}>{bfc.badge}</span>
+                  </span>
+                  <span className={s.planSub}>{bfc.sub(bfCard.regular)}</span>
+                </span>
+                <span className={s.planPrice}>
+                  <span className={s.planAmt}>{bfCard.offer}</span>
+                  <span className={s.planPer}>/ {bfc.per}</span>
+                </span>
+              </button>
+            )}
             {/* ★11/12 체험 만료자 첫 달 할인 — 맨 위 한 장. 첫 달 가격·그 뒤 정가 갱신을 카드에, 기간·해지 고지는 아래 안내문에 */}
             {offer && (
               <button
@@ -673,7 +751,7 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
                 data-plan="monthly-offer"
                 data-offer="expired"
                 className={offerSelected ? `${s.plan} ${s.planOn}` : s.plan}
-                onClick={() => setOfferOn(true)}
+                onClick={() => { setOfferOn(true); setBfPick(false); }}
               >
                 <span className={s.planMain}>
                   <span className={s.planName}>
@@ -689,7 +767,7 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
               </button>
             )}
             {shownPlans.map((p) => {
-              const on = !offerSelected && p.plan === selected;
+              const on = !offerSelected && !bfSelected && p.plan === selected;
               const name = p.plan === 'annual' ? t.planAnnual : p.plan === 'lifetime' ? t.planLifetime : t.planMonthly;
               const per = p.plan === 'annual' ? t.perYear : p.plan === 'monthly' ? t.perMonth : null;
               const sub0 = p.plan === 'annual'
@@ -705,7 +783,7 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
                   aria-checked={on}
                   data-plan={p.plan}
                   className={on ? `${s.plan} ${s.planOn}` : s.plan}
-                  onClick={() => { setOfferOn(false); setPicked(p.plan); }}
+                  onClick={() => { setOfferOn(false); setBfPick(false); setPicked(p.plan); }}
                 >
                   <span className={s.planMain}>
                     <span className={s.planName}>
@@ -755,7 +833,7 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
           type="button"
           className={s.cta}
           onClick={handleSubscribe}
-          disabled={busy || purchasePending || (offerSelected ? false : multi ? (!selectedOffer && !previewPlans) : (!monthly && !previewPrice))}
+          disabled={busy || purchasePending || (offerSelected || bfSelected ? false : multi ? (!selectedOffer && !previewPlans) : (!monthly && !previewPrice))}
         >
           {busy || purchasePending ? t.ctaBusy : head.cta}
         </button>
@@ -765,7 +843,7 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
         {/* ★2026-10-05 «코드가 있으신가요? 🎟 쿠폰 코드 입력» — 결제 단추보다 조용하게(네이티브·프리뷰에서만). components/app/RedeemCodeLink */}
         <RedeemCodeLink locale={loc} src={funnelSrc} />
 
-        <p className={s.fine}>{offerSelected && offer ? oc.fine(offer.priceString, offer.regularPriceString) : trialDays && trialPlan ? t.trialFine(trialDays, trialPlan.priceString, trialPlan.plan) : multi ? planFineLine(loc, t, selected) : fineLine(loc, t)}</p>
+        <p className={s.fine} data-bf-pw-fine={bfSelected ? '' : undefined}>{bfSelected && bfCard ? bfc.fine(bfCard.offer, bfCard.regular) : offerSelected && offer ? oc.fine(offer.priceString, offer.regularPriceString) : trialDays && trialPlan ? t.trialFine(trialDays, trialPlan.priceString, trialPlan.plan) : multi ? planFineLine(loc, t, selected) : fineLine(loc, t)}</p>
 
         <div ref={linksRef} className={s.links}>
           <button type="button" className={s.link} onClick={handleRestore} disabled={busy}>

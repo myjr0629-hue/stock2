@@ -22,8 +22,8 @@ import { initRevenueCat } from '@/services/revenueCat';
 import { bfLive, bfOfferAmount, bfPriceView, type BfPriceView } from '@/lib/app/blackFriday';
 import { WATCHLIST_STORAGE_KEY, parseWatchlist } from '@/lib/app/watchlist';
 import {
-  WARM_BF_DELAY_MS, WARM_BF_OFFER_WAIT_MS, WARM_BF_VERIFY_MS, bfSheetSeenToday, markWarmShown, readWarmLast, warmAnnualPerMonth, warmBfTarget, warmDay, warmDue,
-  warmPlans, warmStep, warmSwitchFrom, type MiniStore, type WarmTarget,
+  WARM_BF_DELAY_MS, WARM_BF_OFFER_WAIT_MS, WARM_BF_VERIFY_MS, bfSheetSeenToday, markWarmShown, readWarmLast, warmAnnualPerMonth, warmBfWhy, warmDay, warmDue,
+  warmPlans, warmStep, warmSwitchFrom, type MiniStore, type WarmTarget, type WarmWhy,
 } from '@/lib/app/warmBf';
 import { storePrices } from './BlackFridayGate';
 import { WarmBfSheet, type WarmSrcs } from './WarmBfSheet';
@@ -56,18 +56,23 @@ async function askSwitch(): Promise<{ on: boolean; annual: boolean }> {
   } catch { return { on: false, annual: false }; } finally { clearTimeout(timer); }
 }
 
-/** 캐시를 비운 새 고객 정보로 대상 판정 — 실패·시간 초과 = null(안 보인다) */
-async function targetNow(): Promise<WarmTarget | null> {
+/** 캐시를 비운 새 고객 정보로 대상 판정 — 대상이면 WarmTarget, 아니면 이유(wb_*) · 실패·시간 초과 = wb_noinfo(안 보인다) */
+async function targetNow(): Promise<WarmTarget | WarmWhy> {
   try {
-    if (!(await initRevenueCat())) return null;
+    if (!(await initRevenueCat())) return 'wb_noinfo';
     const { Purchases } = await import('@revenuecat/purchases-capacitor');
     // 캐시를 못 비웠으면(실패·시간 초과) 안 보인다 — 옛 «갱신 꺼진 체험» 정보로 이미 결제한 사람에게 뜨지 않게(관문 11240021 ②)
     const cleared = await capped(Purchases.invalidateCustomerInfoCache().then(() => true), WARM_BF_VERIFY_MS);
-    if (cleared !== true) return null;
+    if (cleared !== true) return 'wb_noinfo';
     const r = await capped(Purchases.getCustomerInfo(), WARM_BF_VERIFY_MS);
-    return r ? warmBfTarget(r.customerInfo as unknown as Parameters<typeof warmBfTarget>[0], 'ios', Date.now()) : null;
-  } catch { return null; }
+    return r ? warmBfWhy(r.customerInfo as unknown as Parameters<typeof warmBfWhy>[0], 'ios', Date.now()) : 'wb_noinfo';
+  } catch { return 'wb_noinfo'; }
 }
+
+/** ★11/26 준비 결과 계측(운영 iOS 만 · 하루 합계 — 식별자 없음). 11/24~25 요금제 탭 6번이 전부 정가 페이월로 빠진 원인을 다음 판독에서 본다 */
+export const trackWarmWhy = (src: WarmWhy | 'wb_try' | 'wb_ok' | 'wb_off' | 'wb_noprice' | 'wb_late') => {
+  void import('@/lib/app/funnel').then((m) => m.trackFunnel('wb_why', { src })).catch(() => {});
+};
 
 export type WarmView = {
   locale: string; target: WarmTarget; plans: ReturnType<typeof warmPlans>;
@@ -85,21 +90,24 @@ export async function loadWarm(locale: string): Promise<WarmView | null> {
     annualMode = q.get('sgwarma') === '1';
   } else {
     if (!isNative()) return null;
+    trackWarmWhy('wb_try');
     const [sw, t] = await Promise.all([askSwitch(), targetNow()]);
-    if (!sw.on || !t) return null;
+    if (!sw.on) { trackWarmWhy('wb_off'); return null; }
+    if (typeof t === 'string') { trackWarmWhy(t); return null; }
     target = t; annualMode = sw.annual;
   }
   const sp = await storePrices(locale);
   const plans0 = warmPlans(target.product, annualMode);
   const prices = { annual: bfPriceView('annual', sp.annual, locale), monthly: bfPriceView('monthly', sp.monthly, locale) };
   // 주 단추의 정가를 스토어에서 못 받았으면 안 보인다(가격을 지어내지 않는다 · 3.1.2 고지에 정가가 들어간다)
-  if (!prices[plans0.primary].regular) return null;
+  if (!prices[plans0.primary].regular) { if (!preview) trackWarmWhy('wb_noprice'); return null; }
   // 둘째 단추도 그 정가가 있을 때만(관문 11240028 ② — 할인 뒤 갱신 가격이 화면에 있어야 한다)
   const plans = { primary: plans0.primary, secondary: plans0.secondary && prices[plans0.secondary].regular ? plans0.secondary : null };
   const amt = bfOfferAmount('annual', sp.annual);
   const perMonth = plans.primary === 'annual' && amt ? warmAnnualPerMonth(amt.offer, amt.currency, locale) : null;
   // 준비하는 사이 블프 기간이 끝났으면 null — 요금제 탭 경로는 예전 정가 페이월로(관문 11240041 ②)
   if (!bfLive(Date.now())) return null;
+  if (!preview) trackWarmWhy('wb_ok');
   return { locale, target, plans, prices, perMonth, watchCount: readWatchCount(), preview };
 }
 
@@ -215,7 +223,7 @@ export function WarmBfOffer({ locale, onClose, onFallback }: { locale: string; o
   useEffect(() => {
     let alive = true;
     // 사용자가 누른 뒤라 오래 비워 두지 않는다 — 3.5초 안에 카드가 준비 안 되면 예전 정가 페이월(늦게 온 결과는 버린다)
-    const late = window.setTimeout(() => { if (alive) { alive = false; onFallback(); } }, WARM_BF_OFFER_WAIT_MS);
+    const late = window.setTimeout(() => { if (alive) { alive = false; if (!isPreview() && isNative()) trackWarmWhy('wb_late'); onFallback(); } }, WARM_BF_OFFER_WAIT_MS);
     void loadWarm(locale).catch(() => null).then((v) => {
       if (!alive) return;
       alive = false; window.clearTimeout(late);

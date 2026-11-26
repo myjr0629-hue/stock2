@@ -71,7 +71,7 @@ const run = { done: false };
 
 export function BlackFridayGate({ auto, request }: { auto: boolean; request: number }) {
   const pathname = usePathname() || '';
-  const [show, setShow] = useState<{ locale: string; prices: { annual: BfPriceView; monthly: BfPriceView } } | null>(null);
+  const [show, setShow] = useState<{ locale: string; prices: { annual: BfPriceView; monthly: BfPriceView }; from: 'bf_sheet' | 'bf_line' } | null>(null);
   const [fg, setFg] = useState(0);
   const checking = useRef(false);
   const alive = useRef(true);
@@ -82,7 +82,7 @@ export function BlackFridayGate({ auto, request }: { auto: boolean; request: num
     const sp = await storePrices(locale);
     if (!alive.current) return;
     track(src);
-    setShow({ locale, prices: { annual: bfPriceView('annual', sp.annual, locale), monthly: bfPriceView('monthly', sp.monthly, locale) } });
+    setShow({ locale, prices: { annual: bfPriceView('annual', sp.annual, locale), monthly: bfPriceView('monthly', sp.monthly, locale) }, from: src });
   };
 
   // ② 줄에서 연다
@@ -144,5 +144,5 @@ export function BlackFridayGate({ auto, request }: { auto: boolean; request: num
   }, [pathname]);
 
   if (!show) return null;
-  return <BlackFridaySheet locale={show.locale} prices={show.prices} onClose={() => setShow(null)} />;
+  return <BlackFridaySheet locale={show.locale} prices={show.prices} from={show.from} onClose={() => setShow(null)} />;
 }

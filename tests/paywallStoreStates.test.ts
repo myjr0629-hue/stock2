@@ -136,7 +136,8 @@ test('화면 식 대조: ProPaywall 의 선택·결제·잠금 식이 위 시험
   assert.match(src, /const \{ multi, selected: pickedPlan \} = paywallSelection\(plans, picked \?\? trialFirst\);/);   // ★11/16 trialFirst 는 trialHead(첫 실행)일 때만 값 — 그 밖엔 null(아래 시험과 같은 식)
   assert.match(src, /const selectedOffer = multi \? \(offers\.find\(\(o\) => o\.plan === selected\) \?\? null\) : monthly;/);
   // ★11/12 할인 카드(만료 페이월 전용)가 골라져 있을 때만 앞 가지 — 그 밖(다른 모든 페이월)은 예전 식 그대로
-  assert.match(src, /disabled=\{busy \|\| purchasePending \|\| \(offerSelected \? false : multi \? \(!selectedOffer && !previewPlans\) : \(!monthly && !previewPrice\)\)\}/);
+  // ★11/26 블프 카드(lib/app/bfPaywall · 정가 페이월 맨 위 한 장)가 골라져 있을 때도 앞 가지(애플 적용 창 — 구매 호출 아님). 그 밖은 예전 식 그대로
+  assert.match(src, /disabled=\{busy \|\| purchasePending \|\| \(offerSelected \|\| bfSelected \? false : multi \? \(!selectedOffer && !previewPlans\) : \(!monthly && !previewPrice\)\)\}/);
   assert.match(src, /const offerSelected = !!offer && offerOn;/);
   // ★11/12 결제는 공용 흐름(lib/app/trialStartWatchlist.purchaseWithTrialStart)을 거쳐 «선택한 플랜»을 산다
   assert.match(src, /purchase: \(\) => purchase\(selectedOffer\.plan, funnelSrc, trialDays \? selectedOffer\.pkg : undefined\),/);

@@ -84,21 +84,35 @@ export function warmBfTargetPlay(info: InfoLike, platform: string, now: number):
 }
 
 function targetOn(info: InfoLike, store: 'APP_STORE' | 'PLAY_STORE', now: number): WarmTarget | null {
-  if (!Number.isFinite(now) || !info || !info.entitlements) return null;
+  const r = warmWhyOn(info, store, now);
+  return typeof r === 'object' ? r : null;
+}
+
+/**
+ * ★11/26 웜 대상 판정의 «안 된 이유» — 규칙은 targetOn 과 한 몸(targetOn 이 이것을 부른다). 대상이면 WarmTarget, 아니면 이유 코드(퍼널 wb_* 출처).
+ *   11/24~25 iOS 요금제 탭 6번이 전부 예전 정가 페이월로 빠졌고(warm_bf_plans 0) 자동 카드도 0 — 어디서 빠지는지 다음 판독에서 보이게 한다.
+ */
+export type WarmWhy = 'wb_noinfo' | 'wb_nopro' | 'wb_store' | 'wb_period' | 'wb_renew' | 'wb_family' | 'wb_paid' | 'wb_exp' | 'wb_prod';
+export function warmBfWhy(info: InfoLike, platform: string, now: number): WarmTarget | WarmWhy {
+  return platform === 'ios' ? warmWhyOn(info, 'APP_STORE', now) : 'wb_store';
+}
+
+function warmWhyOn(info: InfoLike, store: 'APP_STORE' | 'PLAY_STORE', now: number): WarmTarget | WarmWhy {
+  if (!Number.isFinite(now) || !info || !info.entitlements) return 'wb_noinfo';
   const ent = info.entitlements.active?.[PRO_ENTITLEMENT_ID];
-  if (!ent || ent.isActive !== true) return null;
-  if (String(ent.store ?? '').toUpperCase() !== store) return null;
-  if (String(ent.periodType ?? '').toUpperCase() !== 'TRIAL') return null;
-  if (ent.willRenew !== false) return null;
-  if (String(ent.ownershipType ?? '').toUpperCase() === 'FAMILY_SHARED') return null;
+  if (!ent || ent.isActive !== true) return 'wb_nopro';
+  if (String(ent.store ?? '').toUpperCase() !== store) return 'wb_store';
+  if (String(ent.periodType ?? '').toUpperCase() !== 'TRIAL') return 'wb_period';
+  if (ent.willRenew !== false) return 'wb_renew';
+  if (String(ent.ownershipType ?? '').toUpperCase() === 'FAMILY_SHARED') return 'wb_family';
   // 일회성 구매(평생 등) 기록이 있으면 돈 낸 사람 — 안 보인다
-  if (Array.isArray(info.nonSubscriptionTransactions) && info.nonSubscriptionTransactions.length > 0) return null;
-  if (Array.isArray(info.allPurchasedProductIdentifiers) && info.allPurchasedProductIdentifiers.some((p) => baseId(p) === PRO_LIFETIME_PRODUCT_ID)) return null;
+  if (Array.isArray(info.nonSubscriptionTransactions) && info.nonSubscriptionTransactions.length > 0) return 'wb_paid';
+  if (Array.isArray(info.allPurchasedProductIdentifiers) && info.allPurchasedProductIdentifiers.some((p) => baseId(p) === PRO_LIFETIME_PRODUCT_ID)) return 'wb_paid';
   const expiresAt = Date.parse(String(ent.expirationDate ?? ''));
-  if (!Number.isFinite(expiresAt) || expiresAt <= now || expiresAt - now > WARM_BF_MAX_LEFT_MS) return null;
+  if (!Number.isFinite(expiresAt) || expiresAt <= now || expiresAt - now > WARM_BF_MAX_LEFT_MS) return 'wb_exp';
   const pid = baseId(ent.productIdentifier);
   const product: WarmProduct | null = pid === PRO_MONTHLY_PRODUCT_ID ? 'monthly' : pid === PRO_ANNUAL_PRODUCT_ID ? 'annual' : null;
-  if (!product) return null;
+  if (!product) return 'wb_prod';
   return { expiresAt, product };
 }
 

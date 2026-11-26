@@ -319,8 +319,14 @@ export async function openBlackFridayRedeem(plan: 'annual' | 'monthly', src?: Fu
     return false;
   }
   let wasNonPro = false;
-  try { if (await initRevenueCat()) wasNonPro = await confirmedNonProNow(); } catch { /* 확인 못 해도 연다 */ }
-  armReturn('url', src, wasNonPro);
+  // ★11/26 이미 PRO(체험·코드 체험)인데 자동 갱신이 꺼져 있던 사람은 돌아와 «PRO 확인»만으론 전환이 아니다(원래 PRO) — 웜 카드와 같이
+  //   «자동 갱신 켜짐»일 때만 code_pro 를 센다. 11/25 bf_sm code_pro 1 은 이 구분이 없던 때라 체험 중이던 사람의 «PRO 확인»일 수 있다. 두 읽기는 동시에(각 1.5초 상한)
+  let renewOff = false;
+  try {
+    if (await initRevenueCat()) [wasNonPro, renewOff] = await Promise.all([confirmedNonProNow(), warmRenewOffNow().catch(() => false)]);
+  } catch { /* 확인 못 해도 연다 */ }
+  if (!wasNonPro && renewOff) armReturn('url', src, false, true, true);
+  else armReturn('url', src, wasNonPro);
   void openExternalUrl(url);
   return true;
 }

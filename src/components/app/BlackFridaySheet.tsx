@@ -16,10 +16,12 @@ import { useBackToClose, useLayer } from '@/components/app/watchlist/BottomSheet
 import { BF_COPY, toBfLang, type BfPlan, type BfPriceView } from '@/lib/app/blackFriday';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
 
-export function BlackFridaySheet({ locale, prices, onClose }: {
+export function BlackFridaySheet({ locale, prices, onClose, from }: {
   locale: string;
   prices: { annual: BfPriceView; monthly: BfPriceView };
   onClose: () => void;
+  /** ★11/26 이 시트를 연 자리(자동 1회 bf_sheet · 블프 줄 bf_line) — 단추를 누르면 그 출처에 cta 를 센다(전엔 bf_sy·bf_sm 의 code_open 에만 찍혀 시트 행이 «버튼 0»으로 보였다) */
+  from?: 'bf_sheet' | 'bf_line';
 }) {
   const lang = toBfLang(locale);
   const c = BF_COPY[lang];
@@ -48,6 +50,7 @@ export function BlackFridaySheet({ locale, prices, onClose }: {
 
   const go = (plan: BfPlan) => {
     const src: FunnelSrc = plan === 'annual' ? 'bf_sy' : 'bf_sm';
+    if (from) void import('@/lib/app/funnel').then((m) => m.trackFunnel('cta', { src: from })).catch(() => {});
     void import('@/lib/app/redeem').then((m) => m.openBlackFridayRedeem(plan, src)).catch(() => {});
     onClose();
   };
