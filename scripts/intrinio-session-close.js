@@ -34,7 +34,7 @@
  *   { date, rows: { SYM: [close, volume] }, _ts }
  *
  * 사용: node scripts/intrinio-session-close.js [--dry]
- * 크론: CRON_TZ=America/New_York 아래 «57 15 * * 1-5» (= 15:57 ET, EDT/EST 자동 · 2026-11-02 서머타임 종료 감사)
+ * 크론: CRON_TZ=America/New_York 아래 «57 15 * * 1-5» + 조기폐장용 «57 12 * * 1-5» (= 15:57 ET, EDT/EST 자동 · 2026-11-02 서머타임 종료 감사)
  *   예전 «57 19 * * 1-5»(UTC 고정)는 EST 에 14:57 ET 라 위 15:00~16:05 ET 창 밖 → 매일 «종료»로 끝나 세션 종가를 못 찍었다.
  */
 
@@ -55,6 +55,14 @@ const DRY = process.argv.includes("--dry");
 /** 미드를 가격으로 인정하는 스프레드 상한 — src/services/intrinioClient.ts 와 **같은 값**이어야 한다 */
 const MAX_SPREAD_PCT = 1;
 const MIN_ROWS = 3000;
+
+/** 휴장·조기폐장 — src/lib/marketCalendar.ts 와 같은 날짜(EC2 단독 배포라 require 없이 여기 둔다. 매년 함께 갱신) */
+const HOLIDAYS = new Set([
+    "2026-11-26", "2026-12-25",
+    "2027-01-01", "2027-01-18", "2027-02-15", "2027-03-26", "2027-05-31",
+    "2027-06-18", "2027-07-05", "2027-09-06", "2027-11-25", "2027-12-24",
+]);
+const EARLY_CLOSE = new Set(["2026-11-27", "2026-12-24", "2027-11-26"]);
 
 function loadEnv(p) {
     try {
@@ -126,9 +134,14 @@ function etToday() {
     const { date, hhmm, dow } = etToday();
 
     if (dow === 0 || dow === 6) { log("주말 — 종료"); return; }
+    if (HOLIDAYS.has(date)) { log(`휴장(${date}) — 종료`); return; }
     // 정규장 안에서만 찍는다. 밖에서 찍으면 시간외 호가라 커버리지가 무너진다.
-    if (hhmm < 1500 || hhmm > 1605) {
-        log(`정규장 마감 구간(15:00~16:05 ET) 밖 — 현재 ${hhmm} · 종료`);
+    // 조기폐장일(13:00 ET)은 12:00~13:05 — 크론 «57 12 * * 1-5» 가 그날만 통과한다 (2026-11-26 추수감사절 점검:
+    //   예전엔 11/27 블프 조기폐장에도 15:57 ET 에만 돌아 시간외 호가로 찍혀 3,000 미만 → 적재 거부 → 주말 내내 금요일 종가 비었을 것).
+    const early = EARLY_CLOSE.has(date);
+    const [lo, hi] = early ? [1200, 1305] : [1500, 1605];
+    if (hhmm < lo || hhmm > hi) {
+        log(`${early ? "조기폐장 " : ""}정규장 마감 구간(${lo}~${hi} ET) 밖 — 현재 ${hhmm} · 종료`);
         return;
     }
 
