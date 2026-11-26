@@ -312,6 +312,23 @@
   background: linear-gradient(rgba(8, 47, 73, 0.24), rgba(8, 47, 73, 0.24)), rgb(6, 12, 24);
 }
 
+/* ★11/26 안드 한 번 누름 — 동의 문장(copy.ack)을 붙박이 버튼 줄 안 «동의하고 계속» 바로 위 글로(체크 상자 없음 · 안드 앱에서만 그린다).
+   버튼 줄의 흐림 그라데이션 위(작은 화면에선 본문이 이 줄 뒤로 지나간다)에서도 겹쳐 보이지 않게 패널 바탕색을 깐다(.ackPin 과 같은 이유) ·
+   .ack 와 같은 글자색, 크기는 한 단계 작게 */
+.ackNote {
+  margin: 0;
+  padding: 6px 4px;
+  border-radius: 10px;
+  background: rgb(6, 12, 24);
+  color: rgba(226, 232, 240, 0.86);
+  font-size: 11.5px;
+  line-height: 1.45;
+  font-weight: 650;
+  text-align: center;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
 .links {
   display: flex;
   flex-wrap: wrap;

@@ -19,6 +19,7 @@ import { legalContinueBlocked, legalPinNext, measureLegalAckCovered, nudgeLegalA
 import { LEGAL_LOCALE_DONE_GUARD, legalDoneLocaleSrc, legalLocaleSrc, legalSeenBefore, rememberLegalShownLocale } from '@/lib/app/legalDiag';
 import { loadOnbMode, useOnbMode } from './onboardingMode';
 import { ONB_BACK_EVENT } from '@/lib/app/onbBack';
+import { legalAgreeLabel, legalOneTapOn, shellPlatform } from '@/lib/app/legalOneTap';
 // 가치·알림 단계(카드·시세·레벨·AI 줄)는 이 오버레이를 «이미 마친 기기»(대부분의 사용자)에는 한 바이트도 싣지 않도록 필요할 때만 불러온다 —
 // 법적 고지의 동의 체크를 누르면 ValuePrefetch 가 같은 조각을 미리 불러오고 데이터도 미리 받는다.
 const FirstRunValueStep = dynamic(() => import('./FirstRunValueStep').then((m) => m.FirstRunValueStep), { ssr: false, loading: () => null });
@@ -246,6 +247,11 @@ export function AppFirstRunOnboarding() {
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState<OnbStep>('legal');
   const [accepted, setAccepted] = useState(false);
+  // ★11/26 안드 앱만 — 체크 상자 없이 «동의하고 계속» 한 번 누름(lib/app/legalOneTap · 끄기 ANDROID_ONE_TAP_LEGAL). 마운트 때 정해 첫 그림부터 반영.
+  //   체크 상자(ackRef)를 그리지 않으므로 고정 체크 줄 판정(measureLegalAckCovered)은 «모름» → 고정 줄도 안 뜬다
+  const [oneTap, setOneTap] = useState(false);
+  const [oneTapTouched, setOneTapTouched] = useState(false);
+  const agreeRef = useRef<HTMLButtonElement | null>(null);
   // ★11/16 첫 실행을 «이번에» 마쳤다(네이티브) → 체험 페이월 판정 1회. 이미 마친 기기·문서 경로는 켜지지 않는다
   const [trialPaywall, setTrialPaywall] = useState(false);
   // 첫 실행 «가치 먼저»(v2) — 끄기 스위치(레디스 onb2:off)를 읽는다. 아직 모르면 null → 첫 그림은 v2 로 가정하고,
@@ -282,6 +288,7 @@ export function AppFirstRunOnboarding() {
     } catch {
       show = false;
     }
+    setOneTap(legalOneTapOn(shellPlatform()));
     setVisible(show);
     // 언어 자가 이동(/en → /ko·/ja)으로 다시 마운트됐으면 직전 언어에서의 진행(동의 체크·단계)을 이어 간다(onboardingConfig 의 draft 주석)
     if (show) {
@@ -468,12 +475,21 @@ export function AppFirstRunOnboarding() {
       } catch { /* 무시 */ }
     };
   }, [legalOn]);
+  // ★11/26 한 번 누름(안드): 화면을 처음 만지면 가치 단계 미리받기를 시작한다(아래 ValuePrefetch — 예전엔 체크 순간) · 안 만지고 떠나는 기기엔 요청 0
+  useEffect(() => {
+    if (!legalOn || !oneTap || oneTapTouched) return;
+    const onTouch = () => setOneTapTouched(true);
+    try { document.addEventListener('pointerdown', onTouch, { capture: true, passive: true, once: true }); } catch { /* 관찰 실패 — 누를 때 받는다 */ }
+    return () => { try { document.removeEventListener('pointerdown', onTouch, { capture: true }); } catch { /* 무시 */ } };
+  }, [legalOn, oneTap, oneTapTouched]);
   // ★11/22 안드 뒤로 가기(버튼·가장자리 스와이프)가 첫 실행 화면 위에서 눌렸다 — 앱을 닫는 대신 NativeAppProvider 가 이 이벤트를 보낸다(lib/app/onbBack)
   //   법적 고지면 회색 [계속]과 같은 강조(동의 체크 줄로 굴림·깜빡임) · 가치·알림 단계는 그대로 둔다(화면 유지) · 실행당 한 번 센다
   const backCounted = useRef(false);
   const backHandlerRef = useRef<() => void>(() => {});
   backHandlerRef.current = () => {
-    if (step === 'legal' && !localePending) {
+    // ★11/26 한 번 누름(안드): 굴리지 않고 «동의하고 계속» 버튼을 깜빡인다(동의 문장과 함께 늘 보이는 붙박이 줄)
+    if (oneTap && step === 'legal' && !localePending) nudgeLegalAck(agreeRef.current, null, null, { scroll: false });
+    else if (step === 'legal' && !localePending) {
       if (pinAck && pinRef.current) nudgeLegalAck(pinRef.current, null, null, { scroll: false });
       else nudgeLegalAck(ackRef.current, panelRef.current, actionsRef.current);
     }
@@ -585,6 +601,14 @@ export function AppFirstRunOnboarding() {
     openTrialPaywall();
   };
 
+  // ★11/26 안드 한 번 누름 — 누르는 순간이 동의다(같은 동의 문장 copy.ack 가 버튼 바로 위에 늘 보인다). 동의 계측(onb_check)도 이 순간 실행당 한 번
+  const onLegalAgree = () => {
+    if (advancing) return;
+    acceptedRef.current = true;
+    if (!checkCounted.current) { checkCounted.current = true; if (claimOnbShow('onb_check', sessionStore())) trackFunnel('onb_check', { src: 'onb_legal' }); }
+    void onLegalNext();
+  };
+
   // 동의 전 회색 [계속]을 눌렀다 — 체크 줄로 굴리고 깜빡인다(실행당 한 번만 센다 · 하루 합계 · 식별자 없음)
   const onBlockedContinue = () => {
     // ★11/19 고정 체크 줄이 떠 있으면(버튼 바로 위 · 늘 보인다) 굴리지 않고 그 줄을 깜빡인다
@@ -658,14 +682,16 @@ export function AppFirstRunOnboarding() {
                     <li key={item}>{item}</li>
                   ))}
                 </ul>
-                <label className={styles.ack} ref={ackRef}>
-                  <input
-                    type="checkbox"
-                    checked={accepted}
-                    onChange={event => setAccepted(event.currentTarget.checked)}
-                  />
-                  <span>{copy.ack}</span>
-                </label>
+                {!oneTap && (
+                  <label className={styles.ack} ref={ackRef}>
+                    <input
+                      type="checkbox"
+                      checked={accepted}
+                      onChange={event => setAccepted(event.currentTarget.checked)}
+                    />
+                    <span>{copy.ack}</span>
+                  </label>
+                )}
               </>
             ) : (
               <>
@@ -707,6 +733,19 @@ export function AppFirstRunOnboarding() {
                 {copy.back}
               </button>
             )}
+            {/* ★11/26 안드 한 번 누름 — 같은 동의 문장(copy.ack)을 버튼 바로 위 글로(체크 상자 없음 · 늘 보임) + 처음부터 켠 «동의하고 계속» */}
+            {legal && oneTap && <p className={styles.ackNote} data-legal-onetap="">{copy.ack}</p>}
+            {legal && oneTap ? (
+              <button
+                type="button"
+                ref={agreeRef}
+                className={styles.primaryButton}
+                disabled={advancing}
+                onClick={onLegalAgree}
+              >
+                {legalAgreeLabel(locale)}
+              </button>
+            ) : (
             <button
               type="button"
               className={styles.primaryButton}
@@ -717,11 +756,12 @@ export function AppFirstRunOnboarding() {
             >
               {legal ? copy.continue : copy.start}
             </button>
+            )}
           </div>
         </section>
       </div>
       {/* 동의 체크를 누르면 가치 단계에 쓸 데이터(인기 12종목의 시세·레벨·AI 한 줄)를 미리 받는다 — 화면에는 아무것도 그리지 않는다 */}
-      {legal && accepted && cfgMode === 'v2' && <ValuePrefetch loc={wl} />}
+      {legal && (accepted || (oneTap && oneTapTouched)) && cfgMode === 'v2' && <ValuePrefetch loc={wl} />}
     </div>
   );
 }
