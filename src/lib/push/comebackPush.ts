@@ -11,6 +11,9 @@
 //      보내기 직전에 RC 를 다시 읽어 «활성 권한 없음 · 유료 결제 이력 없음 · 마지막 체험 해지(자동 갱신 꺼짐) 뒤 만료»일 때만 보낸다.
 //   ③ 같은 고객이 다시 결제하면(웹훅 INITIAL_PURCHASE·RENEWAL·UNCANCELLATION·NON_RENEWING_PURCHASE·PRODUCT_CHANGE) 대상에서 뺀다.
 // 대상: iOS 만(안드로이드는 이번 범위 밖) · 시스템 알림 권한 «허용» 보고 기기(4.5.4) · 알림 전체 끔 제외 · 현지 09~21시 · 6시간 안 앱 실행이면 미룸
+//   · ★11/27 혜택·할인 알림 «명시 동의»(preferences.promo === true — lib/push/promoConsent, 블프 푸시와 같은 규칙)한 기기만(애플 4.5.4 · 정보통신망법 50조).
+//     동의 없음(no_consent)은 대상에서 지우지 않는다 — 72시간 창 안에 동의하면 다음 회차에 보낸다.
+//   · ★11/27 한국 수신자(기기 언어 ko 또는 시간대 Asia/Seoul)는 제목 앞 «(광고)» · 본문 끝 수신거부 방법 · 현지 08:00~20:59 안에서만(야간은 다음 허용 시각으로 미룸).
 //   · 가격을 아는 스토어프런트(KR·US·JP — 웹훅 country_code = 실제 구매 나라 · RC 거래 통화로 한 번 더)만 · 코드 유효 기간 안에서만.
 // 한 번만: RC 고객(해시)·토큰 둘 다 «보냄» 표식(400일). 실패(응답 유실 포함)도 표식을 놓지 않는다(중복보다 누락).
 // 끄기: 환경 변수 COMEBACK_PUSH=off · Redis comeback-push:off(크론 ?comebackOff=1 / 0) · 한 회차만 ?comeback=0.
@@ -21,6 +24,7 @@ import { toTrialSaveLocale } from '@/lib/app/trialSaveDate';
 import { PRO_ENTITLEMENT_ID } from '@/config/iap';
 import { TRIAL_PUSH_OWNER_KEY, TRIAL_PUSH_UID_KEY, trialUidHash } from '@/lib/push/trialVerify';
 import { boundToken } from '@/lib/push/trialPushLua';
+import { promoAllowed, promoKoreaRecipient, toPromoLoc } from '@/lib/push/promoConsent';
 import {
   COMEBACK_MONTHS, COMEBACK_PRICES, COMEBACK_PUSH_TYPE, COMEBACK_VALID_FROM, comebackLive, type ComebackStorefront,
 } from '@/lib/app/comebackOffer';
@@ -148,11 +152,21 @@ export function comebackRcVerdict(json: unknown, now: number, storefront?: Comeb
 
 // ── 대상 판정(순수) ───────────────────────────────────────────────────────
 export type ComebackTokenRec = {
-  app?: string; platform?: string; locale?: string; preferences?: { enabled?: boolean } | null;
+  app?: string; platform?: string; locale?: string; preferences?: { enabled?: boolean; promo?: boolean } | null;
   notifPerm?: boolean; tz?: string; lastSeenAt?: string;
 };
 export type ComebackSkip = 'invalid' | 'not_yet' | 'early' | 'window' | 'sent' | 'recent_push' | 'unbound' | 'unregistered' | 'not_ios'
-  | 'muted' | 'no_permission' | 'recent_open' | 'storefront' | 'quiet_hours' | 'code_closed';
+  | 'muted' | 'no_permission' | 'no_consent' | 'recent_open' | 'storefront' | 'quiet_hours' | 'code_closed';
+
+/** 한국 수신자 광고성 푸시 허용 현지 시각 [시작, 끝) — 21~08시는 별도 야간 동의가 필요해 보내지 않는다(정보통신망법 50조 ③) */
+export const COMEBACK_KR_PROMO_HOURS: readonly [number, number] = [8, 21];
+/** 한국 수신자 표기(정보통신망법 50조 ④ — 제목 앞 «(광고)» · 수신거부 방법) */
+export const COMEBACK_KR_AD_PREFIX = '(광고) ';
+export const COMEBACK_KR_OPTOUT = '수신거부: 설정 › 알림 › 혜택·할인 알림';
+/** 이 토큰 레코드가 한국 수신자인가(블프 푸시와 같은 판정) */
+export function comebackKoreaRecipient(tokenRec: ComebackTokenRec | null | undefined): boolean {
+  return promoKoreaRecipient(toPromoLoc(tokenRec?.locale), tokenRec?.tz);
+}
 
 /** 웹훅 country_code(ISO 3166 두 글자) → 가격을 아는 스토어프런트. 그 밖은 null(보내지 않는다) */
 export function storefrontFromCountry(cc: unknown): ComebackStorefront | null {
@@ -178,16 +192,27 @@ export function comebackDecision(
   if (state.sent) return 'sent';
   if (!token) return 'unbound';
   if (state.recentPush) return 'recent_push';
+  const g = comebackDeviceGate(tokenRec);
+  if (g !== 'ok') return g;
+  const seen = Date.parse(tokenRec!.lastSeenAt ?? '') || 0;
+  if (now - seen < TRIAL_PUSH_RECENT_OPEN_MS) return 'recent_open';
+  const loc = toTrialSaveLocale(tokenRec!.locale || 'en');
+  const hour = localHourIn(now, tokenRec!.tz || fallbackTimeZone(loc)) ?? localHourIn(now, fallbackTimeZone(loc));
+  if (hour == null || hour < TRIAL_PUSH_HOURS[0] || hour >= TRIAL_PUSH_HOURS[1]) return 'quiet_hours';
+  // 한국 수신자는 08:00~20:59 를 따로 확인한다(위 창이 바뀌어도 야간 광고 발송이 생기지 않게) — 밖이면 다음 회차로 미룬다
+  if (comebackKoreaRecipient(tokenRec) && (hour < COMEBACK_KR_PROMO_HOURS[0] || hour >= COMEBACK_KR_PROMO_HOURS[1])) return 'quiet_hours';
+  return 'send';
+}
+
+/** 기기 조건(시간·기록 상태 제외) — SIGNUM iOS · 알림 전체 켬 · 시스템 권한 허용 · ★11/27 혜택·할인 알림 명시 동의(블프 푸시와 같은 promoAllowed — iOS 는 promo === true 만).
+ *  consent:false 는 11/27 이전 규칙(동의 확인 없음) — 드라이런 모의 비교에만 쓴다 */
+export function comebackDeviceGate(tokenRec: ComebackTokenRec | null, opts: { consent?: boolean } = {}): 'ok' | 'unregistered' | 'not_ios' | 'muted' | 'no_permission' | 'no_consent' {
   if (!tokenRec || (tokenRec.app && tokenRec.app !== 'signum')) return 'unregistered';
   if (tokenRec.platform !== 'ios') return 'not_ios';
   if (tokenRec.preferences && tokenRec.preferences.enabled === false) return 'muted';
   if (tokenRec.notifPerm !== true) return 'no_permission';
-  const seen = Date.parse(tokenRec.lastSeenAt ?? '') || 0;
-  if (now - seen < TRIAL_PUSH_RECENT_OPEN_MS) return 'recent_open';
-  const loc = toTrialSaveLocale(tokenRec.locale || 'en');
-  const hour = localHourIn(now, tokenRec.tz || fallbackTimeZone(loc)) ?? localHourIn(now, fallbackTimeZone(loc));
-  if (hour == null || hour < TRIAL_PUSH_HOURS[0] || hour >= TRIAL_PUSH_HOURS[1]) return 'quiet_hours';
-  return 'send';
+  if (opts.consent !== false && !promoAllowed(tokenRec)) return 'no_consent';
+  return 'ok';
 }
 
 // ── 문구(애플 3.1.2 — 할인가·기간·이후 정가·자동 갱신·언제든 해지 · 5.6 — 사실만, 긴급함·선착순·투자 권유 없음) ──
@@ -210,7 +235,10 @@ export function comebackContent(tokenRec: ComebackTokenRec | null, code: string,
   const loc = toTrialSaveLocale(tokenRec?.locale || 'en');
   if (!sf || !COMEBACK_PRICES[sf] || !code) return null;
   const p = COMEBACK_PRICES[sf];
-  return { title: COPY[loc].title(p.offer), body: COPY[loc].body(code, p.offer, p.regular), storefront: sf };
+  const title = COPY[loc].title(p.offer), body = COPY[loc].body(code, p.offer, p.regular);
+  // ★11/27 한국 수신자 — «(광고)» + 수신거부 방법(정보통신망법 50조). 그 밖은 문구 그대로
+  if (comebackKoreaRecipient(tokenRec)) return { title: COMEBACK_KR_AD_PREFIX + title, body: `${body} ${COMEBACK_KR_OPTOUT}`, storefront: sf };
+  return { title, body, storefront: sf };
 }
 
 /** 푸시 데이터(문자열만) — 앱은 type 으로 계측하고 c(코드 — 형식 검사)로 애플 적용 화면을 연다(주소를 데이터로 받지 않는다) */

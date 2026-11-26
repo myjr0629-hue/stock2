@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import {
   comebackWebhookAction, comebackRcVerdict, comebackDecision, comebackContent, storefrontFromCountry, sealUid, openUid, parseEntry,
   comebackEnvOff, COMEBACK_MIN_AFTER_MS, COMEBACK_MAX_AFTER_MS, comebackPushData,
+  comebackDeviceGate, comebackKoreaRecipient, COMEBACK_KR_PROMO_HOURS,
 } from '../src/lib/push/comebackPush';
+import { TRIAL_PUSH_HOURS } from '../src/lib/push/trialPush';
 import { COMEBACK_VALID_FROM, COMEBACK_PRICES, isComebackCode, comebackRedeemUrl, comebackCode } from '../src/lib/app/comebackOffer';
 
 // 실제 코드 값은 저장소에 두지 않는다 — 시험용 가짜 코드
@@ -121,7 +123,7 @@ t('문구 — 할인가·기간·이후 정가·자동 갱신·해지 가능(3�
 });
 
 const entry = { x: NOW - 25 * H, u: 'v1.x', at: NOW - 25 * H, sf: 'KR' as const };
-const tok = { app: 'signum', platform: 'ios', locale: 'ko', tz: 'Asia/Seoul', notifPerm: true, preferences: { enabled: true }, lastSeenAt: iso(NOW - 2 * D) };
+const tok = { app: 'signum', platform: 'ios', locale: 'ko', tz: 'Asia/Seoul', notifPerm: true, preferences: { enabled: true, promo: true }, lastSeenAt: iso(NOW - 2 * D) };
 const st = { sent: false, recentPush: false };
 t('대상 판정', () => {
   assert.equal(comebackDecision(entry, 'tok', tok, NOW, st), 'send');
@@ -137,8 +139,48 @@ t('대상 판정', () => {
   assert.equal(comebackDecision(entry, 'tok', { ...tok, platform: 'android' }, NOW, st), 'not_ios');
   assert.equal(comebackDecision(entry, 'tok', { ...tok, preferences: { enabled: false } }, NOW, st), 'muted');
   assert.equal(comebackDecision(entry, 'tok', { ...tok, notifPerm: undefined }, NOW, st), 'no_permission');
+  // ★11/27 혜택·할인 알림 명시 동의 — iOS 는 promo === true 만(시스템 권한만으로는 안 보낸다)
+  assert.equal(comebackDecision(entry, 'tok', { ...tok, preferences: { enabled: true } }, NOW, st), 'no_consent');
+  assert.equal(comebackDecision(entry, 'tok', { ...tok, preferences: { enabled: true, promo: false } }, NOW, st), 'no_consent');
+  assert.equal(comebackDecision(entry, 'tok', { ...tok, preferences: null }, NOW, st), 'no_consent');
+  assert.equal(comebackDecision(entry, 'tok', { ...tok, locale: 'en', tz: 'America/Los_Angeles', preferences: { enabled: true } }, Date.parse('2026-11-23T20:00:00Z'), st), 'no_consent');
+  assert.equal(comebackDecision(entry, 'tok', { ...tok, locale: 'en', tz: 'America/Los_Angeles' }, Date.parse('2026-11-23T20:00:00Z'), st), 'send');
   assert.equal(comebackDecision(entry, 'tok', { ...tok, lastSeenAt: iso(NOW - H) }, NOW, st), 'recent_open');
   assert.equal(comebackDecision(entry, 'tok', { ...tok, tz: 'America/New_York', locale: 'en' }, NOW, st), 'quiet_hours');   // 뉴욕 22시
+});
+
+t('★11/27 동의 게이트·한국 수신자 표기·시간', () => {
+  // 기기 조건 — 옛 규칙(consent:false)은 시스템 권한만, 새 규칙은 promo === true 까지
+  const noPromo = { ...tok, preferences: { enabled: true } };
+  assert.equal(comebackDeviceGate(noPromo, { consent: false }), 'ok');
+  assert.equal(comebackDeviceGate(noPromo), 'no_consent');
+  assert.equal(comebackDeviceGate(tok), 'ok');
+  assert.equal(comebackDeviceGate({ ...tok, platform: 'android', preferences: { enabled: true, promo: true } }), 'not_ios');
+  // 한국 수신자 = 언어 ko 또는 시간대 서울(블프와 같은 판정)
+  assert.equal(comebackKoreaRecipient({ locale: 'ko' }), true);
+  assert.equal(comebackKoreaRecipient({ locale: 'en', tz: 'Asia/Seoul' }), true);
+  assert.equal(comebackKoreaRecipient({ locale: 'en', tz: 'America/New_York' }), false);
+  assert.equal(comebackKoreaRecipient({ locale: 'ja', tz: 'Asia/Tokyo' }), false);
+  // 문구 — 한국 수신자만 «(광고)» + 수신거부 · 가격·코드 그대로
+  const kr = comebackContent({ locale: 'ko', tz: 'Asia/Seoul' }, COMEBACK_CODE, 'KR')!;
+  assert.ok(kr.title.startsWith('(광고) PRO 다시 시작'), kr.title);
+  assert.ok(kr.body.endsWith(' 수신거부: 설정 › 알림 › 혜택·할인 알림'));
+  assert.ok(kr.body.includes('₩5,900') && kr.body.includes('₩11,900') && kr.body.includes(COMEBACK_CODE));
+  const krEn = comebackContent({ locale: 'en', tz: 'Asia/Seoul' }, COMEBACK_CODE, 'US')!;
+  assert.ok(krEn.title.startsWith('(광고) Restart PRO') && krEn.body.endsWith('수신거부: 설정 › 알림 › 혜택·할인 알림'));
+  const us = comebackContent({ locale: 'en', tz: 'America/New_York' }, COMEBACK_CODE, 'US')!;
+  assert.ok(!us.title.includes('(광고)') && !us.body.includes('수신거부'));
+  assert.equal(us.title, 'Restart PRO — $3.99/month for your first 2 months');
+  const jp = comebackContent({ locale: 'ja', tz: 'Asia/Tokyo' }, COMEBACK_CODE, 'JP')!;
+  assert.ok(!jp.title.includes('(광고)'));
+  // 한국 수신자 발송 시각 — 08:00~20:59 안(기존 09~20:59 창이 그 안) · 21시·07시는 미룸
+  assert.ok(TRIAL_PUSH_HOURS[0] >= COMEBACK_KR_PROMO_HOURS[0] && TRIAL_PUSH_HOURS[1] <= COMEBACK_KR_PROMO_HOURS[1]);
+  const at = (kstHour: number) => Date.parse('2026-11-23T00:00:00Z') + (kstHour - 9) * H;
+  const e2 = { ...entry, x: at(7) - 25 * H };
+  for (const h of [9, 12, 20]) assert.equal(comebackDecision(e2, 'tok', tok, at(h), st), 'send', `KST ${h}`);
+  for (const h of [7, 8, 21, 23]) assert.equal(comebackDecision(e2, 'tok', tok, at(h), st), 'quiet_hours', `KST ${h}`);
+  assert.equal(comebackDecision(e2, 'tok', { ...tok, locale: 'en' }, at(21), st), 'quiet_hours');   // 시간대 서울 · 영어 화면
+  assert.ok(comebackDecision(e2, 'tok', tok, at(20) + 59 * 60_000, st) === 'send');
 });
 
 t('끄기·코드 상수', () => {

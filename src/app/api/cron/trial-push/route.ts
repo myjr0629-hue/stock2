@@ -14,6 +14,8 @@
 //   ★11/21 체험 만료 다음 날(D+1) «다시 시작» 할인 코드 푸시(lib/push/comebackPush)도 같은 회차 맨 뒤에 보낸다 — iOS · 고객당 1회 · 발송 직전 RC 재확인.
 //     대상 목록 push:comeback:due(RC 웹훅 EXPIRATION 이 넣는다) · 코드 = 환경 변수 COMEBACK_OFFER_CODE(없으면 꺼짐) · 상한·통계 따로(c_*) · 끄기 COMEBACK_PUSH=off 또는 comeback-push:off
 //     (?comebackOff=1 켬 / ?comebackOff=0 끔 — 인증 필요) · 한 회차만 빼기 ?comeback=0 · ?dry=1 이면 comeback(대상 수·이유)도 돌려준다(보내지 않음·표식 없음).
+//     ★11/27 혜택·할인 알림 명시 동의(promo === true)한 기기만 · 한국 수신자 «(광고)»·수신거부·08~20:59 · ?dry=1&cbSim=1 이면 지금 체험 주인 토큰 전부를
+//     기기 조건만으로 옛 규칙(동의 확인 없음)·새 규칙 비교(comebackSim — 플랫폼×한국 수 · 읽기만).
 // Auth: Authorization: Bearer ${CRON_SECRET} (또는 ?secret=) — 다른 크론과 같다.
 // ============================================================================
 import { NextResponse } from 'next/server';
@@ -36,7 +38,7 @@ import {
 import {
   COMEBACK_DAY_KEY, COMEBACK_ENTRY_KEY, COMEBACK_MAX_AFTER_MS, COMEBACK_MAX_PER_DAY, COMEBACK_MAX_PER_RUN, COMEBACK_MIN_AFTER_MS, COMEBACK_OFF_KEY,
   COMEBACK_SENT_TOKEN_KEY, COMEBACK_SENT_TTL_S, COMEBACK_SENT_UID_KEY, COMEBACK_ZSET, comebackContent, comebackDecision, comebackEnvOff, comebackPushData,
-  openUid, parseEntry, readComebackRc, type ComebackEntry, type ComebackTokenRec,
+  comebackDeviceGate, comebackKoreaRecipient, openUid, parseEntry, readComebackRc, type ComebackEntry, type ComebackTokenRec,
 } from '@/lib/push/comebackPush';
 import { comebackCode } from '@/lib/app/comebackOffer';
 
@@ -143,7 +145,8 @@ export async function GET(request: Request) {
     if (dry) {
       const v = valueOn ? await runValue(now, true, pickedOwners) : null;
       const cb = comebackOn ? await runComeback(now, true, cbCode!) : null;
-      return NextResponse.json({ ok: true, dry: true, candidates, attemptsToday: Number(await redis.get(dayKey)) || 0, send: picked.length, skipped,
+      const cbSim = searchParams.get('cbSim') === '1' ? await simComebackGate() : undefined;
+      return NextResponse.json({ ok: true, dry: true, ...(cbSim ? { comebackSim: cbSim } : {}), candidates, attemptsToday: Number(await redis.get(dayKey)) || 0, send: picked.length, skipped,
         preview: picked.map(({ rec, tokenRec }) => ({ platform: rec.platform, locale: rec.locale, title: trialPushContent(rec, tokenRec?.tz).title, hoursLeft: Math.round((rec.expiresAt - now) / 3600_000) })),
         value: v ? { on: true, candidates: v.candidates, send: v.preview.length, skipped: v.skipped } : { on: false },
         valuePreview: v?.preview ?? [],
@@ -354,6 +357,38 @@ async function runValue(now: number, dry: boolean, d2Owners: Set<string>) {
  *   실패(응답 유실 포함)도 표식을 놓지 않는다. RC 호출은 회차당 COMEBACK_RC_MAX · RC 실패 2번이면 이번 회차 중단 · 시간 예산 20초(관문 11210848 ⑤).
  *   dry 면 표식·통계·목록 변경 없이 대상 수·이유·미리보기만(RC 읽기는 한다).
  */
+/** ★11/27 드라이런 모의(읽기만) — 지금 «체험 주인으로 묶인» 토큰 전부를 기기 조건(comebackDeviceGate)만으로 옛 규칙(동의 확인 없음)·새 규칙 비교.
+ *  시간 조건(만료 창·현지 시각·최근 실행)·RC 재확인은 빼고 «동의 게이트가 몇 대를 빼는가»만 센다. 토큰·고객 값은 돌려주지 않는다 */
+async function simComebackGate() {
+  const tokens = ((await redis.smembers('push:token_list')) || []) as string[];
+  const seg = (r: ComebackTokenRec | null) => `${String(r?.platform || 'unknown').toLowerCase()}|${comebackKoreaRecipient(r) ? 'KR' : 'nonKR'}`;
+  const bump = (o: Record<string, number>, k: string) => { o[k] = (o[k] || 0) + 1; };
+  const oldRule: Record<string, number> = {}, newRule: Record<string, number> = {}, skipped: Record<string, number> = {}, promoTrue: Record<string, number> = {};
+  let ownerTokens = 0;
+  for (let i = 0; i < tokens.length; i += 100) {
+    const chunk = tokens.slice(i, i + 100);
+    const [recRaw, ownRaw] = await Promise.all([
+      redis.mget<unknown[]>(...chunk.map((t) => `push:tokens:${t}`)),
+      redis.mget<unknown[]>(...chunk.map((t) => TRIAL_PUSH_OWNER_KEY(t))),
+    ]);
+    const recs = recRaw.map((r) => parseRecord<ComebackTokenRec>(r));
+    recs.forEach((r) => { if (r?.preferences?.promo === true) bump(promoTrue, seg(r)); });
+    const idx = chunk.map((_, j) => j).filter((j) => ownRaw[j] != null);
+    if (!idx.length) continue;
+    const bindRaw = await redis.mget<unknown[]>(...idx.map((j) => TRIAL_PUSH_UID_KEY(String(ownRaw[j]))));
+    idx.forEach((j, k) => {
+      if (boundToken(bindRaw[k]) !== chunk[j]) { bump(skipped, 'not_bound_now'); return; }
+      ownerTokens++;
+      const r = recs[j];
+      const gOld = comebackDeviceGate(r, { consent: false });
+      const gNew = comebackDeviceGate(r);
+      if (gOld === 'ok') bump(oldRule, seg(r)); else bump(skipped, gOld);
+      if (gNew === 'ok') bump(newRule, seg(r)); else if (gOld === 'ok') bump(skipped, gNew);
+    });
+  }
+  return { tokens: tokens.length, ownerTokens, oldRule, newRule, skipped, promoTrue };
+}
+
 const COMEBACK_RC_MAX = 30;
 const COMEBACK_BUDGET_MS = 20_000;
 async function runComeback(now: number, dry: boolean, code: string) {
@@ -395,7 +430,7 @@ async function runComeback(now: number, dry: boolean, code: string) {
       const d = comebackDecision(entry, token, tr, now, { sent: sentRaw[j] != null || (!!token && tokSent.get(token) === true), recentPush: lastRaw[j] != null });
       if (d !== 'send') {
         skip(d);
-        // 'sent'·'unbound' 는 지우지 않는다(unbound — 같은 고객이 곧 새 토큰으로 다시 묶일 수 있다 · 관문 11210906) — 겹친 회차가 막 자리를 잡고 보내는 중일 수 있다(그 회차가 보낸 뒤 지운다 · 남은 것은 72시간 창이 걷는다 — 관문 11210903)
+        // 'sent'·'unbound' 는 지우지 않는다 · ★11/27 'no_consent'(혜택 알림 동의 없음)도 남긴다 — 72시간 창 안에 동의하면 다음 회차에 보낸다(unbound — 같은 고객이 곧 새 토큰으로 다시 묶일 수 있다 · 관문 11210906) — 겹친 회차가 막 자리를 잡고 보내는 중일 수 있다(그 회차가 보낸 뒤 지운다 · 남은 것은 72시간 창이 걷는다 — 관문 11210903)
         if (d === 'invalid' || d === 'unregistered' || d === 'not_ios' || d === 'muted' || d === 'no_permission' || d === 'storefront' || d === 'code_closed') drop.push(uh);
         continue;
       }

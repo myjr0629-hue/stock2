@@ -10,7 +10,9 @@ function mock(name: string, exports: unknown) {
 
 const kv = new Map<string, string>();
 const zs = new Map<string, Map<string, number>>();
+const sets = new Map<string, Set<string>>();
 const fake = {
+  smembers: async (k: string) => [...(sets.get(k) ?? [])],
   get: async (k: string) => (kv.has(k) ? kv.get(k)! : null),
   set: async (k: string, v: string, o?: { nx?: boolean; ex?: number }) => { if (o?.nx && kv.has(k)) return null; kv.set(k, String(v)); return 'OK'; },
   del: async (...ks: string[]) => { ks.forEach((k) => kv.delete(k)); return ks.length; },
@@ -72,7 +74,9 @@ async function main() {
     const uid = uidOf(c), token = tokOf(c);
     kv.set(`push:trial:uid:${trialUidHash(uid)}`, `t:${token}`);
     kv.set(`push:trial:owner:${token}`, trialUidHash(uid));
-    kv.set(`push:tokens:${token}`, JSON.stringify({ token, platform: 'ios', app: 'signum', locale: 'ko', tz: 'Asia/Seoul', notifPerm: true, preferences: { enabled: true }, lastSeenAt: iso(NOW - 3 * D), ...extra }));
+    // ★11/27 혜택·할인 알림 동의(promo: true)가 기본 — 동의 없는 경우는 (17)에서 따로 본다
+    kv.set(`push:tokens:${token}`, JSON.stringify({ token, platform: 'ios', app: 'signum', locale: 'ko', tz: 'Asia/Seoul', notifPerm: true, preferences: { enabled: true, promo: true }, lastSeenAt: iso(NOW - 3 * D), ...extra }));
+    (sets.get('push:token_list') ?? sets.set('push:token_list', new Set()).get('push:token_list')!).add(token);
     rc.set(uid, expired(NOW - 25 * H));
     return { uid, token, uh: trialUidHash(uid) };
   };
@@ -111,6 +115,9 @@ async function main() {
     assert.equal(sent[0].platform, 'ios');
     assert.deepEqual(sent[0].data, { type: 'comeback', v: '1', c: COMEBACK_CODE });
     for (const m of ['₩5,900', '₩11,900', '자동 갱신', '언제든 해지', COMEBACK_CODE]) assert.ok((sent[0].title + sent[0].body).includes(m), m);
+    // ★11/27 한국 수신자 — 제목 맨 앞 «(광고)» · 본문 끝 수신거부 방법
+    assert.ok(sent[0].title.startsWith('(광고) '), sent[0].title);
+    assert.ok(sent[0].body.endsWith('수신거부: 설정 › 알림 › 혜택·할인 알림'), sent[0].body);
     assert.ok(kv.has(C.COMEBACK_SENT_UID_KEY(A.uh)) && kv.has(C.COMEBACK_SENT_TOKEN_KEY(A.token)));
     assert.equal(inQueue(A.uh), false);
 
@@ -274,6 +281,43 @@ async function main() {
     kv.delete(`push:trial:uid:${trialUidHash(uidOf('s'))}`);
     await hook({ type: 'EXPIRATION', app_user_id: uidOf('s'), aliases: [R.uid] });
     assert.ok(inQueue(R.uh));
+
+    // (17) ★11/27 혜택·할인 알림 동의 — 동의 없음(값 없음·false)은 iOS 시스템 권한이 있어도 보내지 않고, 목록에 남긴다(창 안에 동의하면 다음 회차)
+    await run();   // 앞 단계 남은 대상 비우기
+    const before17 = sent.length;
+    const N1 = setup('1', { preferences: { enabled: true } });                 // 동의 기록 없음(iOS 기본 = 꺼짐)
+    const N2 = setup('2', { preferences: { enabled: true, promo: false } });   // 철회
+    const N3 = setup('3', { locale: 'en', tz: 'America/Los_Angeles', preferences: { enabled: true } });   // 미국 iOS 동의 없음
+    for (const x of [N1, N2]) await hook({ type: 'EXPIRATION', app_user_id: x.uid });
+    await hook({ type: 'EXPIRATION', app_user_id: N3.uid, country_code: 'US', currency: 'USD' });
+    r = await run('?dry=1');
+    assert.equal(r.comeback.skipped.no_consent, 3);
+    r = await run();
+    assert.equal(sent.length, before17);
+    assert.equal(r.comeback.skipped.no_consent, 3);
+    for (const x of [N1, N2, N3]) assert.ok(inQueue(x.uh));
+    // 창 안에 동의하면 다음 회차에 보낸다 — 미국 계정(비한국)은 «(광고)» 없이 기존 문구 그대로
+    Date.now = () => Date.parse('2026-11-23T20:00:00Z');   // 로스앤젤레스 12시 · 서울 05시
+    const recN3 = JSON.parse(kv.get(`push:tokens:${N3.token}`)!); recN3.preferences.promo = true; kv.set(`push:tokens:${N3.token}`, JSON.stringify(recN3));
+    const recN1 = JSON.parse(kv.get(`push:tokens:${N1.token}`)!); recN1.preferences.promo = true; kv.set(`push:tokens:${N1.token}`, JSON.stringify(recN1));
+    r = await run();
+    const new17 = sent.slice(before17);   // 앞 단계에서 미뤄 둔 미국 시간대 대상(J 등)도 이 시각엔 나갈 수 있다
+    const n3 = new17.find((x) => x.token === N3.token);
+    assert.ok(n3, 'consented US device sent after opt-in');
+    assert.ok(!n3.title.includes('(광고)') && !n3.body.includes('수신거부'));
+    assert.ok(!new17.some((x) => x.token === N1.token || x.token === N2.token));
+    assert.ok((r.comeback.skipped.quiet_hours || 0) >= 1);   // 서울 05시 — 한국 동의자(N1)도 야간엔 미룬다(목록에 남김)
+    assert.equal(r.comeback.skipped.no_consent, 1);          // N2(철회)만 남음
+    assert.ok(inQueue(N1.uh) && inQueue(N2.uh));
+    Date.now = () => NOW;
+    // 드라이런 모의(?cbSim=1) — 옛 규칙(동의 확인 없음)·새 규칙 비교 · 토큰 값 없음 · 기록 없음
+    const kvBefore = kv.size;
+    r = await run('?dry=1&cbSim=1');
+    assert.ok(r.comebackSim && r.comebackSim.ownerTokens >= 3);
+    assert.ok((r.comebackSim.newRule['ios|KR'] || 0) < (r.comebackSim.oldRule['ios|KR'] || 0));
+    assert.ok(r.comebackSim.skipped.no_consent >= 1);
+    assert.ok(!JSON.stringify(r.comebackSim).includes(N2.token));
+    assert.equal(kv.size, kvBefore);
 
     console.log('comebackPushRoutes: all passed');
   } finally { Date.now = realNow; }
