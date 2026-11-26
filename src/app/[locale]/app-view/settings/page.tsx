@@ -23,7 +23,12 @@ import { isPreviewHost } from '@/lib/app/proEntitlement';
 import { WATCHLIST_PERSIST_KEYS } from '@/lib/app/watchlist';
 import { TRIAL_PUSH_OPTIN_KEY } from '@/lib/app/trialPushOptIn';
 import { openExternalUrl, openStoreReview, getNativeAppVersion, hapticImpact, isNativeApp, platform as nativePlatform } from '@/lib/native/capacitorBridge';
+import { promoShown, promoToast, toPromoLoc } from '@/lib/push/promoConsent';
 import s from './settings.module.css';
+
+function deviceTz(): string | null {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || null; } catch { return null; }
+}
 
 // ── Translations ──
 const T: Record<string, {
@@ -37,6 +42,8 @@ const T: Record<string, {
   closingSub: string;
   signals: string;
   signalsSub: string;
+  promo: string;
+  promoSub: string;
   cache: string;
   cacheSub: string;
   rate: string;
@@ -77,6 +84,8 @@ const T: Record<string, {
     closingSub: '장마감 후 분석 리포트 알림',
     signals: '내 종목 이상 신호',
     signalsSub: '내 종목의 다크풀·Max Pain·실적 등 변화 알림',
+    promo: '혜택·할인 알림',
+    promoSub: '할인·이벤트 등 광고성 정보를 푸시로 받아요(언제든 끌 수 있어요)',
     cache: '캐시 초기화',
     cacheSub: '임시 데이터를 삭제합니다',
     rate: '앱 평가하기',
@@ -113,6 +122,8 @@ const T: Record<string, {
     closingSub: 'Post-market analysis alert',
     signals: 'Watchlist Signals',
     signalsSub: 'Unusual moves in your watchlist',
+    promo: 'Offers & Discounts',
+    promoSub: 'Promotional pushes about discounts (turn off anytime)',
     cache: 'Clear Cache',
     cacheSub: 'Delete temporary data',
     rate: 'Rate SIGNUM HQ',
@@ -149,6 +160,8 @@ const T: Record<string, {
     closingSub: '引け後の分析レポート通知',
     signals: 'マイ銘柄の異常シグナル',
     signalsSub: 'マイ銘柄の異変を通知',
+    promo: 'お得な情報の通知',
+    promoSub: '割引などの広告・宣伝の通知(いつでもオフにできます)',
     cache: 'キャッシュクリア',
     cacheSub: '一時データを削除します',
     rate: 'アプリを評価',
@@ -193,7 +206,7 @@ function loadPrefs() {
   return { enabled: true, morning: true, closing: true, signals: true };
 }
 
-function savePrefs(prefs: { enabled: boolean; morning: boolean; closing: boolean; signals: boolean }) {
+function savePrefs(prefs: { enabled: boolean; morning: boolean; closing: boolean; signals: boolean; promo?: boolean }) {
   try {
     localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
   } catch {}
@@ -208,11 +221,14 @@ export default function SettingsPage() {
   const router = useRouter();
   const t = T[locale] ?? T.en;
 
-  const [prefs, setPrefs] = useState({ enabled: true, morning: true, closing: true, signals: true });
+  const [prefs, setPrefs] = useState<{ enabled: boolean; morning: boolean; closing: boolean; signals: boolean; promo?: boolean }>({ enabled: true, morning: true, closing: true, signals: true });
   const [showCacheDialog, setShowCacheDialog] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
   const [mounted, setMounted] = useState(false);
+  // ★11/26 혜택·할인 알림(광고성) — 저장값이 없으면 기본 규칙(lib/push/promoConsent: iOS·한국 = 꺼짐, 그 밖 안드 = 켜짐).
+  //   기기 종류·시간대는 서버 렌더에 없으니 마운트 뒤에만 판정(하이드레이션 불일치로 토글 모양이 어긋나지 않게)
+  const promoOn = mounted && promoShown(prefs.promo, nativePlatform, toPromoLoc(locale), deviceTz());
   const [closing, setClosing] = useState(false);
   // 구글 UMP: 동의를 «받은» 사용자에게는 철회 진입점이 상시 보여야 한다.
   // 요건이 없는 지역(EEA 밖)에서는 false 라 행 자체가 렌더되지 않는다.
@@ -403,7 +419,7 @@ export default function SettingsPage() {
         fetch('/api/push/preferences', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token, enabled: next.enabled, morning: next.morning, closing: next.closing, signals: next.signals }), // ★2026-10-12 마스터 토글도 서버로(발송이 지킨다) · 2026-10-13 내 종목 이상 신호
+          body: JSON.stringify({ token, enabled: next.enabled, morning: next.morning, closing: next.closing, signals: next.signals, ...(typeof next.promo === 'boolean' ? { promo: next.promo } : {}) }), // ★2026-10-12 마스터 토글도 서버로(발송이 지킨다) · 2026-10-13 내 종목 이상 신호
         }).catch(() => {});
       }
       return next;
@@ -693,7 +709,7 @@ export default function SettingsPage() {
               </div>
               <button className={`${s.toggle} ${prefs.enabled ? s.toggleOn : ''}`} />
             </div>
-            <div className={`${s.accordion} ${prefs.enabled ? s.accordionOpen : ''}`}>
+            <div className={`${s.accordion} ${prefs.enabled ? `${s.accordionOpen} ${s.accordionOpenTall}` : ''}`}>
               <div className={s.subRow}>
                 <div>
                   <div className={s.subLabel}>{t.morning}</div>
@@ -722,6 +738,24 @@ export default function SettingsPage() {
                 <button
                   className={`${s.toggle} ${prefs.signals ? s.toggleOn : ''}`}
                   onClick={() => { hapticImpact('light'); updatePrefs({ signals: !prefs.signals }); }}
+                />
+              </div>
+              <div className={s.subRow}>
+                <div>
+                  <div className={s.subLabel}>{t.promo}</div>
+                  <div className={s.subNote}>{t.promoSub}</div>
+                </div>
+                <button
+                  className={`${s.toggle} ${promoOn ? s.toggleOn : ''}`}
+                  onClick={() => {
+                    hapticImpact('light');
+                    const next = !promoOn;
+                    updatePrefs({ promo: next });
+                    const msg = promoToast(toPromoLoc(locale), next, new Date());
+                    setToastMsg(msg);
+                    window.setTimeout(() => setToastMsg((cur) => (cur === msg ? '' : cur)), 3500);
+                    void import('@/lib/app/funnelBeacon').then((m) => m.trackFunnel('open', { src: next ? 'promo_on' : 'promo_off' })).catch(() => {});
+                  }}
                 />
               </div>
             </div>

@@ -278,6 +278,10 @@
       "schedule": "17 * * * *"
     },
     {
+      "path": "/api/cron/bf-push",
+      "schedule": "37 * * * *"
+    },
+    {
       "path": "/api/cron/earnings-actuals",
       "schedule": "20 11,12 * * 1-5"
     },

@@ -141,6 +141,13 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
             if (tvPath) import('@/lib/app/funnelBeacon').then((m) => m.trackFunnel('push_open', { src: tvVariant === 'd6' ? 'push_trial_d6' : 'push_trial_d3' })).catch(() => {});
             // ★2026-11-21 체험 만료 다음 날 «다시 시작» 할인 코드 푸시(/api/cron/trial-push · lib/push/comebackPush) — 탭 계측 push_comeback 뒤
             //   코드를 미리 채운 애플 적용 화면을 연다(코드는 데이터 c — 형식 검사 · 화면 이동 없음). 아이폰이 아니면 아무것도 하지 않는다
+            // ★2026-11-26 블프 «앱 밖» 안내 푸시(/api/cron/bf-push · lib/push/bfPush) — 탭 계측 push_bf 뒤 대시보드에서 그 플랫폼의 블프 시트(lib/app/bfPushTap)
+            if (type === 'bf_offer') {
+              let plat: string | null = null;
+              try { plat = require('@capacitor/core').Capacitor.getPlatform(); } catch { /* web */ }
+              import('@/lib/app/bfPushTap').then((m) => m.handleBfPushTap({ loc, platform: plat, navigate: (p) => router.push(p) })).catch(() => {});
+              return;
+            }
             if (type === COMEBACK_PUSH_TYPE) {
               import('@/lib/app/funnelBeacon').then((m) => m.trackFunnel('push_open', { src: 'push_comeback' })).catch(() => {});
               import('@/lib/app/redeem').then((m) => m.openComebackRedeem(action?.notification?.data?.c, 'push_comeback')).catch(() => {});

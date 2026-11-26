@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
-import { mergePrefs, parseRecord, sanitizePrefs } from '@/lib/push/prefs';
+import { mergePrefs, parseRecord, promoChangedAt, sanitizePrefs } from '@/lib/push/prefs';
 
 const redis = Redis.fromEnv();
 
@@ -22,7 +22,11 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Token not found' }, { status: 404 });
     }
 
-    data.preferences = mergePrefs(data.preferences, sanitizePrefs(body));
+    const nextPrefs = mergePrefs(data.preferences, sanitizePrefs(body));
+    // ★11/26 혜택·할인 알림(광고성) 동의·철회 시각 기록(정보통신망법 50조 — 동의 일자 보관)
+    const promoAt = promoChangedAt(data, nextPrefs, new Date().toISOString());
+    data.preferences = nextPrefs;
+    if (promoAt) data.promoAt = promoAt;
 
     await redis.set(key, JSON.stringify(data));
 

@@ -17,7 +17,9 @@ import { sanitizeTickers, sanitizeTz } from '@/lib/signals/sanitize';
 export type PushType = 'morning' | 'closing' | 'signals';
 
 /** signals(내 종목 이상 신호) 는 «없으면 켜짐» — 값이 없는 옛 레코드·새 토큰의 기본 객체는 세 칸 그대로 둔다(기존 계약 불변) */
-export interface PushPrefs { enabled: boolean; morning: boolean; closing: boolean; signals?: boolean }
+export interface PushPrefs { enabled: boolean; morning: boolean; closing: boolean; signals?: boolean;
+  /** ★11/26 혜택·할인 알림(광고성) 동의 — 한 번이라도 값이 오간 기기에만 칸이 생긴다. 없으면 lib/push/bfPush.promoDefaultOn(iOS·한국 = 꺼짐) */
+  promo?: boolean }
 
 export const DEFAULT_PREFS: PushPrefs = { enabled: true, morning: true, closing: true };
 
@@ -37,6 +39,8 @@ export interface PushTokenRecord {
   tz?: string;
   /** 마지막 앱 실행 때 시스템 알림 권한 — false 면 신호를 보내지 않는다(권한이 없으면 안 보낸다) */
   notifPerm?: boolean;
+  /** ★11/26 혜택 알림 동의 값이 마지막으로 바뀐 시각(동의·철회 기록 — 정보통신망법 50조) */
+  promoAt?: string;
 }
 
 /** 이 기기가 이 종류의 푸시를 받기로 했나 — 값이 없으면 받는다(옛 레코드·새 토큰 기본값) */
@@ -52,7 +56,7 @@ export function sanitizePrefs(x: unknown): Partial<PushPrefs> | null {
   if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
   const o = x as Record<string, unknown>;
   const out: Partial<PushPrefs> = {};
-  for (const k of ['enabled', 'morning', 'closing', 'signals'] as const) {
+  for (const k of ['enabled', 'morning', 'closing', 'signals', 'promo'] as const) {
     if (typeof o[k] === 'boolean') out[k] = o[k] as boolean;
   }
   return Object.keys(out).length ? out : null;
@@ -68,6 +72,9 @@ export function mergePrefs(existing: Partial<PushPrefs> | null | undefined, patc
   // signals 는 한 번이라도 값이 오간 기기에만 칸이 생긴다(없으면 켜짐 — 기존 세 칸 객체는 그대로)
   if (existing && typeof existing.signals === 'boolean') base.signals = existing.signals;
   if (patch && typeof patch.signals === 'boolean') base.signals = patch.signals;
+  // promo(혜택 알림 동의)도 같은 방식 — 명시적으로 오간 값만(없으면 기본 규칙)
+  if (existing && typeof existing.promo === 'boolean') base.promo = existing.promo;
+  if (patch && typeof patch.promo === 'boolean') base.promo = patch.promo;
   return base;
 }
 
@@ -87,6 +94,8 @@ export function mergeRegistration(
   const watchlist = tickers ? (tickers.length ? { t: tickers, at: nowIso } : undefined) : prev?.watchlist;
   const tz = sanitizeTz(incoming.tz) ?? (typeof prev?.tz === 'string' ? prev.tz : undefined);
   const notifPerm = typeof incoming.notifPerm === 'boolean' ? incoming.notifPerm : (typeof prev?.notifPerm === 'boolean' ? prev.notifPerm : undefined);
+  const preferences = mergePrefs(prev?.preferences, patch);
+  const promoAt = promoChangedAt(prev, preferences, nowIso);
   return {
     token: incoming.token,
     platform: typeof incoming.platform === 'string' && incoming.platform ? incoming.platform : (prev?.platform || 'unknown'),
@@ -95,11 +104,19 @@ export function mergeRegistration(
     createdAt: typeof prev?.createdAt === 'string' && prev.createdAt ? prev.createdAt : nowIso,
     lastSeenAt: nowIso,
     ...(prev ? (typeof prev.firstSeenAt === 'string' ? { firstSeenAt: prev.firstSeenAt } : {}) : { firstSeenAt: nowIso }),
-    preferences: mergePrefs(prev?.preferences, patch),
+    preferences,
     ...(watchlist ? { watchlist } : {}),
     ...(tz ? { tz } : {}),
     ...(notifPerm !== undefined ? { notifPerm } : {}),
+    ...(promoAt ? { promoAt } : {}),
   };
+}
+
+/** 혜택 알림 동의 값이 이번에 바뀌었으면 지금, 아니면 예전 기록 그대로(없으면 undefined) */
+export function promoChangedAt(prev: { preferences?: Partial<PushPrefs> | null; promoAt?: unknown } | null | undefined, next: Partial<PushPrefs>, nowIso: string): string | undefined {
+  const before = prev?.preferences && typeof prev.preferences.promo === 'boolean' ? prev.preferences.promo : undefined;
+  if (typeof next.promo === 'boolean' && next.promo !== before) return nowIso;
+  return typeof prev?.promoAt === 'string' ? prev.promoAt : undefined;
 }
 
 /** 레디스 값 → 객체(문자열 JSON·객체 둘 다 받는다 — Upstash 자동 역직렬화 여부와 무관) */

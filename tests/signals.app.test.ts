@@ -48,7 +48,7 @@ t('새 줄은 같은 서브행 틀(subRow·subLabel·subNote·toggle)을 그대�
 });
 t('토글을 서버로 — PUT 본문에 signals · 마스터 enabled 도 그대로', () => {
   const s = read(SETTINGS);
-  assert.match(s, /JSON\.stringify\(\{ token, enabled: next\.enabled, morning: next\.morning, closing: next\.closing, signals: next\.signals \}\)/);
+  assert.match(s, /JSON\.stringify\(\{ token, enabled: next\.enabled, morning: next\.morning, closing: next\.closing, signals: next\.signals(, \.\.\.\(typeof next\.promo === 'boolean' \? \{ promo: next\.promo \} : \{\}\))? \}\)/);   // ★11/26 혜택 알림(promo)은 명시 값만 덧붙인다
 });
 
 console.log('━━━ 2. 서버가 토글을 지킨다 ━━━');
@@ -56,7 +56,7 @@ t('PUT /api/push/preferences 는 sanitizePrefs/mergePrefs 로 signals 까지 병
   const r = read('src/app/api/push/preferences/route.ts');
   assert.match(r, /mergePrefs\(data\.preferences, sanitizePrefs\(body\)\)/);
   const p = read('src/lib/push/prefs.ts');
-  assert.match(p, /for \(const k of \['enabled', 'morning', 'closing', 'signals'\] as const\)/);
+  assert.match(p, /for \(const k of \['enabled', 'morning', 'closing', 'signals'(, 'promo')?\] as const\)/);   // ★11/26 promo(혜택 알림 동의) 추가
 });
 t('발송 기기 판정은 wantsPush(rec,"signals")와 notifPerm 을 읽는다', () => {
   const pl = read('src/lib/signals/plan.ts');

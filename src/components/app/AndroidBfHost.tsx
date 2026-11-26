@@ -14,6 +14,7 @@ import { previewFlag } from '@/lib/app/proEntitlement';
 import { readOnboardedAt } from '@/lib/app/trialAnnounce';
 import { BF_OPEN_EVENT, bfLive, type MiniStore } from '@/lib/app/blackFriday';
 import { ANDROID_BF_PREVIEW_FLAG, androidBfPreGate } from '@/lib/app/androidBf';
+import { BF_PUSH_OPEN_EVENT } from '@/lib/app/bfPushTap';
 
 const AndroidBfGate = dynamic(() => import('./AndroidBfGate').then((m) => m.AndroidBfGate), { ssr: false, loading: () => null });
 
@@ -35,6 +36,7 @@ let onboardedAtStart: boolean | null = null;
 export function AndroidBfHost() {
   const [auto, setAuto] = useState(false);
   const [req, setReq] = useState(0);
+  const [pushReq, setPushReq] = useState(0);
 
   useEffect(() => {
     const store = localStore();
@@ -51,7 +53,11 @@ export function AndroidBfHost() {
     document.addEventListener('app:resume', again);
     const onOpen = () => { if (bfAndroidHere() && bfLive(Date.now())) setReq((n) => n + 1); };
     window.addEventListener(BF_OPEN_EVENT, onOpen);
+    // ★11/26 블프 안내 푸시 탭(lib/app/bfPushTap)
+    const onPush = () => { if (bfAndroidHere() && bfLive(Date.now())) setPushReq((n) => n + 1); };
+    window.addEventListener(BF_PUSH_OPEN_EVENT, onPush);
     return () => {
+      window.removeEventListener(BF_PUSH_OPEN_EVENT, onPush);
       window.clearTimeout(t1); window.clearTimeout(t2);
       document.removeEventListener('visibilitychange', again);
       document.removeEventListener('app:resume', again);
@@ -59,5 +65,5 @@ export function AndroidBfHost() {
     };
   }, []);
 
-  return auto || req > 0 ? <AndroidBfGate auto={auto} request={req} /> : null;
+  return auto || req > 0 || pushReq > 0 ? <AndroidBfGate auto={auto} request={req} pushRequest={pushReq} /> : null;
 }

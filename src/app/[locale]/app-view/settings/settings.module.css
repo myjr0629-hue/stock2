@@ -202,6 +202,11 @@
   border-top: 1px solid rgba(148, 163, 184, 0.05);
 }
 
+/* ★11/26 알림 묶음은 4줄(혜택·할인 알림 추가) — 200px 에 잘리지 않게 */
+.accordionOpenTall {
+  max-height: 340px;
+}
+
 /* ── Language items (inside accordion) ── */
 .langItem {
   display: flex;

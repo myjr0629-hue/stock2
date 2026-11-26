@@ -46,6 +46,8 @@ const capped = <T,>(p: Promise<T>, ms: number) => Promise.race([p, new Promise<n
 const isPreview = () => { try { return !isNative() && (previewFlag(ANDROID_BF_PREVIEW_FLAG) || previewFlag('sgbfaw')); } catch { return false; } };
 const localeNow = () => window.location.pathname.split('/')[1] || 'en';
 const ANDROID_BF_LINE_WAIT_MS = 4_500;
+/** 푸시 탭 — 사용자가 알림을 누르고 기다린다(냉시작이면 RC 준비가 늦다) */
+const ANDROID_BF_PUSH_WAIT_MS = 6_000;
 /** OS 평점 시트 요청 직후·전면 광고·선물 안내 중이면 기다린다(하루 첫 페이월과 같다 — 관문 11241350 ②). 모르면 기다림 */
 function osBusyNow(now: number): boolean {
   let rb = false;
@@ -169,7 +171,7 @@ const PREVIEW_PLANS: Record<string, PaywallPlan[]> = {
 // 이번 웹뷰 실행·이 현지 날짜에서 자동 안내가 끝났나
 const run = { done: false, day: '' };
 
-export function AndroidBfGate({ auto, request }: { auto: boolean; request: number }) {
+export function AndroidBfGate({ auto, request, pushRequest = 0 }: { auto: boolean; request: number; pushRequest?: number }) {
   const pathname = usePathname() || '';
   const [view, setView] = useState<AndroidBfView | null>(null);
   const viewRef = useRef<AndroidBfView | null>(null);
@@ -228,6 +230,28 @@ export function AndroidBfGate({ auto, request }: { auto: boolean; request: numbe
       setView(v);
     });
   }, [request]);
+
+  // ③ ★11/26 블프 안내 푸시 탭(lib/app/bfPushTap — 대시보드에 자리 잡은 뒤 한 번 쏜다). 줄 경로와 같은 loadAndroidBf 판정 —
+  //   못 보이면(활성 구독·스위치 꺼짐·오퍼 없음·늦음) 아무것도 열지 않는다(대시보드 그대로). 줄이 없으니 «누른 줄이 화면에 붙어 있나»만 빼고 같다.
+  const lastPush = useRef(0);
+  useEffect(() => {
+    if (pushRequest <= lastPush.current) return;
+    lastPush.current = pushRequest;
+    if (lineBusy.current || viewRef.current || !bfLive(Date.now())) return;
+    run.done = true;
+    lineBusy.current = true;
+    const seq = ++lineSeq.current;
+    const locale = localeNow();
+    const fromPath = window.location.pathname;
+    void capped(loadAndroidBf(locale).catch(() => null), ANDROID_BF_PUSH_WAIT_MS).then((v) => {
+      lineBusy.current = false;
+      if (!alive.current || seq !== lineSeq.current || viewRef.current) return;
+      if (window.location.pathname !== fromPath) return;
+      if (!v || v === 'owned') return;
+      if (!v.preview) { markBfSeen(localStore()); markGateDay(localDay()); track('bf_and_line'); }
+      setView(v);
+    });
+  }, [pushRequest]);
 
   useEffect(() => {
     if (!auto) return;
