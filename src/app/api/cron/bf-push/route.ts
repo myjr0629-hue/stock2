@@ -1,7 +1,7 @@
 // ============================================================================
 // /api/cron/bf-push — 블랙프라이데이 «앱 밖» 안내 푸시(2026-11-26 · 규칙 lib/push/bfPush 머리말). Vercel Cron 매시 :37 (vercel.json).
 //   기간(11/27 00:00 UTC ~ 12/2 07:00 UTC) 밖·끄기 켜짐이면 아무것도 읽지 않고 끝난다.
-//   ?dry=1 — 보내지 않고 대상 수·이유·문구 미리보기만(자리·통계 안 씀 · 발송 금지 창과 무관).
+//   ?dry=1 — 보내지 않고 대상 수·이유·문구 미리보기만(자리·통계 안 씀 · 발송 금지 창과 무관). &at=<ISO> 로 그 시각 기준 미리보기.
 //   ?off=1 끄기 / ?off=0 다시 켜기(Upstash bf-push:off) — 인증 필요 · 응답에 상태만.
 // Auth: Authorization: Bearer ${CRON_SECRET} (또는 ?secret=) — 다른 크론과 같다.
 // ============================================================================
@@ -53,7 +53,9 @@ export async function GET(request: Request) {
   }
   const dry = searchParams.get('dry') === '1';
   try {
-    const now = Date.now();
+    // 드라이런만 ?at=<ISO> 로 «그 시각이었다면»을 미리 본다(보내지 않음 · 자리·통계 안 씀) — 실발송은 언제나 지금 시각
+    const at = dry ? Date.parse(searchParams.get('at') || '') : NaN;
+    const now = Number.isFinite(at) ? at : Date.now();
     const res = await runBfPush({ store, send: sendSignalPushes, now, dry, envOff: bfPushEnvOff(), etDay: etDay(new Date(now)) });
     return NextResponse.json(res, noStore);
   } catch (e) {
