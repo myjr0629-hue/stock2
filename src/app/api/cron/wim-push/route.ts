@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sendWimQuizPush } from '@/lib/push/send';
 import { getFromCache, setInCache } from '@/services/redisClient';
+import { isNonTradingDay } from '@/lib/marketCalendar';
 
 // [WIM] Daily "today's quiz is ready" push. Fires after the US close once the
 // day's movers-quiz has been warmed, so tapping the notification lands on a
@@ -26,6 +27,10 @@ export async function GET(request: Request) {
 
   // Vercel 이 재시도해도 ET 하루 한 번만 보낸다(/api/cron/push 와 같은 방식).
   const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  // [2026-11-26 추수감사절 점검] 휴장일엔 새 장이 없어 «오늘의 문제»가 전날 판 — 보내지 않는다(마감 푸시와 같은 달력 관문)
+  if (isNonTradingDay(todayET)) {
+    return NextResponse.json({ ok: true, skipped: true, reason: 'market-holiday' });
+  }
   const sentKey = `push:sent:wim:${todayET}`;
   if (await getFromCache<string>(sentKey).catch(() => null)) {
     return NextResponse.json({ ok: true, skipped: true, reason: 'already-sent' });

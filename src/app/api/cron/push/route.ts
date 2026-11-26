@@ -121,6 +121,13 @@ type Gate = { ready: boolean; reason: string };
 /** 발송 관문 — 예전 순서·조건 그대로(드라이런이 상태를 보여 줄 수 있게 함수로 뺐을 뿐) */
 async function checkReady(type: 'morning' | 'closing', todayET: string): Promise<Gate> {
   if (type === 'morning') {
+    // [2026-11-26 추수감사절 점검] EC2 워커는 주말만 건너뛰고 휴장일에도 08:00 ET 브리핑을 만든다 →
+    // 휴장일 아침에 «장 전 브리핑» 푸시가 전날 마감 요약(어제 마감 푸시와 같은 내용)으로 나갔을 것. 마감 푸시와 같은 달력 관문.
+    const holiday = closingPushHolidayReason(todayET);
+    if (holiday) {
+      console.warn(`[Cron/Push] ${todayET} is not a trading day (market calendar) — skipping morning push`);
+      return { ready: false, reason: holiday };
+    }
     // Morning brief is generated ~08:00 ET by the EC2 worker (guardian/briefing/generate),
     // which stamps guardian:morning_briefing.generatedAt.
     const brief = await getFromCache<{ generatedAt?: string }>('guardian:morning_briefing');
