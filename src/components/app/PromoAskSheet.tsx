@@ -28,7 +28,8 @@ export function PromoAskSheet({ loc, src, onDone }: { loc: string; src: PromoAsk
   const titleId = useId();
   const [busy, setBusy] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
-  const noRef = useRef<HTMLButtonElement>(null);
+  // 처음 초점은 닫기 단추(선물 안내와 같다) — 두 답 단추 중 하나에 초점 테두리가 생겨 «같은 무게»가 깨지지 않게
+  const closeRef = useRef<HTMLButtonElement>(null);
   const answered = useRef(false);
   // 블프 기간 줄 — 처음 그릴 때 한 번만 판정(그리는 도중 바뀌지 않게)
   const [bf] = useState(() => { try { return bfLive(Date.now()); } catch { return false; } });
@@ -46,7 +47,7 @@ export function PromoAskSheet({ loc, src, onDone }: { loc: string; src: PromoAsk
   const isTop = useLayer(true, decline, sheetRef);
 
   useEffect(() => {
-    const id = window.setTimeout(() => noRef.current?.focus({ preventScroll: true }), 40);
+    const id = window.setTimeout(() => closeRef.current?.focus({ preventScroll: true }), 40);
     return () => window.clearTimeout(id);
   }, []);
 
@@ -84,7 +85,7 @@ export function PromoAskSheet({ loc, src, onDone }: { loc: string; src: PromoAsk
       data-promo-ask=""
     >
       <div ref={sheetRef} className={`${p.sheet} ${s.box}`} role="dialog" aria-modal="true" aria-labelledby={titleId} onKeyDown={trapTab}>
-        <button type="button" className={p.close} onClick={() => { if (!busy) decline(); }} aria-label={c.close}>
+        <button ref={closeRef} type="button" className={p.close} onClick={() => { if (!busy) decline(); }} aria-label={c.close}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
           </svg>
@@ -99,7 +100,7 @@ export function PromoAskSheet({ loc, src, onDone }: { loc: string; src: PromoAsk
         </div>
 
         <div className={s.row}>
-          <button ref={noRef} type="button" className={s.btn} onClick={decline} disabled={busy}>{c.no}</button>
+          <button type="button" className={s.btn} onClick={decline} disabled={busy}>{c.no}</button>
           <button type="button" className={s.btn} onClick={() => { void accept(); }} disabled={busy}>{c.yes}</button>
         </div>
 
