@@ -3,7 +3,7 @@
 // «같은 규칙»으로 읽고 쓰도록 키·세션 칸·신선도를 한곳에 둔다. 서버 전용이지만 import 는 없다(순수 함수) —
 // 가벼운 라우트의 콜드스타트가 무거운 모듈(벤더·AWS·티커 라우트)을 끌어오지 않게 하려는 분리다.
 // ============================================================================
-import { etDateOf } from '@/lib/marketCalendar';
+import { etDateOf, sessionCloseMinutes } from '@/lib/marketCalendar';
 
 export const INTEL_FAST_SECTORS = [
     'm7', 'physical_ai', 'silicon_core', 'power_matrix', 'bio_pulse',
@@ -23,10 +23,12 @@ export function etPhase(now = Date.now()): { key: string; open: boolean } {
     const et = new Date(new Date(now).toLocaleString('en-US', { timeZone: 'America/New_York' }));
     const hm = et.getHours() * 60 + et.getMinutes();
     const dow = et.getDay();
-    const phase = hm >= 240 && hm < 570 ? 'pre' : hm >= 570 && hm < 960 ? 'reg' : hm >= 960 && hm < 1200 ? 'post' : 'night';
+    const date = etDateOf(now);
+    const closeMinutes = sessionCloseMinutes(date);
+    const phase = hm >= 240 && hm < 570 ? 'pre' : hm >= 570 && hm < closeMinutes ? 'reg' : hm >= closeMinutes && hm < 1200 ? 'post' : 'night';
     // 야간 칸(20:00~다음 날 04:00)은 «저녁이 시작된 날짜»로 이름 붙인다 — 자정(ET)에 칸이 바뀌어 저장본이 통째로 못 쓰이는 일이 없게
     // (한국 13:00 = ET 00:00. 이름이 날짜로 갈리면 그 직후 첫 사용자가 10곳을 예전 경로로 받는다)
-    const keyDate = hm < 240 ? etDateOf(now - 86_400_000) : etDateOf(now);
+    const keyDate = hm < 240 ? etDateOf(now - 86_400_000) : date;
     // 주말·휴장일에는 칸이 «열려 있는 시각»이어도 값이 안 움직인다 → open 은 평일만(휴장 평일은 신선 기준이 빡빡할 뿐 틀리지 않는다)
     return { key: `${keyDate}:${phase}`, open: phase !== 'night' && dow >= 1 && dow <= 5 };
 }

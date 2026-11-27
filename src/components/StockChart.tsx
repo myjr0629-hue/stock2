@@ -1,6 +1,7 @@
 
 "use client";
 
+import { etDateOf, sessionCloseMinutes } from '@/lib/marketCalendar';
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslations } from 'next-intl';
 import { createChart, IChartApi, ISeriesApi, LineStyle, ColorType, CrosshairMode, LineType, UTCTimestamp } from "lightweight-charts";
@@ -41,7 +42,6 @@ const formatEtMinute = (etMinute: number): string => {
 };
 
 const SESSION_PRE_END = 570;  // 09:30
-const SESSION_REG_END = 960;  // 16:00
 
 // Convert data point to UTCTimestamp for lightweight-charts
 function toTimestamp(item: any, isIntraday: boolean): UTCTimestamp {
@@ -252,7 +252,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                             low: currentPrice,
                             etMinute: currentEtMinute,
                             etDate: todayET,
-                            session: currentEtMinute < 570 ? 'PRE' : currentEtMinute >= 960 ? 'POST' : 'REG',
+                            session: currentEtMinute < 570 ? 'PRE' : currentEtMinute >= sessionCloseMinutes(todayET) ? 'POST' : 'REG',
                             volume: 0,
                         });
                     }
@@ -413,6 +413,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
         const seriesData: any[] = [];
         const volumeData: any[] = [];
 
+        const todayET = etDateOf(Date.now());
         renderData.forEach((item: any, idx: number) => {
             const time = toTimestamp(item, isIntraday);
             
@@ -430,8 +431,9 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                 let lineColor = '#e2e8f0';
                 if (isIntraday) {
                     const etMin = item.etMinute || 0;
+                    const date = item.etDate || (item.date ? etDateOf(Date.parse(item.date)) : todayET);
                     if (etMin < SESSION_PRE_END) lineColor = '#fbbf24';
-                    else if (etMin >= SESSION_REG_END) lineColor = '#60a5fa';
+                    else if (etMin >= sessionCloseMinutes(date)) lineColor = '#60a5fa';
                 }
                 seriesData.push({
                     time,
@@ -619,7 +621,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                 const [h2] = etTime.split(':').map(Number);
                 const curMin = h2 * 60 + parseInt(etTime.split(':')[1]);
                 if (curMin < SESSION_PRE_END) priceColor = '#fbbf24';
-                else if (curMin >= SESSION_REG_END) priceColor = '#60a5fa';
+                else if (curMin >= sessionCloseMinutes(etDateOf(now.getTime()))) priceColor = '#60a5fa';
             }
             addPriceLineIncr(currentPrice, priceColor, '', LineStyle.Solid, 2);
         }
@@ -663,7 +665,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
             // Session-aware color (same logic as L401-406)
             let lineColor = '#e2e8f0';
             if (currentEtMinute < SESSION_PRE_END) lineColor = '#fbbf24';
-            else if (currentEtMinute >= SESSION_REG_END) lineColor = '#60a5fa';
+            else if (currentEtMinute >= sessionCloseMinutes(etDateOf(now.getTime()))) lineColor = '#60a5fa';
 
             mainSeries.update({
                 time,

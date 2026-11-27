@@ -880,9 +880,10 @@ export async function getStockData(symbol: string, range: Range = "1d"): Promise
   if (et.isWeekend) {
     session = 'reg';
   } else {
+    const closeHour = sessionCloseMinutes(et.dateString) / 60;
     if (etTime >= 4 && etTime < 9.5) session = 'pre';
-    else if (etTime >= 16 && etTime < 20) session = 'post';
-    else if (etTime >= 9.5 && etTime < 16) session = 'reg';
+    else if (etTime >= closeHour && etTime < 20) session = 'post';
+    else if (etTime >= 9.5 && etTime < closeHour) session = 'reg';
     else session = (etTime >= 20 || etTime < 4) ? 'post' : 'reg';
   }
 
@@ -1486,7 +1487,7 @@ export async function getMarketStatus_LEGACY(): Promise<MarketStatus> {
       session = "regular";
     } else if (isExtended) {
       if (etTime >= 240 && etTime < 570) session = "pre"; // 4:00 AM - 9:30 AM
-      else if (etTime >= 960 && etTime < 1200) session = "post"; // 4:00 PM - 8:00 PM
+      else if (etTime >= sessionCloseMinutes(etDateOf(now.getTime())) && etTime < 1200) session = "post";
       else session = "closed";
     } else {
       // Check if it's a market holiday
@@ -1552,10 +1553,11 @@ export async function getMarketStatus_LEGACY(): Promise<MarketStatus> {
     }
 
     // Time-based session detection
+    const closeMinutes = sessionCloseMinutes(etDateOf(now.getTime()));
     let session: "pre" | "regular" | "post" | "closed" = "closed";
     if (etTime >= 240 && etTime < 570) session = "pre";
-    else if (etTime >= 570 && etTime < 960) session = "regular";
-    else if (etTime >= 960 && etTime < 1200) session = "post";
+    else if (etTime >= 570 && etTime < closeMinutes) session = "regular";
+    else if (etTime >= closeMinutes && etTime < 1200) session = "post";
 
     return {
       market: session === "regular" ? "open" : session === "closed" ? "closed" : "extended-hours",

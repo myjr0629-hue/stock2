@@ -1,3 +1,4 @@
+import { etDateOf, sessionCloseMinutes } from '@/lib/marketCalendar';
 import { selectVwap } from '@/lib/vwap';
 import { vwapForCalculation } from '@/lib/sessionVwapPolicy';
 import { NextRequest, NextResponse } from 'next/server';
@@ -1451,14 +1452,13 @@ function getMarketStatus(): 'PRE' | 'OPEN' | 'AFTER' | 'CLOSED' {
     // Weekend
     if (day === 0 || day === 6) return 'CLOSED';
 
+    const closeMinutes = sessionCloseMinutes(etDateOf(now.getTime()));
     const timeInMinutes = hour * 60 + minute;
 
     // Pre-market: 4:00 AM - 9:30 AM
     if (timeInMinutes >= 240 && timeInMinutes < 570) return 'PRE';
-    // Regular: 9:30 AM - 4:00 PM
-    if (timeInMinutes >= 570 && timeInMinutes < 960) return 'OPEN';
-    // After-hours: 4:00 PM - 8:00 PM
-    if (timeInMinutes >= 960 && timeInMinutes < 1200) return 'AFTER';
+    if (timeInMinutes >= 570 && timeInMinutes < closeMinutes) return 'OPEN';
+    if (timeInMinutes >= closeMinutes && timeInMinutes < 1200) return 'AFTER';
 
     return 'CLOSED';
 }

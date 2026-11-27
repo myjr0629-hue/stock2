@@ -1,6 +1,7 @@
 'use client';
 // MobileWatchlistPage — 4-Tab (Overview/Cards/Compact/Signals)
 // Data: useWatchlist ONLY. Zero web impact. No heatmap. Sparklines included.
+import { etDateOf, sessionCloseMinutes } from '@/lib/marketCalendar';
 import React, { useState, useMemo, useCallback, useEffect, memo } from 'react';
 import { useWatchlist, type EnrichedWatchlistItem } from '@/hooks/useWatchlist';
 import { useTranslations, useLocale } from 'next-intl';
@@ -184,6 +185,7 @@ const MobileSessionBar = memo(function MobileSessionBar() {
     }, []);
 
     const info = useMemo(() => {
+        const closeMinutes = sessionCloseMinutes(etDateOf(now.getTime()));
         const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
         const etParts = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit' }).split(':');
         const h = parseInt(etParts[0]), m = parseInt(etParts[1]);
@@ -204,9 +206,9 @@ const MobileSessionBar = memo(function MobileSessionBar() {
         } else if (mins < 570) {
             session = 'pre'; next = 'Market Open';
             const diff = 570 - mins; countdown = `${Math.floor(diff / 60)}h ${diff % 60}m`;
-        } else if (mins < 960) {
+        } else if (mins < closeMinutes) {
             session = 'reg'; next = 'Market Close';
-            const diff = 960 - mins; countdown = `${Math.floor(diff / 60)}h ${diff % 60}m`;
+            const diff = closeMinutes - mins; countdown = `${Math.floor(diff / 60)}h ${diff % 60}m`;
         } else if (mins < 1200) {
             session = 'post'; next = 'Post Close';
             const diff = 1200 - mins; countdown = `${Math.floor(diff / 60)}h ${diff % 60}m`;

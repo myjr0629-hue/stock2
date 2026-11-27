@@ -1,5 +1,6 @@
 'use client';
 
+import { etDateOf, sessionCloseMinutes } from '@/lib/marketCalendar';
 import React, { useMemo, useState, useEffect } from 'react';
 import type { EnrichedHolding, PortfolioSummary } from '@/hooks/usePortfolio';
 import { useTranslations, useLocale } from 'next-intl';
@@ -82,6 +83,7 @@ export default function MobilePortfolioOverview({
     const [now, setNow] = useState(new Date());
     useEffect(() => { const tm = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(tm); }, []);
     const etInfo = useMemo(() => {
+        const closeMinutes = sessionCloseMinutes(etDateOf(now.getTime()));
         const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
         const etDateStr = now.toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' });
         const p = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit' }).split(':');
@@ -92,7 +94,7 @@ export default function MobilePortfolioOverview({
         if (isWE) { session = 'closed'; nextLabel = 'Pre-Market'; const d = (dow === 0 ? 1 : 2) * 1440 + (240 - mins); const h = Math.floor(d / 60); countdown = h > 24 ? `${Math.floor(h / 24)}d ${h % 24}h` : `${h}h ${d % 60}m`; }
         else if (mins < 240) { session = 'closed'; nextLabel = 'Pre-Market'; const d = 240 - mins; countdown = `${Math.floor(d / 60)}h ${d % 60}m`; }
         else if (mins < 570) { session = 'pre'; nextLabel = 'Regular opens'; const d = 570 - mins; countdown = `${Math.floor(d / 60)}h ${d % 60}m`; }
-        else if (mins < 960) { session = 'reg'; nextLabel = 'Closes'; const d = 960 - mins; countdown = `${Math.floor(d / 60)}h ${d % 60}m`; }
+        else if (mins < closeMinutes) { session = 'reg'; nextLabel = 'Closes'; const d = closeMinutes - mins; countdown = `${Math.floor(d / 60)}h ${d % 60}m`; }
         else if (mins < 1200) { session = 'post'; nextLabel = 'Post closes'; const d = 1200 - mins; countdown = `${Math.floor(d / 60)}h ${d % 60}m`; }
         else { session = 'closed'; nextLabel = 'Pre-Market'; const d = 1680 - mins; countdown = `${Math.floor(d / 60)}h ${d % 60}m`; }
         return { etStr, etDateStr, session, nextLabel, countdown };

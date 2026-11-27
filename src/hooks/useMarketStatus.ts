@@ -1,13 +1,14 @@
 
 "use client";
 
+import { etDateOf, sessionCloseMinutes } from '@/lib/marketCalendar';
 import { useState, useEffect, useRef } from "react";
 import { MarketStatusResult } from "@/services/marketStatusProvider";
 
 // Compute initial session from client clock to prevent polling freeze on mount
 // This is a best-effort estimate; the API will correct it within seconds
-function computeInitialSession(): MarketStatusResult {
-    const now = new Date();
+export function computeInitialSession(now = new Date()): MarketStatusResult {
+    const closeMinutes = sessionCloseMinutes(etDateOf(now.getTime()));
     const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false });
     const et = new Date(etStr);
     const h = et.getHours();
@@ -19,8 +20,8 @@ function computeInitialSession(): MarketStatusResult {
     let market: 'open' | 'closed' = 'closed';
     if (!isWE) {
         if (etMins >= 240 && etMins < 570) { session = 'pre'; market = 'open'; }
-        else if (etMins >= 570 && etMins < 960) { session = 'regular'; market = 'open'; }
-        else if (etMins >= 960 && etMins < 1200) { session = 'post'; market = 'open'; }
+        else if (etMins >= 570 && etMins < closeMinutes) { session = 'regular'; market = 'open'; }
+        else if (etMins >= closeMinutes && etMins < 1200) { session = 'post'; market = 'open'; }
     }
     return {
         market,

@@ -1,5 +1,6 @@
 // Intel Physical AI Fast API - Polygon Snapshot with CORRECT Session Price Logic
 // [V3] Fixed session detection - uses simple time-based logic
+import { etDateOf, sessionCloseMinutes } from '@/lib/marketCalendar';
 import { NextResponse } from 'next/server';
 
 import { fetchMassive } from '@/services/massiveClient';
@@ -31,14 +32,13 @@ function getCurrentSession(): SessionType {
 
     if (isWeekend) return 'CLOSED';
 
+    const closeMinutes = sessionCloseMinutes(etDateOf(now.getTime()));
     const totalMinutes = etHour * 60 + etMin;
 
     // PRE: 4:00 AM - 9:29 AM ET (240 - 569 minutes)
     if (totalMinutes >= 240 && totalMinutes < 570) return 'PRE';
-    // REG: 9:30 AM - 3:59 PM ET (570 - 959 minutes)
-    if (totalMinutes >= 570 && totalMinutes < 960) return 'REG';
-    // POST: 4:00 PM - 8:00 PM ET (960 - 1200 minutes)
-    if (totalMinutes >= 960 && totalMinutes < 1200) return 'POST';
+    if (totalMinutes >= 570 && totalMinutes < closeMinutes) return 'REG';
+    if (totalMinutes >= closeMinutes && totalMinutes < 1200) return 'POST';
     // CLOSED: All other times
     return 'CLOSED';
 }

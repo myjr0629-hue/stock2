@@ -1,5 +1,6 @@
 'use client';
 
+import { etDateOf, sessionCloseMinutes } from '@/lib/marketCalendar';
 import React, { useState, useMemo, useEffect, useRef, useCallback, memo } from 'react';
 import { usePortfolio, type EnrichedHolding } from '@/hooks/usePortfolio';
 import { useTranslations, useLocale } from 'next-intl';
@@ -247,6 +248,7 @@ function PortfolioStatsBar({ summary, portfolioScore, holdingsCount, locale }: {
     const gaugeRot = isPos ? Math.min(summary.totalGainLossPct, 50) / 50 * 90 : -Math.min(Math.abs(summary.totalGainLossPct), 50) / 50 * 90;
 
     const etInfo = useMemo(() => {
+        const closeMinutes = sessionCloseMinutes(etDateOf(now.getTime()));
         const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
         const etDateStr = now.toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' });
         const p = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit' }).split(':');
@@ -257,7 +259,7 @@ function PortfolioStatsBar({ summary, portfolioScore, holdingsCount, locale }: {
         if (isWE) { session = 'closed'; nextLabel = 'Pre-Market opens'; const d = (dow === 0 ? 1 : 2) * 1440 + (240 - mins); const h = Math.floor(d / 60); countdown = h > 24 ? `${Math.floor(h / 24)}d ${h % 24}h` : `${h}h ${d % 60}m`; }
         else if (mins < 240) { session = 'closed'; nextLabel = 'Pre-Market opens'; const d = 240 - mins; countdown = `${Math.floor(d / 60)}h ${d % 60}m`; }
         else if (mins < 570) { session = 'pre'; nextLabel = 'Regular opens'; const d = 570 - mins; countdown = `${Math.floor(d / 60)}h ${d % 60}m`; }
-        else if (mins < 960) { session = 'reg'; nextLabel = 'Market closes'; const d = 960 - mins; countdown = `${Math.floor(d / 60)}h ${d % 60}m`; }
+        else if (mins < closeMinutes) { session = 'reg'; nextLabel = 'Market closes'; const d = closeMinutes - mins; countdown = `${Math.floor(d / 60)}h ${d % 60}m`; }
         else if (mins < 1200) { session = 'post'; nextLabel = 'Post closes'; const d = 1200 - mins; countdown = `${Math.floor(d / 60)}h ${d % 60}m`; }
         else { session = 'closed'; nextLabel = 'Pre-Market opens'; const d = 1680 - mins; countdown = `${Math.floor(d / 60)}h ${d % 60}m`; }
         return { etStr, etDateStr, session, nextLabel, countdown };
@@ -450,11 +452,13 @@ function PremiumHoldingRow({ holding, onRemove, onEdit, totalValue, index = 0, c
                         <div className="flex items-center justify-center gap-1">
                             <span className={`font-bold tabular-nums text-sm ${pf.color}`} style={pf.style}>${holding.currentPrice.toFixed(2)}</span>
                             {(() => {
-                                const etParts = new Date().toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit' }).split(':');
+                                const now = new Date();
+                                const closeMinutes = sessionCloseMinutes(etDateOf(now.getTime()));
+                                const etParts = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit' }).split(':');
                                 const etMins = parseInt(etParts[0]) * 60 + parseInt(etParts[1]);
-                                const etDow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })).getDay();
+                                const etDow = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' })).getDay();
                                 const isWeekend = etDow === 0 || etDow === 6;
-                                const realSession = isWeekend ? 'closed' : etMins < 240 ? 'closed' : etMins < 570 ? 'pre' : etMins < 960 ? 'reg' : etMins < 1200 ? 'post' : 'closed';
+                                const realSession = isWeekend ? 'closed' : etMins < 240 ? 'closed' : etMins < 570 ? 'pre' : etMins < closeMinutes ? 'reg' : etMins < 1200 ? 'post' : 'closed';
                                 if (realSession === 'pre') return <span className="text-[12px] font-bold px-1 py-0.5 rounded bg-cyan-500/20 text-cyan-400">PRE</span>;
                                 if (realSession === 'post') return <span className="text-[12px] font-bold px-1 py-0.5 rounded bg-amber-500/20 text-amber-400">POST</span>;
                                 if (realSession === 'closed') return <span className="text-[12px] font-bold px-1 py-0.5 rounded bg-slate-500/20 text-slate-300">CLOSED</span>;

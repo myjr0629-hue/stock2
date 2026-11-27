@@ -15,7 +15,7 @@ import { ivRankNotProvidedText, ivRankCollectingText } from '@/lib/ivRank';
 import { formatLevelPrice } from '@/lib/optionLevelGate';
 import { gammaFlipDistancePct } from '@/lib/gammaFlipDistance';
 import { atmStraddleImpliedMove, impliedMoveFields, impliedMoveSessionNote, type ImpliedMove } from '@/lib/impliedMove';
-import { isOptionExpiredAt } from '@/lib/marketCalendar';
+import { etDateOf, etMinutesOf, isOptionExpiredAt, sessionCloseMinutes } from '@/lib/marketCalendar';
 
 export interface FlowRadarProps {
     ticker: string;
@@ -2233,12 +2233,12 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         <span className="text-[12px] text-slate-300 font-medium">{ui('institutionalWeight')}</span>
                                         {/* Session Label: PRE / REG / POST */}
                                         {(() => {
-                                            const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-                                            const h = etNow.getHours(), m = etNow.getMinutes();
-                                            const mins = h * 60 + m;
+                                            const now = Date.now();
+                                            const closeMinutes = sessionCloseMinutes(etDateOf(now));
+                                            const mins = etMinutesOf(now);
                                             const isPre = mins >= 240 && mins < 570;   // 4:00 AM - 9:29 AM ET
-                                            const isReg = mins >= 570 && mins < 960;   // 9:30 AM - 3:59 PM ET
-                                            const isPost = mins >= 960 && mins < 1200; // 4:00 PM - 7:59 PM ET
+                                            const isReg = mins >= 570 && mins < closeMinutes;
+                                            const isPost = mins >= closeMinutes && mins < 1200;
                                             const label = isPre ? 'PRE' : isReg ? 'REG' : isPost ? 'POST' : 'CLOSED';
                                             const color = isPre ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
                                                 isReg ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :

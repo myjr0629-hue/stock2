@@ -19,7 +19,7 @@ import { publicBase } from '@/lib/net/publicBase';
 import { readDarkPool } from '@/lib/darkPoolRead';
 import { getDarkPoolCurrent, type DarkPoolTicker } from '@/services/darkPool';
 import { seoFreshness, seoPrice, etDate, mmdd } from '@/lib/seo/freshness';
-import { etLastClosedSessionDate, etDateOf, etMinutesOf, isNonTradingDay, isOptionExpiredAt, copyLevelsPastExpiry } from '@/lib/marketCalendar';
+import { etLastClosedSessionDate, cashSessionPhaseAt, isOptionExpiredAt, copyLevelsPastExpiry } from '@/lib/marketCalendar';
 import { peekEodCloseRow } from '@/services/intrinioClient';
 import { FLOW_TICKERS } from '@/lib/seo/flowTickers';
 import { isFlowTicker as isTicker } from '@/lib/seo/flowTicker';
@@ -188,7 +188,7 @@ const getView = cache(async (locale: string, ticker: string, gen: boolean): Prom
   // «최근가» = 마지막으로 끝난 정규장의 종가 — 레벨(체인 날짜)과 같은 세션. 사본의 가격은 만든 순간의 값이라 12시간 뒤에도 «최근가»로 남았다(10/13 NVDA $229.28 · 실제 종가 $226.32).
   const eodRow = await peekEodCloseRow(ticker).catch(() => null);
   const nowMs = Date.now();
-  const price = seoPrice({ payloadPrice: pm.price, generatedAt: data?.generatedAt, lastClosed: etLastClosedSessionDate(nowMs), eod: eodRow ? { date: eodRow.date, close: eodRow.close } : null, now: nowMs, regularNow: !isNonTradingDay(etDateOf(nowMs)) && etMinutesOf(nowMs) >= 570 && etMinutesOf(nowMs) < 960 });
+  const price = seoPrice({ payloadPrice: pm.price, generatedAt: data?.generatedAt, lastClosed: etLastClosedSessionDate(nowMs), eod: eodRow ? { date: eodRow.date, close: eodRow.close } : null, now: nowMs, regularNow: cashSessionPhaseAt(nowMs) === 'regular' });
 
   const m: Money = {
     ...useDp,

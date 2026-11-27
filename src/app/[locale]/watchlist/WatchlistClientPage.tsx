@@ -1,6 +1,7 @@
 // Watchlist Premium v2 — 2026-03-15T00:50
 'use client';
 
+import { etDateOf, sessionCloseMinutes } from '@/lib/marketCalendar';
 import React, { useState, useMemo, useEffect, memo, useRef, useCallback } from 'react';
 import { useWatchlist, type EnrichedWatchlistItem } from '@/hooks/useWatchlist';
 import { usePriceFlash, getFlashStyle, tickerDelay } from '@/components/ui/PriceDisplay';
@@ -442,6 +443,7 @@ function SessionStatusCard() {
     }, []);
 
     const etInfo = useMemo(() => {
+        const closeMinutes = sessionCloseMinutes(etDateOf(now.getTime()));
         const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
         const etDateStr = now.toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' });
         const etParts = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit' }).split(':');
@@ -462,9 +464,9 @@ function SessionStatusCard() {
         } else if (mins < 570) {
             session = 'pre'; nextLabel = 'Regular opens';
             const diff = 570 - mins; countdown = `${Math.floor(diff / 60)}h ${diff % 60}m`;
-        } else if (mins < 960) {
+        } else if (mins < closeMinutes) {
             session = 'reg'; nextLabel = 'Market closes';
-            const diff = 960 - mins; countdown = `${Math.floor(diff / 60)}h ${diff % 60}m`;
+            const diff = closeMinutes - mins; countdown = `${Math.floor(diff / 60)}h ${diff % 60}m`;
         } else if (mins < 1200) {
             session = 'post'; nextLabel = 'Post closes';
             const diff = 1200 - mins; countdown = `${Math.floor(diff / 60)}h ${diff % 60}m`;
@@ -1013,11 +1015,13 @@ const WatchlistCard = memo(function WatchlistCard({ item, onRemove, locale, inde
                         )}
                         {/* Session pill */}
                         {(() => {
-                            const etParts = new Date().toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit' }).split(':');
+                            const now = new Date();
+                            const closeMinutes = sessionCloseMinutes(etDateOf(now.getTime()));
+                            const etParts = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit' }).split(':');
                             const etMins = parseInt(etParts[0]) * 60 + parseInt(etParts[1]);
-                            const etDow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })).getDay();
+                            const etDow = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' })).getDay();
                             const isWeekend = etDow === 0 || etDow === 6;
-                            const realSession = isWeekend ? 'closed' : etMins < 240 ? 'closed' : etMins < 570 ? 'pre' : etMins < 960 ? 'reg' : etMins < 1200 ? 'post' : 'closed';
+                            const realSession = isWeekend ? 'closed' : etMins < 240 ? 'closed' : etMins < 570 ? 'pre' : etMins < closeMinutes ? 'reg' : etMins < 1200 ? 'post' : 'closed';
                             if (realSession === 'pre') return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-cyan-500/15 text-cyan-400 border border-cyan-500/20 whitespace-nowrap">PRE</span>;
                             if (realSession === 'post') return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/20 whitespace-nowrap">POST</span>;
                             return null;
@@ -1054,11 +1058,13 @@ const WatchlistCard = memo(function WatchlistCard({ item, onRemove, locale, inde
                         <div className="flex items-center justify-center gap-1">
                             <span className={`font-bold tabular-nums text-sm ${pf.color}`} style={pf.style}>${item.currentPrice.toFixed(2)}</span>
                             {(() => {
-                                const etParts = new Date().toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit' }).split(':');
+                                const now = new Date();
+                                const closeMinutes = sessionCloseMinutes(etDateOf(now.getTime()));
+                                const etParts = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit' }).split(':');
                                 const etMins = parseInt(etParts[0]) * 60 + parseInt(etParts[1]);
-                                const etDow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })).getDay();
+                                const etDow = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' })).getDay();
                                 const isWeekend = etDow === 0 || etDow === 6;
-                                const realSession = isWeekend ? 'closed' : etMins < 240 ? 'closed' : etMins < 570 ? 'pre' : etMins < 960 ? 'reg' : etMins < 1200 ? 'post' : 'closed';
+                                const realSession = isWeekend ? 'closed' : etMins < 240 ? 'closed' : etMins < 570 ? 'pre' : etMins < closeMinutes ? 'reg' : etMins < 1200 ? 'post' : 'closed';
                                 if (realSession === 'pre') return <span className="text-[12px] font-bold px-1 py-0.5 rounded bg-cyan-500/25 text-cyan-400">PRE</span>;
                                 if (realSession === 'post') return <span className="text-[12px] font-bold px-1 py-0.5 rounded bg-amber-500/25 text-amber-400">POST</span>;
                                 if (realSession === 'closed') return <span className="text-[12px] font-bold px-1 py-0.5 rounded bg-slate-500/25 text-slate-400">CLOSED</span>;

@@ -4,6 +4,7 @@
 // ============================================================================
 'use client';
 
+import { etDateOf, sessionCloseMinutes } from '@/lib/marketCalendar';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
@@ -460,6 +461,7 @@ function getMarketSession(): MarketSession {
     const day = et.getDay(); // 0=Sun, 6=Sat
     const hours = et.getHours();
     const minutes = et.getMinutes();
+    const closeMinutes = sessionCloseMinutes(etDateOf(now.getTime()));
     const time = hours * 60 + minutes; // minutes since midnight
 
     // Weekend
@@ -467,10 +469,8 @@ function getMarketSession(): MarketSession {
 
     // Pre-market: 4:00 - 9:30
     if (time >= 240 && time < 570) return 'PRE_MARKET';
-    // Regular: 9:30 - 16:00
-    if (time >= 570 && time < 960) return 'LIVE';
-    // Post-market: 16:00 - 20:00
-    if (time >= 960 && time < 1200) return 'POST_MARKET';
+    if (time >= 570 && time < closeMinutes) return 'LIVE';
+    if (time >= closeMinutes && time < 1200) return 'POST_MARKET';
     // Closed: 20:00 - 4:00
     return 'CLOSED';
 }

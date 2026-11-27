@@ -1,6 +1,7 @@
 // [Admin] System Health Check API — 관리자 전용 인프라 헬스체크
 // 모든 체크는 READ-ONLY. 기존 기능에 영향 없음.
 // 2026-05-04: Users, Calendar, Data Integrity, Score Accuracy 섹션 추가
+import { sessionCloseMinutes } from '@/lib/marketCalendar';
 import { NextRequest, NextResponse } from 'next/server';
 import { getFromCache } from '@/services/redisClient';
 import { createClient } from '@supabase/supabase-js';
@@ -96,9 +97,10 @@ function getETInfo() {
   const etDateStr = now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
   const isHoliday = NYSE_HOLIDAYS_2026.includes(etDateStr);
   const etTimeMin = etHour * 60 + etMin;
-  const isMarketHours = !isWeekend && !isHoliday && etTimeMin >= 570 && etTimeMin < 960;
+  const closeMinutes = sessionCloseMinutes(etDateStr);
+  const isMarketHours = !isWeekend && !isHoliday && etTimeMin >= 570 && etTimeMin < closeMinutes;
   const isPreMarket = !isWeekend && !isHoliday && etTimeMin >= 240 && etTimeMin < 570;
-  const isPostMarket = !isWeekend && !isHoliday && etTimeMin >= 960 && etTimeMin < 1200;
+  const isPostMarket = !isWeekend && !isHoliday && etTimeMin >= closeMinutes && etTimeMin < 1200;
   const session = isMarketHours ? 'REG' : isPreMarket ? 'PRE' : isPostMarket ? 'POST' : 'CLOSED';
   const sessionLabel = isMarketHours ? 'MARKET OPEN (정규장)' : isPreMarket ? 'PRE-MARKET (프리마켓)' : isPostMarket ? 'POST-MARKET (애프터마켓)' : isWeekend ? 'WEEKEND (주말)' : isHoliday ? 'HOLIDAY (공휴일)' : 'CLOSED (장 마감)';
   // 다음 장 오픈 ETA (ET 기준 정밀 계산)
@@ -115,7 +117,7 @@ function getETInfo() {
     } else {
       // POST / CLOSED(야간) / WEEKEND → 다음 영업일 9:30 ET까지
       let daysToAdd = 1;
-      if (dayOfWeek === 5 && etTimeMin >= 960) daysToAdd = 3; // 금요일 POST→월요일
+      if (dayOfWeek === 5 && etTimeMin >= closeMinutes) daysToAdd = 3; // 금요일 POST→월요일
       else if (dayOfWeek === 6) daysToAdd = 2; // 토요일→월요일
       else if (dayOfWeek === 0) daysToAdd = 1; // 일요일→월요일
       const minsLeftToday = 1440 - etTimeMin;

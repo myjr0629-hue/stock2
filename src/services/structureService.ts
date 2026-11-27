@@ -698,7 +698,10 @@ async function getStructureDataImpl(
     if (spotRes.success && spotRes.data?.ticker) {
         const T = spotRes.data.ticker;
         const now = Date.now();
-        const closed = isNonTradingDay(etDateOf(now)) || etMinutesOf(now) >= sessionCloseMinutes(etDateOf(now)) || etMinutesOf(now) < 570;
+        const date = etDateOf(now);
+        const closeMinutes = sessionCloseMinutes(date);
+        const etTime = etMinutesOf(now);
+        const closed = isNonTradingDay(date) || etTime >= closeMinutes || etTime < 570;
         underlyingPrice = regularReferencePrice(T, closed) ?? 0;
         prevClose = T.prevDay?.c || 0;
 
@@ -712,8 +715,7 @@ async function getStructureDataImpl(
 
         // [S-78] Session detection and extended price extraction
         // [V45.17 FIX] Use getETComponents for reliable ET timezone
-        const etComponents = getETComponents();
-        const etTime = etComponents.hour * 60 + etComponents.minute;
+        const etComponents = getETComponents(new Date(now));
         const dayOfWeek = etComponents.dayOfWeek;
 
         // Weekend = CLOSED
@@ -721,9 +723,9 @@ async function getStructureDataImpl(
             session = 'CLOSED';
         } else if (etTime >= 240 && etTime < 570) {
             session = 'PRE';
-        } else if (etTime >= 570 && etTime < 960) {
+        } else if (etTime >= 570 && etTime < closeMinutes) {
             session = 'REG';
-        } else if (etTime >= 960 && etTime < 1200) {
+        } else if (etTime >= closeMinutes && etTime < 1200) {
             session = 'POST';
         } else {
             session = 'CLOSED';

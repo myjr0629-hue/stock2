@@ -20,7 +20,7 @@ import { peekEodCloseRow } from '@/services/intrinioClient';
 import { isFlowTicker } from '@/lib/seo/flowTicker';
 import { ucMoneyAtExit } from '@/lib/seo/ucMoneyExit';
 import { peekStructureLevelsDetailed } from '@/services/structureService';
-import { etLastClosedSessionDate, etDateOf, etMinutesOf, isNonTradingDay } from '@/lib/marketCalendar';
+import { etLastClosedSessionDate, etDateOf, cashSessionPhaseAt } from '@/lib/marketCalendar';
 import {
   reconcileOptionMoney, normLocale, isSpam, fetchMoney, hasRealMoney, buildSystem, storyPayload,
   invokeJSON, ucCardsGate, cleanImage, enforceLanguage, enforceAmounts, enforceLean, factSentence, fmtNotional, volumePutCall, leanOf, leanText, serveSWR, type NewsItem,
@@ -207,7 +207,7 @@ ${storyPayload(stories, loc)}`;
         const nowMs = Date.now();
         out.money = ucMoneyAtExit(out.money, {
           generatedAt: out.generatedAt, lastClosed: etLastClosedSessionDate(nowMs), now: nowMs, todayET: etDateOf(nowMs),
-          regularNow: !isNonTradingDay(etDateOf(nowMs)) && etMinutesOf(nowMs) >= 570 && etMinutesOf(nowMs) < 960,
+          regularNow: cashSessionPhaseAt(nowMs) === 'regular',
           eod: eod ? { date: eod.date, close: eod.close } : null, levels: sv?.levels.get(ticker) ?? null,
         });
       } catch { /* 바로잡지 못하면 사본 그대로 — 응답을 막지 않는다 */ }

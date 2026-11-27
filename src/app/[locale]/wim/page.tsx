@@ -19,6 +19,7 @@
 // disclaimer everywhere. No prediction mechanics.
 // ============================================================================
 
+import { etDateOf, sessionCloseMinutes } from '@/lib/marketCalendar';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useReviewPrompt } from '@/hooks/useReviewPrompt';
 import { ShareButton } from '@/components/share/ShareButton';
@@ -3514,15 +3515,16 @@ export default function WimPage() {
   // light PRE/POST from payload data — compute it from the live ET clock instead
   // (weekend/after-close shows POST: the last finished session of the shown day).
   const heroSession: 'pre' | 'reg' | 'post' = useMemo(() => {
+    const now = new Date();
     const parts = new Intl.DateTimeFormat('en-US', {
       timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false, weekday: 'short',
-    }).formatToParts(new Date());
+    }).formatToParts(now);
     const g = (k: string) => parts.find((x) => x.type === k)?.value || '';
     const wd = g('weekday');
     const m = parseInt(g('hour'), 10) * 60 + parseInt(g('minute'), 10);
     if (wd === 'Sat' || wd === 'Sun') return 'post';
     if (m >= 240 && m < 570) return 'pre';
-    if (m >= 570 && m < 960) return 'reg';
+    if (m >= 570 && m < sessionCloseMinutes(etDateOf(now.getTime()))) return 'reg';
     return 'post';
   }, []);
   const heroTicker = heroU?.ticker || null;

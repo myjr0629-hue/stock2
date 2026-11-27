@@ -1,6 +1,7 @@
 "use client";
 // MobileDashboardShell — Sticky Header + 3-Tab nav + Watchlist Drawer
 // Data: useDashboardStore only. Zero new logic.
+import { etDateOf, sessionCloseMinutes } from '@/lib/marketCalendar';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useDashboardStore } from "@/stores/dashboardStore";
@@ -16,12 +17,14 @@ function useMarketStatus() {
     const [status, setStatus] = useState("CLOSED");
     useEffect(() => {
         const u = () => {
-            const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+            const now = new Date();
+            const closeMinutes = sessionCloseMinutes(etDateOf(now.getTime()));
+            const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
             const d = et.getDay(), m = et.getHours() * 60 + et.getMinutes();
             if (d === 0 || d === 6 || market?.isHoliday) { setStatus("CLOSED"); return; }
             if (m >= 240 && m < 570) setStatus("PRE");
-            else if (m >= 570 && m < 960) setStatus("OPEN");
-            else if (m >= 960 && m < 1200) setStatus("AFTER");
+            else if (m >= 570 && m < closeMinutes) setStatus("OPEN");
+            else if (m >= closeMinutes && m < 1200) setStatus("AFTER");
             else setStatus("CLOSED");
         };
         u(); const i = setInterval(u, 60000);
@@ -36,13 +39,15 @@ function useCountdown() {
     const [label, setLabel] = useState("");
     useEffect(() => {
         const calc = () => {
-            const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+            const now = new Date();
+            const closeMinutes = sessionCloseMinutes(etDateOf(now.getTime()));
+            const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
             const d = et.getDay(), cm = et.getHours() * 60 + et.getMinutes();
             if (d === 0 || d === 6) { setCd(""); return; }
             let t = 0, l = "";
             if (cm < 240) { t = 240; l = "Pre-Market"; }
             else if (cm < 570) { t = 570; l = "Market Open"; }
-            else if (cm < 960) { t = 960; l = "Market Close"; }
+            else if (cm < closeMinutes) { t = closeMinutes; l = "Market Close"; }
             else if (cm < 1200) { t = 1200; l = "AH Close"; }
             else { t = 240 + 1440; l = "Pre-Market"; }
             const diff = t - cm, h = Math.floor(diff / 60), m = diff % 60;
