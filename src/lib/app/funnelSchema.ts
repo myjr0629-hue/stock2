@@ -40,6 +40,7 @@ export const FUNNEL_STAGES = [
   'reward_ok',     // ★11/20 광고 잠금해제(1시간 · 11/20 오후부터 누른 잠금 하나만 — lib/app/adUnlockScope)가 주어졌다(ValueWall useAdUnlockGate) — 출처 value_wall = 보상형 광고 끝까지 봄 · ad_modal = 광고 없을 때 30초 대체 창 · rw_more = 위 둘 중 다른 잠금이 이미 열린 채 또 열었다(같은 해제에 덧붙여 한 번 더)
   'rv_cap', 'rv_ask', 'rv_block', 'rv_why', // ★11/20 스토어 평점 요청(lib/app/reviewBeacon — 구매 퍼널 아님): 플러그인 있나(기기당 ET 하루 1회, rv_yes·rv_no) · OS 평점 API 실제 요청 · 순간이 왔지만 못 부름(출처 = 순간 rv_day…rv_pro) · 못 부른 이유(rv_modal…rv_noplug)
   'wb_why',        // ★11/26 웜 블프 카드 준비(loadWarm · iOS · 운영만) 결과 — 출처 wb_try = 준비 시작 · wb_ok = 카드 준비됨 · 그 밖의 wb_* = 안 된 이유(스위치·고객 정보·대상 조건·가격·요금제 탭 3.5초 초과)
+  'promo_ask_show', 'promo_ask_yes', 'promo_ask_no', // ★11/27 혜택·할인 알림(광고성 푸시) 동의 한 번 묻기(lib/app/promoAsk): 카드 보임 · [받기](저장됨) · [괜찮아요]·닫기 — 출처 pa_{ko|en|ja}(첫 번째)·pa2_{ko|en|ja}(30일 뒤 다시)
   'rw_then',       // ★11/20 해제 뒤 24시간 안에 이 기기에서 처음 일어난 페이월 열림·구매 버튼·결제 성공(기기 안에서만 잇고 서버엔 하루 합계만) — 출처 rw_open·rw_cta·rw_buy
 ] as const;
 export type FunnelStage = (typeof FUNNEL_STAGES)[number];
@@ -77,6 +78,7 @@ export const FUNNEL_SRCS = [
   'push_announce',                  // ★11/14 관리자 공지 푸시 탭(push_open 전용 · /api/admin/announce)
   'push_bf',                        // ★11/26 블프 «앱 밖» 안내 푸시 탭(push_open 전용 · /api/cron/bf-push · 이어서 블프 시트 bf_line·bf_and_line)
   'promo_on', 'promo_off',          // ★11/26 설정 › 혜택·할인 알림 켬·끔(open 전용 — 구매 출처로 쓰지 않는다 · lib/push/promoConsent)
+  'pa_ko', 'pa_en', 'pa_ja', 'pa2_ko', 'pa2_en', 'pa2_ja', // ★11/27 혜택 알림 동의 한 번 묻기의 언어·회차(promo_ask_* 전용 — 구매 출처로 쓰지 않는다)
   'trial_expired',                  // ★11/11 체험 만료 뒤 첫 실행 1회 페이월(open = 보였다 · cta · buy_* · restore_*)
   'trial_expired_offer',            // ★11/12 그 페이월 안의 «월간 첫 달 할인» 카드(open = 카드가 보였다 · cta = 할인 카드로 결제 단추 · buy_* = 할인 결제 결과)
   'gate_first',                     // ★11/16 하루 첫 게이트 탭(«광고 보고 잠금해제»)이 광고 전에 연 페이월(lib/app/gatePaywall ①) — 닫으면 광고가 이어진다

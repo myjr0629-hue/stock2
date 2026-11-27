@@ -19,6 +19,7 @@ import { BlackFridayHost } from '@/components/app/BlackFridayHost';
 import { DailyPaywallHost } from '@/components/app/DailyPaywallHost';
 import { WarmBfHost } from '@/components/app/WarmBfHost';
 import { AndroidBfHost } from '@/components/app/AndroidBfHost';
+import { PromoAskHost } from '@/components/app/PromoAskHost';
 import { WATCHLIST_ALERTS_BUILD_FLAG } from '@/lib/app/watchlistFlags';
 import { usePathname } from '@/i18n/routing';
 import { reportPushPath, REPORT_OPEN_EVENT } from '@/lib/app/reportLink';
@@ -365,6 +366,8 @@ export default function AppViewLayout({ children }: { children: React.ReactNode 
       <WarmBfHost />
       {/* ★11/24 오후 안드로이드 블프 «진짜 할인»(Play 개발자 결정 오퍼 bf-annual-50·expired-50-1m · 무료 = 1회 시트 · 체험 갱신 끔 = 이틀에 한 번 웜 카드 · 블프 줄 · 끄기 레디스 warm-bf:off='android') — lib/app/androidBf */}
       <AndroidBfHost />
+      {/* ★11/27 혜택·할인 알림(광고성 푸시) 동의 한 번 묻기(iOS·한국 안드 · OS 알림 허용 · 유료 PRO 아님 · 다른 시트가 없고 조용할 때 · 기기당 1번 + 거절 30일 뒤 1번) — lib/app/promoAsk */}
+      <PromoAskHost />
       <NetworkStatus />
       <AppFirstRunOnboarding />
     </div>

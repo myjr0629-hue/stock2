@@ -157,7 +157,7 @@ test('④ 닫힌 목록 — funnelSchema ↔ firstRunPaywall ↔ mkt-funnel', ()
   assert.deepEqual(mf.STAGES, [...schema.FUNNEL_STAGES]);
   assert.deepEqual(mf.SRCS, [...schema.FUNNEL_SRCS]);
   const src = read('scripts/mkt-funnel.js');
-  assert.ok(/NON_FUNNEL_STAGES = new Set\(\[[^\]]*'fr_judge', 'reward_ok', 'rw_then'\]\)/.test(src), '본표 열에 섞이지 않는다(머리줄 11칸 고정 · 11/20 오후 rw_then 추가)');
+  assert.ok(/NON_FUNNEL_STAGES = new Set\(\[[^\]]*'fr_judge', 'wb_why', 'reward_ok', 'rw_then'\]\)/.test(src), '본표 열에 섞이지 않는다(머리줄 11칸 고정 · 11/20 오후 rw_then 추가 · 11/26 wb_why)');
   assert.ok(src.includes('...TRIAL_PUSH_SRCS, ...FR_SRCS,'), 'fr_* 출처는 본표 행에서 빠진다');
 });
 
