@@ -9,11 +9,17 @@ export const TRIAL_OFF_WINDOW_MS = 72 * 60 * 60 * 1000;
 // ★2026-11-11 «갱신 끈 직후 1회»(early): 마지막 3일 창 밖에서 willRenew=false 를 처음 본 앱 복귀에 같은 시트를 체험 기간당 한 번.
 //   기기 저장 키(TRIAL_OFF_EARLY_KEY) = «체험 기간|현지 날짜». D-3 시트와 같은 날 두 번은 없다(서로의 날짜를 본다). D-2 푸시(서버)는 무관.
 export const TRIAL_OFF_EARLY_KEY = 'signumhq.trialRenewalOff.early.v1';
-export type TrialOffKind = 'window' | 'early';
+// ★2026-11-27 «블프 이어가기» 1회(bf): 블프 기간(lib/app/blackFriday bfLive)에 조기 안내를 이미 본(대부분 블프 전) 1개월 코드·7일 체험자에게
+//   같은 시트를 «블프 50% 단추를 넣어» 체험 기간당 한 번 더. 기기 저장 키 = «체험 기간|현지 날짜». 끝나는 날이 40일 안일 때만(1년 무료 이용권 제외 — warmBf 와 같은 선).
+//   조기 안내·D-3 시트와 같은 날 두 번은 없다. 블프 단추가 실제로 그려진 시트(종류 무관)는 이 표식도 남겨 같은 체험 기간에 다시 오지 않는다.
+export const TRIAL_KEEP_BF_KEY = 'signumhq.trialKeepBf.v1';
+export const TRIAL_KEEP_BF_MAX_LEFT_MS = 40 * 24 * 60 * 60 * 1000;
+export type TrialOffKind = 'window' | 'early' | 'bf';
 /** startedAt = 이 체험 기간의 시작(latestPurchaseDate) — 시트의 «체험 동안» 채점은 이 시각 뒤 주만 쓴다(야간 검토 11/12 ①) */
 export type TrialOffNotice = { store: TrialStore; startedAt: number; expiresAt: number; period: string; mark: string; kind: TrialOffKind };
-/** early 를 켜려면 넘긴다 — early = 기기에 저장된 조기 안내 표식(없으면 null). 안 넘기면 예전처럼 D-3 창만 */
-export type TrialOffEarlyOption = { early: string | null };
+/** early 를 켜려면 넘긴다 — early = 기기에 저장된 조기 안내 표식(없으면 null). 안 넘기면 예전처럼 D-3 창만.
+ *  ★11/27 bf = «블프 이어가기» 표식(없으면 null) — 블프 기간·iOS 일 때만 넘긴다(undefined = 블프 1회 없음 · 예전 그대로) */
+export type TrialOffEarlyOption = { early: string | null; bf?: string | null };
 
 /** 저장 표식 «기간|날짜»의 날짜(옛 값처럼 날짜가 없으면 null) */
 function markDay(mark: string | null | undefined): string | null {
@@ -45,13 +51,16 @@ export function trialRenewalOffNotice(info: Pick<CustomerInfo, 'entitlements'> |
   const mark = `${period}|${day}`;
   if (expiresAt - now <= TRIAL_OFF_WINDOW_MS) {
     // D-3 창(하루 한 번). 오늘 이미 조기 안내를 봤으면 내일로 미룬다(같은 날 두 번 금지)
-    if (mark === seen || (early && markDay(early.early) === day)) return null;
+    if (mark === seen || (early && (markDay(early.early) === day || markDay(early.bf) === day))) return null;
     return { store, startedAt: start, expiresAt, period, mark, kind: 'window' };
   }
   if (!early) return null;
-  // 창 밖: 이 체험 기간에 조기 안내를 이미 봤으면 다시 없음 · 오늘 D-3 시트를 봤으면 없음
-  if (markPeriod(early.early) === period || markDay(seen) === day) return null;
-  return { store, startedAt: start, expiresAt, period, mark, kind: 'early' };
+  // 창 밖: 오늘 D-3 시트·블프 1회를 봤으면 없음 · 이 체험 기간에 조기 안내를 아직 안 봤으면 조기 안내
+  if (markDay(seen) === day || markDay(early.bf) === day) return null;
+  if (markPeriod(early.early) !== period) return { store, startedAt: start, expiresAt, period, mark, kind: 'early' };
+  // ★11/27 조기 안내는 이미 봤다 → 블프 기간이면(bf 를 넘겼으면) 체험 기간당 한 번 «블프 이어가기» · 오늘 조기 안내를 봤으면 내일 · 40일 밖(1년 이용권)은 없음
+  if (early.bf === undefined || markPeriod(early.bf) === period || markDay(early.early) === day || expiresAt - now > TRIAL_KEEP_BF_MAX_LEFT_MS) return null;
+  return { store, startedAt: start, expiresAt, period, mark, kind: 'bf' };
 }
 
 export function verifiedTrialRenewalOffNotice(initial: Pick<CustomerInfo, 'entitlements'>, fresh: Pick<CustomerInfo, 'entitlements'>, platform: string, now: number, seen: string | null, day: string = localDayKey(now), early?: TrialOffEarlyOption): TrialOffNotice | null {

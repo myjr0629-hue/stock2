@@ -79,8 +79,10 @@ export type WarmView = {
   prices: { annual: BfPriceView; monthly: BfPriceView }; perMonth: string | null; watchCount: number; preview: boolean;
 };
 
-/** 카드에 필요한 것 전부 — 하나라도 안 되면 null */
-export async function loadWarm(locale: string): Promise<WarmView | null> {
+/** 카드에 필요한 것 전부 — 하나라도 안 되면 null.
+ *  ★11/27 known = 방금 캐시를 비운 새 읽기로 확인된 대상(체험 종료 안내 TrialRenewalOffNotice 의 검증 읽기) — 있으면 고객 정보를 다시 읽지 않는다
+ *  (요금제 탭 3.5초 안에 캐시 비우기+조회를 또 하다 wb_noinfo 로 정가 페이월로 빠지던 길). 스위치·가격 확인은 그대로 */
+export async function loadWarm(locale: string, known?: WarmTarget): Promise<WarmView | null> {
   const preview = isPreview();
   let target: WarmTarget | null;
   let annualMode: boolean;
@@ -91,7 +93,7 @@ export async function loadWarm(locale: string): Promise<WarmView | null> {
   } else {
     if (!isNative()) return null;
     trackWarmWhy('wb_try');
-    const [sw, t] = await Promise.all([askSwitch(), targetNow()]);
+    const [sw, t] = await Promise.all([askSwitch(), known ?? targetNow()]);
     if (!sw.on) { trackWarmWhy('wb_off'); return null; }
     if (typeof t === 'string') { trackWarmWhy(t); return null; }
     target = t; annualMode = sw.annual;
@@ -218,13 +220,13 @@ export function WarmBfGate() {
  * ② 체험 종료 안내 «PRO 요금제 보기» — 블프 기간·iOS·App Store 체험이면 정가 페이월 대신 이 카드(출처 warm_bf_plans).
  *   loadWarm 이 null(스위치 꺼짐·대상 아님·가격 없음)이면 onFallback(예전 정가 페이월 그대로).
  */
-export function WarmBfOffer({ locale, onClose, onFallback }: { locale: string; onClose: () => void; onFallback: () => void }) {
+export function WarmBfOffer({ locale, onClose, onFallback, known }: { locale: string; onClose: () => void; onFallback: () => void; known?: WarmTarget }) {
   const [view, setView] = useState<WarmView | null>(null);
   useEffect(() => {
     let alive = true;
     // 사용자가 누른 뒤라 오래 비워 두지 않는다 — 3.5초 안에 카드가 준비 안 되면 예전 정가 페이월(늦게 온 결과는 버린다)
     const late = window.setTimeout(() => { if (alive) { alive = false; if (!isPreview() && isNative()) trackWarmWhy('wb_late'); onFallback(); } }, WARM_BF_OFFER_WAIT_MS);
-    void loadWarm(locale).catch(() => null).then((v) => {
+    void loadWarm(locale, known).catch(() => null).then((v) => {
       if (!alive) return;
       alive = false; window.clearTimeout(late);
       if (!v) { onFallback(); return; }

@@ -151,7 +151,8 @@ test('⑨ 배선 — 레이아웃 1개 · 요금제 탭 → 웜 카드(블프·A
   assert.equal((layout.match(/<WarmBfHost \/>/g) || []).length, 1);
   const notice = read('src/components/app/TrialRenewalOffNotice.tsx');
   assert.match(notice, /active\.store === 'APP_STORE' && bfLive\(Date\.now\(\)\)\) setWarm/);
-  assert.match(notice, /onFallback=\{\(\) => \{ const w = warm; setWarm\(null\); setPaywall\(w\); \}\}/, '대상 아님·스위치 꺼짐 = 예전 정가 페이월');
+  // ★11/27 웜 카드에 검증된 대상(known)을 넘기므로 정가 페이월엔 preview·kind 만 넘긴다(TrialRenewalOffNotice)
+  assert.match(notice, /onFallback=\{\(\) => \{ const w = warm; setWarm\(null\); setPaywall\(\{ preview: w\.preview, kind: w\.kind \}\); \}\}/, '대상 아님·스위치 꺼짐 = 예전 정가 페이월');
   assert.match(notice, /if \(!preview && warmShownTodaySafe\(\)\) \{ notice = null; lapsed = null; \}/, '웜 카드 본 날은 체험 중 안내·만료 페이월 쉼');
   assert.match(notice, /if \(!preview && warmShownTodaySafe\(\)\) return;\n        if \(!notice && lapsed\)/, '새 읽기 뒤 다시 확인(관문 11240032 ②)');
   const redeem = read('src/lib/app/redeem.ts');

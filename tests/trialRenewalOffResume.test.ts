@@ -20,6 +20,7 @@ mock('react', {
 });
 mock('../src/components/app/ProPaywall.module.css', {});
 mock('../src/components/app/GiftAnnounceSheet.module.css', {});
+mock('../src/components/app/BlackFridaySheet.module.css', {});   // 11/27 시트 안 블프 줄
 mock('../src/components/app/watchlist/BottomSheet', {});
 mock('../src/hooks/useBannerSuppression', {});
 mock('../src/lib/app/funnel', { trackFunnel: () => {} });

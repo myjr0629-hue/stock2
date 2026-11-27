@@ -6,11 +6,16 @@ import { afterSheetHistory, useBackToClose, useLayer } from '@/components/app/wa
 import { useBannerSuppression } from '@/hooks/useBannerSuppression';
 import { trackFunnel } from '@/lib/app/funnel';
 import { openSubscriptionManagement } from '@/lib/app/subscriptionManagement';
-import { TRIAL_OFF_EARLY_KEY, TRIAL_OFF_STORAGE_KEY, trialRenewalOffNotice, verifiedTrialRenewalOffNotice, type TrialOffKind, type TrialOffNotice } from '@/lib/app/trialRenewalOff';
+import { TRIAL_KEEP_BF_KEY, TRIAL_OFF_EARLY_KEY, TRIAL_OFF_STORAGE_KEY, trialRenewalOffNotice, verifiedTrialRenewalOffNotice, type TrialOffKind, type TrialOffNotice } from '@/lib/app/trialRenewalOff';
 import { dailyPaywallShownOn } from '@/lib/app/dailyPaywall';
+import { WARM_COPY, markWarmShown, toWarmLang, warmBfWhy, warmPlans, type WarmTarget } from '@/lib/app/warmBf';
 import { warmShownOn } from '@/lib/app/warmBf';
-import { bfLive } from '@/lib/app/blackFriday';
-import { TRIAL_EXPIRED_STORAGE_KEY, trialExpiredContext, trialExpiredNotice, trialExpiredScorecard, trialUsageDays, verifiedTrialExpiredNotice, type TrialExpiredNotice, type TrialExpiredScore } from '@/lib/app/trialExpired';
+import { BF_COPY, BF_VALID_UNTIL, bfLive, bfPriceView, type BfPlan } from '@/lib/app/blackFriday';
+import { localDay, markGateDay } from '@/lib/app/gatePaywall';
+import { previewFlag } from '@/lib/app/proEntitlement';
+import type { WarmView } from './WarmBfGate';
+import b from './BlackFridaySheet.module.css';
+import { TRIAL_EXPIRED_STORAGE_KEY, TRIAL_USAGE_MIN_DAYS, trialExpiredContext, trialExpiredNotice, trialExpiredScorecard, trialUsageDays, verifiedTrialExpiredNotice, type TrialExpiredNotice, type TrialExpiredScore } from '@/lib/app/trialExpired';
 import { scheduleTrialOffExpiry, waitForOtherModal } from '@/lib/app/trialOffLifecycle';
 import { beginTrialRenewalOffEntry, loadFreshTrialRenewalOff, refreshTrialRenewalOffOnResume, verifyTrialRenewalOff } from '@/services/trialRenewalOff';
 import { canPresentCancelReason, canShowCancelReason } from '@/lib/app/cancelReason';
@@ -43,6 +48,9 @@ const PREVIEW_OFFER: Record<string, ExpiredOfferView> = {
 };
 /** 할인 오퍼(오퍼링·애플 서명) 확인을 기다리는 최대 시간 — 넘으면 카드 없이 기존 페이월 그대로 */
 const OFFER_WAIT_MS = 2500;
+/** ★11/27 시트 안 블프 줄(스위치·스토어 정가) 준비를 기다리는 최대 시간 — 넘으면 블프 줄 없이 예전 시트(블프 이어가기 1회는 안 보인다) */
+const BF_SHEET_WAIT_MS = 2500;
+const sleep = (ms: number) => new Promise<null>((r) => setTimeout(() => r(null), ms));
 
 /** 체험 종료 푸시를 눌러 들어왔으면 «오늘 이미 봤음»을 한 번 건너뛴다(layout 이 세션 표식을 남긴다) */
 function pushTapped() {
@@ -58,8 +66,19 @@ function readSeen() {
 function readEarly() {
   try { return localStorage.getItem(TRIAL_OFF_EARLY_KEY) || sessionEarly; } catch { return sessionEarly; }
 }
+/** ★11/27 «블프 이어가기» 표식(체험 기간|현지 날짜) — 블프 줄이 그려진 시트(종류 무관)와 블프 이어가기 1회가 남긴다 */
+let sessionBf: string | null = null;
+function readBf() {
+  try { return localStorage.getItem(TRIAL_KEEP_BF_KEY) || sessionBf; } catch { return sessionBf; }
+}
+function saveBf(mark: string) {
+  sessionBf = mark;
+  try { localStorage.setItem(TRIAL_KEEP_BF_KEY, mark); } catch { /* session fallback */ }
+}
 function saveSeen(mark: string, kind: TrialOffKind) {
-  if (kind === 'early') {
+  if (kind === 'bf') {
+    saveBf(mark);
+  } else if (kind === 'early') {
     sessionEarly = mark;
     try { localStorage.setItem(TRIAL_OFF_EARLY_KEY, mark); } catch { /* session fallback */ }
   } else {
@@ -86,14 +105,36 @@ function readUsageRaw(): string | null {
   try { return localStorage.getItem(USAGE_DAYS_KEY); } catch { return null; }
 }
 /** 계측 출처 — 조기 안내는 따로 센다(시트 단계·그 시트가 연 페이월 모두) */
-const srcOf = (kind: TrialOffKind) => kind === 'early' ? 'trial_off_early' as const : 'trial_off' as const;
+const srcOf = (kind: TrialOffKind) => kind === 'early' ? 'trial_off_early' as const : kind === 'bf' ? 'trial_off_bf' as const : 'trial_off' as const;
+/** 체험 중 사용일 묶음(활성화 판독 · 하루 합계만) */
+const usageSrc = (days: number) => days >= 5 ? 'tk_u5' as const : days >= 2 ? 'tk_u2' as const : 'tk_u0' as const;
+/** ★11/27 프리뷰 호스트(로컬·*.vercel.app — 운영 도메인·앱에선 안 켜짐) 확인 모드: ?sgtk=1 시트 · ?sgtkbf=1 블프 줄 · ?sgtkk=window|bf 종류 · ?sgtkp=annual 연간 체험 */
+function hostPreview(): { kind: TrialOffKind; bf: boolean; product: 'monthly' | 'annual' } | null {
+  try {
+    if (!previewFlag('sgtk')) return null;
+    const q = new URLSearchParams(location.search);
+    const k = q.get('sgtkk');
+    return { kind: k === 'window' || k === 'bf' ? k : 'early', bf: previewFlag('sgtkbf'), product: q.get('sgtkp') === 'annual' ? 'annual' : 'monthly' };
+  } catch { return null; }
+}
+function previewWarmView(locale: string, product: 'monthly' | 'annual'): WarmView {
+  const plans = PREVIEW_PLANS[locale] ?? PREVIEW_PLANS.en;
+  const m = plans.find((x) => x.plan === 'monthly'), a = plans.find((x) => x.plan === 'annual');
+  return {
+    locale, target: { expiresAt: Date.now() + 24.6 * 86400000, product }, plans: warmPlans(product, false),
+    prices: { annual: bfPriceView('annual', a, locale), monthly: bfPriceView('monthly', m, locale) }, perMonth: null, watchCount: 0, preview: true,
+  };
+}
 
-type View = TrialOffNotice & { preview: boolean };
+/** bf = 시트 안 블프 줄(블프 기간·iOS App Store 체험·스위치 켜짐·스토어 정가 확인 — 없으면 예전 시트) · known = 검증 읽기로 확인된 웜 대상(요금제 탭 카드가 다시 읽지 않게) */
+type View = TrialOffNotice & { preview: boolean; bf: WarmView | null; known: WarmTarget | null };
 export function TrialRenewalOffNotice({ locale }: { locale: string }) {
   const [view, setView] = useState<View | null>(null);
   const [reason, setReason] = useState(false);
   const [paywall, setPaywall] = useState<{ preview: boolean; kind: TrialOffKind } | null>(null);
-  const [warm, setWarm] = useState<{ preview: boolean; kind: TrialOffKind } | null>(null);
+  const [warm, setWarm] = useState<{ preview: boolean; kind: TrialOffKind; known: WarmTarget | null } | null>(null);
+  const localeRef = useRef(locale);
+  localeRef.current = locale;
   // ★11/11 체험 만료 뒤 1회 페이월 — 앱이 잠깐 뒤로 가도(안드 결제 창 = onPause) 닫지 않는다(suspend 대상 아님)
   const [expired, setExpired] = useState<(TrialExpiredNotice & { preview: boolean; offerEligible: boolean }) | null>(null);
   const expiredOpen = useRef(false);
@@ -102,7 +143,8 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
     let disposed = false, generation = 0;
     let suspended = document.visibilityState !== 'visible';
     let stopWaiting: (() => void) | undefined;
-    const previewParam = process.env.NODE_ENV === 'development' ? new URLSearchParams(location.search).get('trialOffPreview') : null;
+    const hp = hostPreview();
+    const previewParam = process.env.NODE_ENV === 'development' ? new URLSearchParams(location.search).get('trialOffPreview') : hp ? (hp.kind === 'window' ? '1' : 'early') : null;
     const preview = previewParam === '1' || previewParam === 'early' || previewParam === 'expired';
     const enter = async () => {
       if (process.env.NODE_ENV === 'development' && new URLSearchParams(location.search).get('cancelReasonPreview') === '1') return;
@@ -119,9 +161,11 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
         if (snapshot) void import('@/lib/app/trialPushReport').then((m) => m.reportTrialPush(snapshot)).catch(() => {});
         if (disposed || run !== generation || document.visibilityState !== 'visible') return;
         const seen = pushTapped() ? null : readSeen();
-        const early = { early: readEarly() };
+        // ★11/27 블프 기간·iOS 면 «블프 이어가기» 1회 표식도 넘긴다(조기 안내를 이미 본 1개월 코드·7일 체험자에게 체험 기간당 한 번 더)
+        const early: { early: string | null; bf?: string | null } = { early: readEarly() };
+        if (!preview && snapshot?.platform === 'ios' && bfLive(Date.now())) early.bf = readBf();
         let notice: TrialOffNotice | null = previewParam === 'expired' ? null : preview
-          ? { store: 'APP_STORE' as const, startedAt: Date.now() - (previewParam === 'early' ? 2.6 : 27.6) * 86400000, expiresAt: Date.now() + (previewParam === 'early' ? 27.4 : 2.4) * 86400000, period: 'preview', mark: 'preview', kind: previewParam === 'early' ? 'early' : 'window' }
+          ? { store: 'APP_STORE' as const, startedAt: Date.now() - (previewParam === 'early' ? 2.6 : 27.6) * 86400000, expiresAt: Date.now() + (previewParam === 'early' ? 27.4 : 2.4) * 86400000, period: 'preview', mark: 'preview', kind: hp ? hp.kind : previewParam === 'early' ? 'early' : 'window' }
           : snapshot && trialRenewalOffNotice(snapshot.customerInfo, snapshot.platform, Date.now(), seen, undefined, early);
         // ★11/11 체험 중 시트가 없을 때만 «만료 뒤 1회»를 본다(체험 중 시트는 활성 체험에서만 — 둘은 겹치지 않는다). 오늘 체험 시트를 봤으면 내일
         const marks = { offSeen: readSeen(), early: early.early };
@@ -140,6 +184,8 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
           stopWaiting = waitForOtherModal(document, () => { stopWaiting = undefined; void enter(); });
           return;
         }
+        let bf: WarmView | null = preview && hp?.bf ? previewWarmView(localeRef.current, hp.product) : null;
+        let known: WarmTarget | null = null;
         if (!preview && snapshot) {
           const attempt = verifyTrialRenewalOff();
           if (!attempt) return;
@@ -154,6 +200,22 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
           if (notice) {
             notice = fresh && fresh.platform === snapshot.platform
               ? verifiedTrialRenewalOffNotice(snapshot.customerInfo, fresh.customerInfo, fresh.platform, Date.now(), seen, undefined, early) : null;
+            // ★11/27 블프 기간·iOS App Store 체험이면 방금 캐시를 비운 이 새 읽기로 웜 대상(1개월 코드·7일 체험 · 갱신 꺼짐 · 40일 안 · 월간/연간)을 확인하고
+            //   스위치·스토어 정가를 받아 시트 안에 블프 줄을 넣는다(받지 못하면 예전 시트). 요금제 탭 카드도 이 대상을 받아 고객 정보를 다시 읽지 않는다.
+            if (notice && fresh && fresh.platform === 'ios' && notice.store === 'APP_STORE' && bfLive(Date.now())) {
+              const t = warmBfWhy(fresh.customerInfo as unknown as Parameters<typeof warmBfWhy>[0], 'ios', Date.now());
+              if (typeof t === 'object') {
+                known = t;
+                bf = await Promise.race([import('./WarmBfGate').then((m) => m.loadWarm(localeRef.current, t)).catch(() => null), sleep(BF_SHEET_WAIT_MS)]);
+                if (disposed || run !== generation || document.visibilityState !== 'visible') return;
+                if (document.querySelector('[aria-modal="true"]')) {
+                  stopWaiting = waitForOtherModal(document, () => { stopWaiting = undefined; void enter(); });
+                  return;
+                }
+              }
+            }
+            // 블프 이어가기 1회는 블프 줄이 준비됐을 때만(아니면 오늘은 없음 — 다음 진입에 다시 본다)
+            if (notice?.kind === 'bf' && !bf) notice = null;
           } else {
             // 만료 판정도 캐시를 비운 새 읽기로 한 번 더 — 방금 다른 경로로 구매·복원했으면 활성 'pro' 가 보여 안 뜬다
             lapsed = fresh && fresh.platform === snapshot.platform
@@ -170,7 +232,8 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
           return;
         }
         if (!notice) return;
-        const next = { ...notice, preview };
+        if (notice.kind === 'bf' && !bf) return;
+        const next = { ...notice, preview, bf, known };
         current.current = next;
         setView(next);
       } catch { /* failed fresh reads are ineligible */ }
@@ -202,12 +265,25 @@ export function TrialRenewalOffNotice({ locale }: { locale: string }) {
     if (stage === 'trial_off_manage' && !active.preview && active.expiresAt > Date.now()) void openSubscriptionManagement(active.store).catch(() => {});
     // 시트의 히스토리 칸을 걷은 «뒤»에 페이월을 연다(늦게 온 popstate 가 새 페이월을 닫지 않게)
     // ★11/24 블프 기간·iOS App Store 체험이면 웜 블프 카드 먼저(정가 페이월은 11/10~23 열림 12·버튼 1·결제 0 — RESULT 2026-11-24/warm-bf) · 아니면 예전 그대로
+    // ★11/27 시트에 블프 줄이 이미 있었으면 «다른 요금제 보기» = 정가 페이월 바로(웜 카드 또 안 띄움) · 없었으면 웜 카드에 검증된 대상(known)을 넘긴다
     if (stage === 'trial_off_plans' && active.expiresAt > Date.now()) void afterSheetHistory().then(() => {
-      if (active.store === 'APP_STORE' && bfLive(Date.now())) setWarm({ preview: active.preview, kind: active.kind });
+      if (!active.bf && active.store === 'APP_STORE' && bfLive(Date.now())) setWarm({ preview: active.preview, kind: active.kind, known: active.known });
       else setPaywall({ preview: active.preview, kind: active.kind });
     });
   }, []);
-  return <>{view && <TrialOffSheet view={view} locale={locale} onClose={() => close('trial_off_close')} onLater={() => { const active = current.current; close('trial_off_close'); if (active && !active.preview && canShowCancelReason()) void afterSheetHistory().then(() => { if (canShowCancelReason() && canPresentCancelReason()) setReason(true); }); }} onManage={() => close('trial_off_manage')} onPlans={() => close('trial_off_plans')} onExpired={() => close('trial_off_expired')} />}<CancelReasonPreview locale={locale} />{reason && <CancelReasonSheet locale={locale} preview={false} onDone={() => setReason(false)} />}{warm && <WarmBfOffer locale={locale} onClose={() => setWarm(null)} onFallback={() => { const w = warm; setWarm(null); setPaywall(w); }} />}{paywall && <TrialSavePaywall locale={locale} src={srcOf(paywall.kind)} onClose={() => setPaywall(null)} previewPlans={paywall.preview ? (PREVIEW_PLANS[locale] ?? PREVIEW_PLANS.en) : undefined} />}{expired && <TrialExpiredPaywall notice={expired} locale={locale} onClose={() => { expiredOpen.current = false; setExpired(null); }} />}</>;
+  /** ★11/27 시트 안 블프 단추 — 블프 코드가 채워진 애플 적용 창(lib/app/redeem openWarmBfRedeem · 결제는 애플 창에서만). 시트는 닫는다 */
+  const takeBf = useCallback((plan: BfPlan) => {
+    const active = current.current;
+    if (!active) return;
+    if (!bfLive(Date.now())) { close('trial_off_plans'); return; }
+    current.current = null;
+    setView(null);
+    const src = plan === 'annual' ? 'tk_bf' as const : 'tk_bf_m' as const;
+    if (!active.preview) { trackFunnel('trial_off_plans', { src: srcOf(active.kind) }); trackFunnel('cta', { src }); }
+    // 프리뷰 호스트는 openWarmBfRedeem 이 새 탭으로 주소만 연다(결제·계측 없음)
+    void import('@/lib/app/redeem').then((m) => m.openWarmBfRedeem(plan, src)).catch(() => {});
+  }, [close]);
+  return <>{view && <TrialOffSheet view={view} locale={locale} onClose={() => close('trial_off_close')} onLater={() => { const active = current.current; close('trial_off_close'); if (active && !active.preview && canShowCancelReason()) void afterSheetHistory().then(() => { if (canShowCancelReason() && canPresentCancelReason()) setReason(true); }); }} onManage={() => close('trial_off_manage')} onPlans={() => close('trial_off_plans')} onBf={takeBf} onExpired={() => close('trial_off_expired')} />}<CancelReasonPreview locale={locale} />{reason && <CancelReasonSheet locale={locale} preview={false} onDone={() => setReason(false)} />}{warm && <WarmBfOffer locale={locale} known={warm.known ?? undefined} onClose={() => setWarm(null)} onFallback={() => { const w = warm; setWarm(null); setPaywall({ preview: w.preview, kind: w.kind }); }} />}{paywall && <TrialSavePaywall locale={locale} src={srcOf(paywall.kind)} onClose={() => setPaywall(null)} previewPlans={paywall.preview ? (PREVIEW_PLANS[locale] ?? PREVIEW_PLANS.en) : undefined} />}{expired && <TrialExpiredPaywall notice={expired} locale={locale} onClose={() => { expiredOpen.current = false; setExpired(null); }} />}</>;
 }
 
 function CancelReasonPreview({ locale }: { locale: string }) {
@@ -297,8 +373,10 @@ function readWatchCount(): number {
   try { return parseWatchlist(localStorage.getItem(WATCHLIST_STORAGE_KEY)).length; } catch { return 0; }
 }
 
-function TrialOffSheet({ view, locale, onClose, onLater, onManage, onPlans, onExpired }: { view: View; locale: string; onClose: () => void; onLater: () => void; onManage: () => void; onPlans: () => void; onExpired: () => void }) {
+function TrialOffSheet({ view, locale, onClose, onLater, onManage, onPlans, onBf, onExpired }: { view: View; locale: string; onClose: () => void; onLater: () => void; onManage: () => void; onPlans: () => void; onBf: (plan: BfPlan) => void; onExpired: () => void }) {
   const copy = trialSaveCopy(locale);
+  // ★11/27 «무엇을 썼나» — 체험 중 앱을 연 날(기기 기록 · 시작일·끝나는 날 제외). 이틀 이상일 때만 줄을 그린다
+  const [usageDays] = useState(() => view.preview ? Number(new URLSearchParams(location.search).get('trialDays') ?? 0) : trialUsageDays(readUsageRaw(), view.startedAt, view.expiresAt));
   const titleId = useId();
   const sheet = useRef<HTMLDivElement>(null);
   const later = useRef<HTMLButtonElement>(null);
@@ -311,12 +389,34 @@ function TrialOffSheet({ view, locale, onClose, onLater, onManage, onPlans, onEx
   useEffect(() => {
     if (!marked.current) {
       marked.current = true;
-      if (!view.preview) { saveSeen(view.mark, view.kind); trackFunnel('trial_off_show', { src: srcOf(view.kind) }); }
+      if (!view.preview) {
+        saveSeen(view.mark, view.kind);
+        trackFunnel('trial_off_show', { src: srcOf(view.kind) });
+        if (view.kind !== 'early') trackFunnel('tk_use', { src: usageSrc(usageDays) });
+        // 블프 줄이 그려졌다 = 웜 카드를 본 것과 같다(오늘 웜 카드·다른 페이월 쉼 · 이 체험 기간 블프 이어가기 끝) — WarmBfOffer 와 같은 표식
+        if (view.bf) { saveBf(view.mark); try { markWarmShown(window.localStorage); } catch { /* noop */ } markGateDay(localDay()); trackFunnel('open', { src: 'tk_bf' }); }
+      }
     }
     const focus = window.setTimeout(() => later.current?.focus({ preventScroll: true }), 40);
     const cancelExpiry = scheduleTrialOffExpiry(view.expiresAt, onExpired);
     return () => { window.clearTimeout(focus); cancelExpiry(); };
+    // usageDays 는 처음 값 그대로(마운트 때 한 번)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, onExpired]);
+  // 블프 기간이 끝나는 순간 열린 시트의 블프 줄도 내린다(만료된 코드를 안내하지 않게 — 웜 카드와 같은 규칙)
+  const [bfOn, setBfOn] = useState(() => !!view.bf && bfLive(Date.now()));
+  useEffect(() => {
+    if (!view.bf) return;
+    const check = () => { if (!bfLive(Date.now())) setBfOn(false); };
+    const left = BF_VALID_UNTIL - Date.now();
+    const t = left > 0 && left < 2 ** 31 - 1 ? window.setTimeout(check, left + 50) : 0;
+    document.addEventListener('visibilitychange', check);
+    return () => { if (t) window.clearTimeout(t); document.removeEventListener('visibilitychange', check); };
+  }, [view.bf]);
+  const bf = bfOn ? view.bf : null;
+  const wl = toWarmLang(locale);
+  const bfc = BF_COPY[wl], wc = WARM_COPY[wl];
+  const endDate = trialEndDateText(view.expiresAt, locale).replace(/ /g, '\u00a0');
   const trapTab = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'Tab' || !isTop()) return;
     const buttons = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('button:not([disabled])'));
@@ -326,9 +426,10 @@ function TrialOffSheet({ view, locale, onClose, onLater, onManage, onPlans, onEx
   return <div className={p.overlay} data-testid="trial-off-notice">
     <div ref={sheet} className={`${p.sheet} ${s.box}`} role="dialog" aria-modal="true" aria-labelledby={titleId} onKeyDown={trapTab}>
       <div className={p.head}>
-        <span className={p.eyebrow}>SIGNUM PRO</span>
-        <h1 className={p.title} id={titleId}>{copy.title(trialEndDateText(view.expiresAt, locale).replace(/ /g, '\u00a0'))}</h1>
-        <p className={`${p.lede} ${s.lede}`}>{trialOffLede(locale, view.kind === 'early')}</p>
+        <span className={bf ? `${p.eyebrow} ${b.eyebrow}` : p.eyebrow}>{bf ? bfc.eyebrow : 'SIGNUM PRO'}</span>
+        <h1 className={p.title} id={titleId}>{copy.title(endDate)}</h1>
+        <p className={`${p.lede} ${s.lede}`}>{trialOffLede(locale, view.kind !== 'window')}</p>
+        {bf && <p className={b.offer} data-trial-bf={bf.plans.primary}>{bf.plans.primary === 'annual' ? bfc.annualSub(bf.prices.annual.regular, bf.prices.annual.offer) : wc.monthlySub(bf.prices.monthly.regular, bf.prices.monthly.offer)}</p>}
       </div>
       {score && <>
         <p className={p.fine} style={{ textAlign: 'left', marginTop: 4 }}>{copy.seen}</p>
@@ -336,11 +437,21 @@ function TrialOffSheet({ view, locale, onClose, onLater, onManage, onPlans, onEx
       </>}
       <p className={p.fine} style={{ textAlign: 'left', marginTop: 4 }}>{copy.keep}</p>
       <ul className={p.benefits} data-trial-value="keep">
+        {usageDays >= TRIAL_USAGE_MIN_DAYS && <li className={p.benefit} data-trial-usage="">{copy.usage(usageDays)}</li>}
         <li className={p.benefit}>{trialWatchlistLine(watchCount, locale)}</li>
         <li className={p.benefit}>{copy.unlocked}</li>
       </ul>
-      <button type="button" className={`${p.cta} ${s.cta}`} onClick={onPlans}>{copy.cta}</button>
-      <button type="button" className={p.link} style={{ display: 'block', margin: '10px auto 0' }} onClick={onManage}>{copy.manage}</button>
+      {bf ? <>
+        <button type="button" className={`${p.cta} ${b.cta}`} onClick={() => onBf(bf.plans.primary)} data-trial-bf-plan={bf.plans.primary}>
+          {bf.plans.primary === 'annual' ? bfc.annualCta(bf.prices.annual.offer) : bfc.monthlyCta(bf.prices.monthly.regular, bf.prices.monthly.offer)}
+        </button>
+        {bf.plans.secondary && <button type="button" className={b.alt} onClick={() => onBf(bf.plans.secondary as BfPlan)} data-trial-bf-plan={bf.plans.secondary}>
+          {bf.plans.secondary === 'annual' ? bfc.annualCta(bf.prices.annual.offer) : bfc.monthlyCta(bf.prices.monthly.regular, bf.prices.monthly.offer)}
+        </button>}
+        <p className={p.fine} data-trial-bf-fine="">{wc.fine(endDate, bf.prices.annual.regular, bf.prices.monthly.regular)}</p>
+        <button type="button" className={p.link} style={{ display: 'block', margin: '4px auto 0' }} onClick={onPlans}>{copy.otherPlans}</button>
+      </> : <button type="button" className={`${p.cta} ${s.cta}`} onClick={onPlans}>{copy.cta}</button>}
+      <button type="button" className={p.link} style={{ display: 'block', margin: bf ? '2px auto 0' : '10px auto 0' }} onClick={onManage}>{copy.manage}</button>
       <button ref={later} type="button" className={p.close} style={{ position: 'static', width: '100%' }} onClick={onLater}>{copy.later}</button>
     </div>
   </div>;

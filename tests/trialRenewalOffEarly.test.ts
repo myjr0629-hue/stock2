@@ -133,7 +133,8 @@ for (const loc of ['ko', 'en', 'ja']) {
   assert.doesNotMatch(c.earlyNote, /마지막 기회|서두르|지금 바로|놓치|한정|곧|수익|hurry|last chance|don.t miss|limited|soon|now only|profit|急いで|最後|今すぐ|見逃|まもなく|利益/i, loc);
   assert.doesNotMatch(c.earlyNote, /[₩$¥]\s?\d|\d+\s?%/, loc);
 }
-assert.match(component, /\{trialOffLede\(locale, view\.kind === 'early'\)\}/);
+// ★11/27 조기 안내 한 줄은 «블프 이어가기»(bf — 조기 안내를 이미 본 체험자에게 한 번 더)에도 붙는다. D-3(window)만 빠진다
+assert.match(component, /\{trialOffLede\(locale, view\.kind !== 'window'\)\}/);
 for (const loc of ['ko', 'en', 'ja']) assert.equal(trialOffLede(loc, false), trialSaveCopy(loc).lede, `D-3 시트 문구 그대로 ${loc}`);
 assert.equal(trialOffLede('ko', true), '자동 갱신이 꺼져 있어서, 끝나도 결제되지 않아요. 체험은 끝나는 날까지 지금처럼 쓸 수 있어요.');
 assert.equal(trialOffLede('ja', true), '自動更新はオフのため、終了後も請求はありません。終了日までは、今と同じように体験を使えます。', '일본어는 문장 사이 띄어쓰기 없음');

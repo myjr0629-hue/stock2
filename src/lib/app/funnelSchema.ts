@@ -41,6 +41,7 @@ export const FUNNEL_STAGES = [
   'rv_cap', 'rv_ask', 'rv_block', 'rv_why', // ★11/20 스토어 평점 요청(lib/app/reviewBeacon — 구매 퍼널 아님): 플러그인 있나(기기당 ET 하루 1회, rv_yes·rv_no) · OS 평점 API 실제 요청 · 순간이 왔지만 못 부름(출처 = 순간 rv_day…rv_pro) · 못 부른 이유(rv_modal…rv_noplug)
   'wb_why',        // ★11/26 웜 블프 카드 준비(loadWarm · iOS · 운영만) 결과 — 출처 wb_try = 준비 시작 · wb_ok = 카드 준비됨 · 그 밖의 wb_* = 안 된 이유(스위치·고객 정보·대상 조건·가격·요금제 탭 3.5초 초과)
   'promo_ask_show', 'promo_ask_yes', 'promo_ask_no', // ★11/27 혜택·할인 알림(광고성 푸시) 동의 한 번 묻기(lib/app/promoAsk): 카드 보임 · [받기](저장됨) · [괜찮아요]·닫기 — 출처 pa_{ko|en|ja}(첫 번째)·pa2_{ko|en|ja}(30일 뒤 다시)
+  'tk_use',        // ★11/27 갱신 끈 체험 안내(D-3·블프 이어가기)가 보일 때 그 기기의 체험 중 사용일 묶음(활성화 판독 — 하루 합계만) — 출처 tk_u0(0~1일)·tk_u2(2~4일)·tk_u5(5일+)
   'rw_then',       // ★11/20 해제 뒤 24시간 안에 이 기기에서 처음 일어난 페이월 열림·구매 버튼·결제 성공(기기 안에서만 잇고 서버엔 하루 합계만) — 출처 rw_open·rw_cta·rw_buy
 ] as const;
 export type FunnelStage = (typeof FUNNEL_STAGES)[number];
@@ -110,6 +111,9 @@ export const FUNNEL_SRCS = [
   'bf_pw',          // ★11/26 정가 페이월 안 «블프 연간 첫 1년 50%» 카드(lib/app/bfPaywall): open = 카드가 보였다 · cta = 카드가 고른 채 결제 단추 · code_open·code_pro = 애플 적용 창·복귀
   'wb_try', 'wb_ok', 'wb_off', 'wb_noinfo', 'wb_nopro', 'wb_store', 'wb_period', 'wb_renew', 'wb_family', 'wb_paid', 'wb_exp', 'wb_prod', 'wb_noprice', 'wb_late', // wb_why 전용
   'bf_and', 'bf_and_line', 'bf_and_y', 'bf_and_m', 'warm_bf_and', 'warm_bf_and_y', 'warm_bf_and_m', 'bf_and_reg', 'bf_and_noopt',
+  // ★11/27 갱신 끈 체험 안내 안의 블프 단추(lib/app/trialRenewalOff · TrialRenewalOffNotice): trial_off_bf = 블프 기간 «이어가기» 1회 시트(trial_off_* 단계)
+  //   tk_bf = 시트 안 블프 줄이 보였다(open) · 연간 단추(cta·code_open·code_pro) · tk_bf_m = 월간 단추(cta·code_open·code_pro — code_pro = 돌아와 «자동 갱신 켜짐»)
+  'trial_off_bf', 'tk_bf', 'tk_bf_m', 'tk_u0', 'tk_u2', 'tk_u5',
 ] as const;
 export type FunnelSrc = (typeof FUNNEL_SRCS)[number];
 
