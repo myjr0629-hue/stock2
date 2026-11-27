@@ -37,6 +37,11 @@ export const WARM_BF_LAST_DAY_MS = 24 * 3_600_000;
 export const WARM_BF_DELAY_MS = 8_000;
 /** 보이기 직전 고객 정보·가격·스위치 조회 상한 */
 export const WARM_BF_VERIFY_MS = 3_000;
+/**
+ * ★11/27 캐시 비우기·새 고객 정보 조회 상한 — 3초로는 셀룰러에서 RC 새 조회가 끝나지 않아 11/26 준비 1 → 고객 정보 못 읽음 1(wb_noinfo)로 카드 0.
+ *   자동 카드는 포그라운드 8초 뒤 배경에서 준비하므로 기다려도 화면을 막지 않는다. 요금제 탭 경로는 WARM_BF_OFFER_WAIT_MS(3.5초) 상한이 그대로 지킨다.
+ */
+export const WARM_BF_INFO_MS = 8_000;
 /** 체험 종료 안내 «PRO 요금제 보기»를 누른 뒤 카드 준비를 기다리는 최대 시간 — 넘으면 예전 정가 페이월 */
 export const WARM_BF_OFFER_WAIT_MS = 3_500;
 /** 돌아온 뒤 «갱신 켜짐» 재확인 간격(애플 → RC 반영 지연) */

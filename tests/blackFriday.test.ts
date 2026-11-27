@@ -14,9 +14,12 @@ t('대상: 권한 없음 = 보임 · 다른 권한만 있음 = 안 보임', () =
   assert.equal(bfEligibleInfo({ entitlements: { active: {} } }), true);
   assert.equal(bfEligibleInfo({ entitlements: { active: { other: { isActive: true } } } }), false);
 });
-t('대상: 1개월 코드 체험(TRIAL·App Store)·소개가 = 보임', () => {
-  assert.equal(bfEligibleInfo({ entitlements: { active: { pro: { periodType: 'TRIAL', store: 'APP_STORE' } } } }), true);
-  assert.equal(bfEligibleInfo({ entitlements: { active: { pro: { periodType: 'intro', store: 'app_store' } } } }), true);
+t('대상(★11/27): 1개월 코드 체험(TRIAL·App Store)·7일 체험·소개가 = 안 보임 — 월간 구독 중이라 연간 코드는 애플이 거절(다운그레이드) · 갱신 끈 체험은 웜 카드', () => {
+  assert.equal(bfEligibleInfo({ entitlements: { active: { pro: { periodType: 'TRIAL', store: 'APP_STORE' } } } }), false);
+  assert.equal(bfEligibleInfo({ entitlements: { active: { pro: { periodType: 'intro', store: 'app_store' } } } }), false);
+  assert.equal(bfEligibleInfo({ entitlements: { active: { pro: { isActive: true, periodType: 'TRIAL', store: 'APP_STORE', willRenew: false } } } }), false);
+  // 체험이 끝난 사람(활성 권한 없음) = 보임 — 애플 오퍼 코드 자격 EXPIRED 포함
+  assert.equal(bfEligibleInfo({ entitlements: { active: {}, all: { pro: { isActive: false, periodType: 'TRIAL' } } } } as never), true);
 });
 t('대상: 정가 결제·프로모션·Play·모름 = 안 보임', () => {
   assert.equal(bfEligibleInfo({ entitlements: { active: { pro: { periodType: 'NORMAL', store: 'APP_STORE' } } } }), false);

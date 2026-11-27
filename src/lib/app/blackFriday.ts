@@ -8,8 +8,11 @@
 //   · iOS 네이티브 앱(안드로이드·웹은 범위 밖 — Play 는 할인 코드가 없다) · 이 실행이 시작될 때 첫 실행 흐름을 마친 기기
 //   · 기간 안(지금 ~ 12/1 23:00 PT — 애플 만료 12/2 보다 하루 일찍 끊어 «만료된 코드»를 안내하지 않는다)
 //   · 이 기기에서 아직 안 봄(본 시각을 기기에 적는다 — 닫으면 끝, 쓰기 실패 = 안 보인다)
-//   · RevenueCat 새 고객 정보로 «돈 내는 PRO 아님»: PRO 권한이 없거나, 있어도 무료 체험(TRIAL — 1개월 무료 코드 체험 포함)·소개가(INTRO)일 때만.
-//     정가 결제 중(NORMAL)·프로모션 권한(PROMOTIONAL)·스토어가 App Store 가 아님·필드 모름 = 안 보인다.
+//   · RevenueCat 새 고객 정보로 «지금 PRO 권한이 없음»(무료 — 체험이 끝난 사람 포함)일 때만.
+//     ★11/27 체험·코드 체험(TRIAL)·소개가(INTRO)도 뺐다 — 11/22~26 시트 열림 39 → 애플 창 4 → 블프 결제 0 의 원인:
+//       ① 1개월 무료 코드는 «월간» 상품(groupLevel 1)이라 코드 PRO 는 전부 월간 구독 중 → 주 단추(연간 코드)는 다운그레이드라 애플이 거절한다(lib/app/warmBf 머리말).
+//       ② 설명(«잠긴 AI 분석이 열리고…»)이 이미 PRO 인 사람에겐 해당이 없다. 체험 중 갱신을 끈 사람은 웜 카드(lib/app/warmBf — 상품별로 받아 주는 코드)가 맡는다.
+//     정가 결제 중(NORMAL)·프로모션 권한(PROMOTIONAL)·체험·필드 모름 = 안 보인다.
 //   · 오늘 다른 안내·페이월을 안 봤고(lib/app/trialAnnounce otherSheetToday) · 다른 시트가 안 떠 있고 · 앱 화면 경로일 때
 // 언제나 열 수 있는 입구: 페이월·가치 벽·게이트의 «코드가 있으신가요?» 줄 아래 블프 한 줄 · 설정 «쿠폰 코드 입력» 아래 한 줄(BlackFridayLine) → 같은 시트.
 // 가격(애플 3.1.2): 정가는 스토어가 준 값으로만. 할인가는 애플이 국가별로 정한 값 중 «통화+정가가 확인된» 경우만(KRW·JPY·USD — raw/half-*.json 대조:
@@ -55,18 +58,15 @@ type EntLike = { isActive?: unknown; periodType?: unknown; store?: unknown };
 type InfoLike = { entitlements?: { active?: Record<string, EntLike | undefined> | null } | null } | null | undefined;
 
 /**
- * «돈 내는 PRO 아님» 확인 — true = 보여도 된다.
- *   권한 없음 → true · 권한이 무료 체험/소개가(App Store) → true(1개월 코드 체험 포함) · 그 밖(정가·프로모션·다른 스토어·모름) → false
+ * «지금 PRO 권한 없음(무료)» 확인 — true = 보여도 된다(블프 코드를 실제로 쓸 수 있는 사람).
+ *   활성 권한이 하나도 없음 → true · 그 밖(체험·코드 체험·소개가·정가·프로모션·다른 권한·모름) → false
+ *   ★11/27 전엔 체험·소개가(App Store)도 true 였다 — 머리말 «누구에게» ①② 때문에 뺐다(체험 중 갱신 끈 사람 = 웜 카드).
  */
-export function bfEligibleInfo(info: InfoLike, entitlementId = 'pro'): boolean {
+export function bfEligibleInfo(info: InfoLike): boolean {
   if (!info || !info.entitlements) return false;
   const active = info.entitlements.active;
   if (!active || typeof active !== 'object') return false;
-  const ent = active[entitlementId];
-  if (!ent) return Object.keys(active).length === 0;
-  const pt = String(ent.periodType ?? '').toUpperCase();
-  const store = String(ent.store ?? '').toUpperCase();
-  return (pt === 'TRIAL' || pt === 'INTRO') && store === 'APP_STORE';
+  return Object.keys(active).length === 0;
 }
 
 // ── 가격 ─────────────────────────────────────────────────────────────────────

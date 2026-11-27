@@ -22,7 +22,7 @@ import { initRevenueCat } from '@/services/revenueCat';
 import { bfLive, bfOfferAmount, bfPriceView, type BfPriceView } from '@/lib/app/blackFriday';
 import { WATCHLIST_STORAGE_KEY, parseWatchlist } from '@/lib/app/watchlist';
 import {
-  WARM_BF_DELAY_MS, WARM_BF_OFFER_WAIT_MS, WARM_BF_VERIFY_MS, bfSheetSeenToday, markWarmShown, readWarmLast, warmAnnualPerMonth, warmBfWhy, warmDay, warmDue,
+  WARM_BF_DELAY_MS, WARM_BF_INFO_MS, WARM_BF_OFFER_WAIT_MS, WARM_BF_VERIFY_MS, bfSheetSeenToday, markWarmShown, readWarmLast, warmAnnualPerMonth, warmBfWhy, warmDay, warmDue,
   warmPlans, warmStep, warmSwitchFrom, type MiniStore, type WarmTarget, type WarmWhy,
 } from '@/lib/app/warmBf';
 import { storePrices } from './BlackFridayGate';
@@ -62,9 +62,9 @@ async function targetNow(): Promise<WarmTarget | WarmWhy> {
     if (!(await initRevenueCat())) return 'wb_noinfo';
     const { Purchases } = await import('@revenuecat/purchases-capacitor');
     // 캐시를 못 비웠으면(실패·시간 초과) 안 보인다 — 옛 «갱신 꺼진 체험» 정보로 이미 결제한 사람에게 뜨지 않게(관문 11240021 ②)
-    const cleared = await capped(Purchases.invalidateCustomerInfoCache().then(() => true), WARM_BF_VERIFY_MS);
+    const cleared = await capped(Purchases.invalidateCustomerInfoCache().then(() => true), WARM_BF_INFO_MS);
     if (cleared !== true) return 'wb_noinfo';
-    const r = await capped(Purchases.getCustomerInfo(), WARM_BF_VERIFY_MS);
+    const r = await capped(Purchases.getCustomerInfo(), WARM_BF_INFO_MS);
     return r ? warmBfWhy(r.customerInfo as unknown as Parameters<typeof warmBfWhy>[0], 'ios', Date.now()) : 'wb_noinfo';
   } catch { return 'wb_noinfo'; }
 }

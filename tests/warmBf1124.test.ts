@@ -184,6 +184,11 @@ test('⑩ 관문 11240021 — 선물 안내는 웜 본 날 busy · 캐시 못 �
   assert.notEqual(g.giftAnnounceBlock(input), 'busy', '이틀 전이면 막지 않는다');
   const gate = read('src/components/app/WarmBfGate.tsx');
   assert.match(gate, /if \(cleared !== true\) return 'wb_noinfo';/);   // ★11/26 이유 코드로(안 보임은 같다 — loadWarm 이 null)
+  // ★11/27 캐시 비우기·새 조회 상한 8초(WARM_BF_INFO_MS) — 3초로는 11/26 준비 1 → wb_noinfo 1. 스위치·가격 조회는 3초 그대로
+  assert.match(gate, /invalidateCustomerInfoCache\(\)\.then\(\(\) => true\), WARM_BF_INFO_MS\)/);
+  assert.match(gate, /capped\(Purchases\.getCustomerInfo\(\), WARM_BF_INFO_MS\)/);
+  assert.match(gate, /setTimeout\(\(\) => ctl\?\.abort\(\), WARM_BF_VERIFY_MS\)/);
+  assert.equal(w.WARM_BF_INFO_MS >= 8000 && w.WARM_BF_VERIFY_MS === 3000, true);
   assert.match(gate, /plans0\.secondary && prices\[plans0\.secondary\]\.regular/, '둘째 단추는 정가 있을 때만(관문 11240028 ②)');
   assert.match(gate, /WARM_BF_OFFER_WAIT_MS\)/);
   assert.match(gate, /if \(!markWarmShown\(localStore\(\)\)\) \{ onFallback\(\); return; \}/, '요금제 탭 경로도 표식 실패 = 카드 안 보임(관문 11240036)');

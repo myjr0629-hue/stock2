@@ -4,7 +4,7 @@
 // BlackFridayGate — 블랙프라이데이 안내 판정기 (BlackFridayHost 가 문을 통과한 기기에서만 싣는다)
 // ----------------------------------------------------------------------------
 // 자동(auto): 앱이 앞으로 올 때마다 bfStep 으로 보고, 'check' 면 3초 기다린 뒤(체험 종료·만료 시트가 먼저 자리를 잡게)
-//   새 고객 정보로 «돈 내는 PRO 아님»(bfEligibleInfo — 무료·체험·코드 체험)을 확인 → 기기에 «봄» 표식 → 시트.
+//   새 고객 정보로 «PRO 권한 없음»(bfEligibleInfo — 무료만 · ★11/27 체험·코드 체험 제외 → 웜 카드)을 확인 → 기기에 «봄» 표식 → 시트.
 //   뜨면 게이트 하루 표식(gate_first)을 오늘로 — 같은 날 페이월을 두 번 들이밀지 않는다(체험 안내와 같은 규칙. 체험 안내·선물 안내도 이 표식으로 오늘은 쉰다).
 // 줄(request): 페이월·설정 블프 줄을 누를 때마다 같은 시트(대상 판정 없음 — 줄은 PRO 가 아닌 자리에만 있다).
 // 가격: 스토어 상품(연간·월간)의 통화·정가로 lib/app/blackFriday bfPriceView. 못 받으면 «50%»만 + 정가 대신 «연간 정가» 말.
@@ -15,7 +15,7 @@ import { usePathname } from 'next/navigation';
 import { proPurchaseState } from '@/lib/app/proPurchaseState';
 import { localDay, markGateDay } from '@/lib/app/gatePaywall';
 import { initRevenueCat } from '@/services/revenueCat';
-import { PRO_ANNUAL_PRODUCT_ID, PRO_ENTITLEMENT_ID, PRO_MONTHLY_PRODUCT_ID } from '@/config/iap';
+import { PRO_ANNUAL_PRODUCT_ID, PRO_MONTHLY_PRODUCT_ID } from '@/config/iap';
 import { isPreviewHost } from '@/lib/app/proEntitlement';
 import { gateFlowActive, otherSheetToday, trialAnnounceRouteOk } from '@/lib/app/trialAnnounce';
 import {
@@ -40,7 +40,7 @@ async function eligibleNow(): Promise<boolean> {
     if (!(await initRevenueCat())) return false;
     const { Purchases } = await import('@revenuecat/purchases-capacitor');
     const r = await capped(Purchases.getCustomerInfo(), BF_VERIFY_MS);
-    return !!r && bfEligibleInfo(r.customerInfo as unknown as Parameters<typeof bfEligibleInfo>[0], PRO_ENTITLEMENT_ID);
+    return !!r && bfEligibleInfo(r.customerInfo as unknown as Parameters<typeof bfEligibleInfo>[0]);
   } catch { return false; }
 }
 
