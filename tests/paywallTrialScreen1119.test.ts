@@ -44,7 +44,7 @@ mock('../src/lib/app/watchlistFlags', { WATCHLIST_CHIP_TIERING: false });
 mock('../src/components/app/watchlist/BottomSheet', { afterSheetHistory: async () => {} });
 const { ProPaywall } = require('../src/components/app/ProPaywall') as typeof import('../src/components/app/ProPaywall');
 const { renderToStaticMarkup } = require('react-dom/server');
-function html(props: Record<string, unknown> = {}) { cursor = 0; slots = []; return renderToStaticMarkup(ProPaywall({ locale: 'ko', onClose: () => {}, ...props } as any)); }
+function html(props: Record<string, unknown> = {}) { cursor = 0; slots = []; return renderToStaticMarkup(ProPaywall({ locale: 'ko', annualTrialDefault: true, onClose: () => {}, ...props } as any)); }
 
 const M = { plan: 'monthly', priceString: '₩11,900', price: 11900, currencyCode: 'KRW', pkg: { identifier: '$rc_monthly' } };
 const A = { plan: 'annual', priceString: '₩89,000', price: 89000, currencyCode: 'KRW', pricePerMonthString: '₩7,417', pkg: { identifier: '$rc_annual' } };
@@ -68,7 +68,7 @@ test('② 일정 3단 — 버튼 바로 위 · 스토어 가격 문자열 · 연
   const steps = h.slice(h.indexOf('data-trial-steps'), h.indexOf('</ol>'));
   assert.ok(steps.includes('오늘') && steps.includes('PRO 전부 무료로 열림'));
   assert.ok(steps.includes('종료 24시간 전까지') && steps.includes('기기의 구독 관리에서 해지하면 결제 없음'), '웹·시험 = 기기의 구독 관리');
-  assert.ok(steps.includes('7일 뒤') && steps.includes('연 ₩89,000 결제 · 이후 자동 갱신'));
+  assert.ok(steps.includes('7일 뒤') && steps.includes('₩89,000/년 결제 · 이후 매년 자동 갱신'));
   assert.ok(h.indexOf('data-trial-steps') < h.indexOf('7일 무료로 시작'), '일정 → 버튼');
   assert.ok(!h.includes('class="trialTerms"'), '같은 말 한 줄 중복 없음');
   // 월간을 고르면(월간만 체험) 월 가격
@@ -76,9 +76,9 @@ test('② 일정 3단 — 버튼 바로 위 · 스토어 가격 문자열 · 연
   assert.ok(fm.includes('월 ₩11,900 결제 · 이후 자동 갱신'));
   // 가격은 받은 문자열 그대로(다른 통화)
   const e = html({ locale: 'en', trialHead: true, offers: [{ ...M, priceString: '$9.99', trialDays: 7 }, { ...A, priceString: '$74.99', pricePerMonthString: '$6.25', trialDays: 7 }] });
-  assert.ok(e.includes('$74.99/year, renews automatically') && e.includes('$6.25/mo') && e.includes('Start 7-day free trial'));
+  assert.ok(e.includes('$74.99/year, renews automatically') && e.includes('7-day free trial · $6.25/mo') && e.includes('Start 7-day free trial'));
   const j = html({ locale: 'ja', trialHead: true, offers: [{ ...M, priceString: '¥1,280', trialDays: 7 }, { ...A, priceString: '¥12,000', pricePerMonthString: '¥1,000', trialDays: 7 }] });
-  assert.ok(j.includes('年額¥12,000を請求・以後自動更新') && j.includes('7日間無料で始める'));
+  assert.ok(j.includes('年額¥12,000を請求・以後毎年自動更新') && j.includes('7日間無料体験 · 月あたり¥1,000') && j.includes('7日間無料で始める'));
 });
 
 test('② 해지 장소 — iOS App Store · 안드 Google Play', () => {
@@ -96,7 +96,7 @@ test('③ 연간 카드가 위 · 연간 기본 선택 · 월 환산 스토어 �
   const h = html({ trialHead: true, offers: TRIAL });
   assert.ok(h.indexOf('data-plan="annual"') < h.indexOf('data-plan="monthly"'), '연간이 위');
   assert.match(h, /aria-checked="true" data-plan="annual"/);
-  assert.ok(h.includes('월 ₩7,417 · 7일 무료 체험'));
+  assert.ok(h.includes('7일 무료 체험 · 월 ₩7,417'));
   // 체험 없는 화면(설정)은 예전 순서(월간 → 연간)
   offers = TRIAL;
   const st = html({ src: 'settings' });

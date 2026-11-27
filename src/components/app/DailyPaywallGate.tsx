@@ -25,6 +25,8 @@ import {
   DAILY_PAYWALL_CHECK_MS, DAILY_PAYWALL_DELAY_MS, DAILY_PAYWALL_MAX_TRIES, DAILY_PAYWALL_SWITCH_MS,
   dailyDay, dailyOnFor, dailyRouteOk, dailyShownToday, dailyStep, markDailyShown, reviewBusyAt, type DailyPlatform, type MiniStore,
 } from '@/lib/app/dailyPaywall';
+import { hasTrialOffer } from '@/lib/app/firstRunPaywall';
+import { hasAnnualTrial, readAnnualTrialSwitch } from '@/lib/app/annualTrialDefault';
 import { ProPaywall, type PaywallPlan } from './ProPaywall';
 
 function localStore(): MiniStore | null {
@@ -84,15 +86,15 @@ function expiredPaywallDue(info: unknown, platform: DailyPlatform, store: MiniSt
 const PREVIEW_PLANS: Record<string, PaywallPlan[]> = {
   ko: [
     { plan: 'monthly', priceString: '₩11,900', price: 11900, currencyCode: 'KRW', trialDays: 7 },
-    { plan: 'annual', priceString: '₩89,000', price: 89000, currencyCode: 'KRW', pricePerMonthString: '₩7,417' },
+    { plan: 'annual', priceString: '₩89,000', price: 89000, currencyCode: 'KRW', pricePerMonthString: '₩7,417', trialDays: 7 },
   ],
   ja: [
     { plan: 'monthly', priceString: '¥1,280', price: 1280, currencyCode: 'JPY', trialDays: 7 },
-    { plan: 'annual', priceString: '¥12,000', price: 12000, currencyCode: 'JPY', pricePerMonthString: '¥1,000' },
+    { plan: 'annual', priceString: '¥12,000', price: 12000, currencyCode: 'JPY', pricePerMonthString: '¥1,000', trialDays: 7 },
   ],
   en: [
     { plan: 'monthly', priceString: '$9.99', price: 9.99, currencyCode: 'USD', trialDays: 7 },
-    { plan: 'annual', priceString: '$74.99', price: 74.99, currencyCode: 'USD', pricePerMonthString: '$6.25' },
+    { plan: 'annual', priceString: '$74.99', price: 74.99, currencyCode: 'USD', pricePerMonthString: '$6.25', trialDays: 7 },
   ],
 };
 
@@ -102,7 +104,7 @@ const run = { done: false, tries: 0, day: '' };
 export function DailyPaywallGate() {
   const { isPro, ready, offers, iapAvailable, trialsReady } = useProStatus();
   const pathname = usePathname() || '';
-  const [show, setShow] = useState<string | null>(null);
+  const [show, setShow] = useState<{ locale: string; annualOn: boolean; trialOffers?: PlanOffer[] } | null>(null);
   /** 포그라운드 회차 — 앱이 앞으로 올 때마다 +1(그때 다시 판정) */
   const [fg, setFg] = useState(0);
   const checking = useRef(false);
@@ -158,9 +160,12 @@ export function DailyPaywallGate() {
           // 기다리는 사이 다른 시트가 떴거나·화면을 옮겼거나·뒤로 갔으면 이번 회차는 넘긴다
           const again = dailyStep(state());
           if (again !== 'check') { if (again === 'stop') run.done = true; return; }
+          let annualOn = preview;
           if (!preview) {
-            if (!(await switchOn(platformNow()))) { run.done = true; return; }
+            const [dailyOn, trialOn] = await Promise.all([switchOn(platformNow()), hasAnnualTrial(offers) && readAnnualTrialSwitch()]);
+            if (!dailyOn) { run.done = true; return; }
             if (!alive.current || run.done) return;
+            annualOn = trialOn;
             const st = await checkStorePro({
               proNow: () => isProRef.current || storeProSignal.active(),
               pending: () => proPurchaseState.getSnapshot(),
@@ -185,7 +190,7 @@ export function DailyPaywallGate() {
           run.done = true;
           // 오늘 게이트 «하루 첫 탭» 페이월(gate_first)은 쉬게 한다 — 같은 날 페이월을 두 번 들이밀지 않는다(내일 다시)
           markGateDay(localDay());
-          setShow(window.location.pathname.split('/')[1] || 'en');
+          setShow({ locale: window.location.pathname.split('/')[1] || 'en', annualOn, trialOffers: hasTrialOffer(offers) ? offers : undefined });
         } finally {
           checking.current = false;
         }
@@ -198,16 +203,17 @@ export function DailyPaywallGate() {
   const preview = isPreview();
   return (
     <DailyPaywall
-      locale={show}
-      offers={preview ? undefined : offers}
-      previewPlans={preview ? (PREVIEW_PLANS[show] ?? PREVIEW_PLANS.en) : undefined}
+      locale={show.locale}
+      annualOn={show.annualOn}
+      offers={preview ? undefined : show.trialOffers ?? offers}
+      previewPlans={preview ? (PREVIEW_PLANS[show.locale] ?? PREVIEW_PLANS.en) : undefined}
       onClose={() => setShow(null)}
     />
   );
 }
 
 /** 떠 있는 동안 네이티브 배너를 내린다 — 아래 «구매 복원·이용약관·개인정보» 줄(애플 3.1.2)이 배너에 가리지 않게(체험 안내와 같은 방식) */
-function DailyPaywall({ locale, offers, previewPlans, onClose }: { locale: string; offers?: PlanOffer[]; previewPlans?: PaywallPlan[]; onClose: () => void }) {
+function DailyPaywall({ locale, offers, previewPlans, annualOn, onClose }: { locale: string; annualOn: boolean; offers?: PlanOffer[]; previewPlans?: PaywallPlan[]; onClose: () => void }) {
   useBannerSuppression(true);
-  return <ProPaywall locale={locale} src="daily_open" trialHead offers={offers} previewPlans={previewPlans} onClose={onClose} />;
+  return <ProPaywall locale={locale} src="daily_open" trialHead annualTrialDefault={annualOn} offers={offers} previewPlans={previewPlans} onClose={onClose} />;
 }

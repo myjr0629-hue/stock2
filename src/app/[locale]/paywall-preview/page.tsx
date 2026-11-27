@@ -56,7 +56,7 @@ export default function PaywallPreview({ params, searchParams }: { params: Promi
         'linear-gradient(180deg,#0a1020,#050912)',
     }}>
       <ProPaywall locale={locale} onClose={() => {}} previewPrice={DUMMY[locale] ?? DUMMY.en}
-        previewPlans={shownPlans} trialHead={head === '1'} />
+        previewPlans={shownPlans} trialHead={head === '1'} annualTrialDefault />
     </div>
   );
 }

@@ -13,6 +13,7 @@
 export const FUNNEL_STAGES = [
   'open',          // 페이월(또는 «내 종목» 판매 시트)이 열렸다
   'cta',           // 구매 버튼을 눌렀다
+  'trial_default_annual', 'trial_default_monthly', 'trial_cta_annual', 'trial_cta_monthly',
   'buy_ok', 'buy_cancel', 'buy_err',            // 결제 결과
   'restore_ok', 'restore_none', 'restore_err',  // 복원 결과(none = 복원할 구매 없음)
   'code_open', 'code_cta', 'code_pro',          // 🎟 쿠폰 코드 입력을 열었다 · (안드) 안내 시트의 [계속] = 구독 결제 창 열기(2026-10-06, lib/app/couponGuide.ts)

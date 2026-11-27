@@ -195,7 +195,7 @@ mock('../src/lib/app/watchlistFlags', { WATCHLIST_CHIP_TIERING: false });
 mock('../src/components/app/watchlist/BottomSheet', { afterSheetHistory: async () => {} });
 const { ProPaywall } = require('../src/components/app/ProPaywall') as typeof import('../src/components/app/ProPaywall');
 const { renderToStaticMarkup } = require('react-dom/server');
-function html(props: Record<string, unknown> = {}) { cursor = 0; slots = []; return renderToStaticMarkup(ProPaywall({ locale: 'ko', onClose: () => {}, ...props } as any)); }
+function html(props: Record<string, unknown> = {}) { cursor = 0; slots = []; return renderToStaticMarkup(ProPaywall({ locale: 'ko', annualTrialDefault: true, onClose: () => {}, ...props } as any)); }
 
 const M = { plan: 'monthly', priceString: '₩11,900', price: 11900, currencyCode: 'KRW', pkg: { identifier: '$rc_monthly' } };
 const A = { plan: 'annual', priceString: '₩89,000', price: 89000, currencyCode: 'KRW', pricePerMonthString: '₩7,417', pkg: { identifier: '$rc_annual' } };
@@ -208,7 +208,7 @@ test('⑥ 페이월 — 체험 있으면 눈썹 «새로 생긴 무료 체험» 
   assert.ok(!h.includes('SIGNUM PRO</span>'), '눈썹 자리 대체');
   assert.ok(h.includes('PRO 7일 무료') && h.includes('7일 무료로 시작'), '오늘 체험 머리·버튼');
   // ★11/19 체험 머리 화면은 버튼 위 한 줄 대신 체험 일정 3단(오늘 무료 · 종료 24시간 전까지 해지 · 7일 뒤 가격·자동 갱신)
-  assert.ok(h.includes('연 ₩89,000 결제 · 이후 자동 갱신') && h.includes('종료 24시간 전까지') && h.includes('해지하면 결제\u00a0없음'), '버튼 위 일정(가격·자동 갱신·해지)');
+  assert.ok(h.includes('₩89,000/년 결제 · 이후 매년 자동 갱신') && h.includes('종료 24시간 전까지') && h.includes('해지하면 결제\u00a0없음'), '버튼 위 일정(가격·자동 갱신·해지)');
   assert.ok(h.indexOf('data-trial-steps') < h.indexOf('7일 무료로 시작'), '일정은 버튼 위');
   assert.ok(h.includes('오늘은 결제되지 않습니다') && h.includes('24시간 전까지 해지하면'), '고지문');
   assert.match(h, /aria-checked="true" data-plan="annual"/, '연간 기본 선택 그대로');

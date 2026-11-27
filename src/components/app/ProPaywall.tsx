@@ -30,6 +30,7 @@ import s from './ProPaywall.module.css';
 import { useProStatus } from '@/hooks/useProStatus';
 import type { FunnelSrc } from '@/lib/app/funnelSchema';
 import type { PlanId } from '@/config/iap';
+import { trialDefaultPlan } from '@/lib/app/annualTrialDefault';
 import { annualSavePct, paywallSelection, planFineLine, type PaywallPlan } from '@/lib/app/proPlans';
 import { expiredOfferCopy, type ExpiredOfferView } from '@/lib/app/expiredOffer';
 import type { ExpiredOffer, PlanOffer } from '@/services/revenueCat';
@@ -189,7 +190,7 @@ const COPY: Record<PaywallLocale, {
     trialSteps: (d, price, plan, place) => [
       ['오늘', 'PRO 전부 무료로 열림'],
       ['종료 24시간 전까지', `${place}에서 해지하면 결제\u00a0없음`],
-      [`${d}일 뒤`, `${plan === 'annual' ? '연' : '월'} ${price} 결제 · 이후 자동 갱신`],
+      [`${d}일 뒤`, plan === 'annual' ? `${price}/년 결제 · 이후 매년 자동 갱신` : `월 ${price} 결제 · 이후 자동 갱신`],
     ],
     cancelPlace: { ios: 'App Store 구독 관리', android: 'Google Play 정기 결제', other: '기기의 구독 관리' },
   },
@@ -254,7 +255,7 @@ const COPY: Record<PaywallLocale, {
     trialSteps: (d, price, plan, place) => [
       ['Today', 'Full PRO access, free'],
       ['Until 24h before end', `Cancel in ${place}, no charge`],
-      [`In ${d} days`, `${price}/${plan === 'annual' ? 'year' : 'month'}, renews automatically`],
+      [`In ${d} days`, plan === 'annual' ? `${price}/year, renews automatically every year` : `${price}/month, renews automatically`],
     ],
     cancelPlace: { ios: 'App Store subscriptions', android: 'Google Play subscriptions', other: 'your device’s subscription settings' },
   },
@@ -319,7 +320,7 @@ const COPY: Record<PaywallLocale, {
     trialSteps: (d, price, plan, place) => [
       ['今日', 'PROのすべてが無料で開く'],
       ['終了24時間前まで', `${place}で解約すれば請求なし`],
-      [`${d}日後`, `${plan === 'annual' ? '年額' : '月額'}${price}を請求・以後自動更新`],
+      [`${d}日後`, plan === 'annual' ? `年額${price}を請求・以後毎年自動更新` : `月額${price}を請求・以後自動更新`],
     ],
     cancelPlace: { ios: 'App Storeのサブスクリプション', android: 'Google Playの定期購入', other: '端末の定期購読設定' },
   },
@@ -384,7 +385,7 @@ function bfPwHere(): { ios: boolean; preview: boolean } {
 /** ★11/11 체험 만료 뒤 1회 페이월 — 머리·버튼 문구와 «체험 동안 / 무료에서 달라지는 것» 묶음(lib/app/trialExpired). 가격·고지·복원은 그대로 */
 export type PaywallContext = { title: string; lede: string; cta: string; sections: { label: string; items: string[] }[] };
 
-export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1', onNavigate, returnFocus, src, keepOpenWhilePro = false, context, subscriptionOnly = false, onProConfirmed, discountOffer, trialHead = false, trialAnnounce = false, offers: offersProp }: {
+export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1', onNavigate, returnFocus, src, keepOpenWhilePro = false, context, subscriptionOnly = false, onProConfirmed, discountOffer, trialHead = false, annualTrialDefault = false, trialAnnounce = false, offers: offersProp }: {
   locale: string;
   /** 퍼널 측정 — 이 페이월을 연 화면. 없으면 lead 로 짐작한다(«내 종목» 호스트 = wl_paywall · 프리뷰 가격 = preview) */
   src?: FunnelSrc;
@@ -419,6 +420,8 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
   discountOffer?: ExpiredOffer | ExpiredOfferView | null;
   /** ★11/16 첫 실행 페이월 전용 — 고른 플랜에 무료 체험이 적용되면 머리를 «PRO 7일 무료»로. 체험이 없으면 예전 머리 */
   trialHead?: boolean;
+  /** 체험 진입점에서 열기 전에 확인한 스위치. 모름은 월간 기본. */
+  annualTrialDefault?: boolean;
   /** ★11/16 밤 기존 무료 사용자 1회 안내(TrialAnnounceGate) — trialHead 와 함께. 체험이 적용될 때만 눈썹 자리에 «새로 생긴 무료 체험» */
   trialAnnounce?: boolean;
   /** ★11/16 첫 실행 페이월 전용 — 판정에 쓴 스토어 오퍼(체험 일수 포함)를 그대로 그린다(재조회 실패로 체험 없는 화면이 되지 않게, 관문 11161250 ②).
@@ -472,10 +475,7 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
   //   ★11/11 수리(코덱스 야간 11/10): 예전 multi 는 «월간이 있을 때만» 참이라, 스토어가 연간·평생만 주면 multi=false →
   //   selectedOffer=monthly=null → 버튼이 잠겨 아무것도 살 수 없었다. 이제 월간이 아닌 플랜이 하나라도 오면 카드로 그리고 그 플랜을 산다.
   const plans: PaywallPlan[] = (previewPlans ?? offers).filter((p) => !subscriptionOnly || p.plan !== 'lifetime');
-  // ★11/16 첫 실행 체험 페이월(trialHead)은 체험이 적용되는 플랜을 기본 선택(연간 우선) — 체험 없는 플랜으로 열리지 않게(관문 11161253 ②)
-  const trialFirst = trialHead && !picked
-    ? (plans.find((p) => p.plan === 'annual' && p.trialDays)?.plan ?? plans.find((p) => p.plan !== 'lifetime' && p.trialDays)?.plan ?? null)
-    : null;
+  const trialFirst = trialHead && !context && !keepOpenWhilePro ? trialDefaultPlan(plans, annualTrialDefault) : null;
   const { multi, selected: pickedPlan } = paywallSelection(plans, picked ?? trialFirst);
   // 기본 선택 = 연간(있으면) — 없으면 월간 — 둘 다 없으면 첫 플랜(평생)
   const selected: PlanId = pickedPlan;
@@ -514,6 +514,14 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
     bfSeen.current = true;
     void funnel().then((m) => m.trackFunnel('open', { src: 'bf_pw' })).catch(() => {});
   }, [bfCard]);
+
+  const trialScreen = !!trialDays && trialHead && !context && !keepOpenWhilePro;
+  const countedDefault = useRef(false);
+  useEffect(() => {
+    if (!trialScreen || picked || countedDefault.current) return;
+    countedDefault.current = true;
+    void funnel().then((m) => m.trackFunnel(selected === 'annual' ? 'trial_default_annual' : 'trial_default_monthly', { src: funnelSrc })).catch(() => {});
+  }, [trialScreen, picked, selected, funnelSrc]);
 
   // 열었는데 가격이 없다 = 마운트 때 오퍼링을 못 받았다는 뜻. 여기서 한 번 더 받는다.
   useEffect(() => {
@@ -556,7 +564,10 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
       return;
     }
     if (!selectedOffer) return;
-    void funnel().then((m) => m.trackFunnel('cta', { src: funnelSrc })).catch(() => {});
+    void funnel().then((m) => {
+      m.trackFunnel('cta', { src: funnelSrc });
+      if (trialScreen) m.trackFunnel(selectedOffer.plan === 'annual' ? 'trial_cta_annual' : 'trial_cta_monthly', { src: funnelSrc });
+    }).catch(() => {});
     setBusy(true);
     setNote(null);
     // ★11/12 신규 체험이면 «내 종목»으로 한 번(lib/app/trialStartWatchlist). 알림 벨 경로(onProConfirmed)는 그 종목 설정으로 가므로 제외.
@@ -583,7 +594,7 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
     if (res.ok && res.isPro) { if (onProConfirmed) onProConfirmed(); else if (keepOpenWhilePro) onClose(); return; } // 평소엔 위 effect 가 닫는다
     // 사용자가 스토어 시트를 직접 닫은 경우는 «실패»가 아니다 — 조용히 둔다.
     if (!res.ok && !res.cancelled) { markSessionError(); setNote(t.failed); }
-  }, [busy, purchasePending, selectedOffer, purchase, t, funnelSrc, keepOpenWhilePro, onClose, onProConfirmed, router, loc, offerSelected, offerReal, purchaseOffer, bfSelected]);
+  }, [busy, purchasePending, selectedOffer, purchase, t, funnelSrc, keepOpenWhilePro, onClose, onProConfirmed, router, loc, offerSelected, offerReal, purchaseOffer, bfSelected, trialScreen, trialDays]);
 
   const handleRestore = useCallback(async () => {
     if (busy) return;
@@ -648,7 +659,6 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
   // ★11/19 체험 머리 화면(첫 실행 first_run · 기존 사용자 안내 trial_announce — 체험이 적용될 때만). 11/16~18 iOS 열림 10·버튼 0 →
   //   가격보다 가치·«오늘 무료» 일정이 먼저 보이게: 머리 설명 대신 가치 3줄(체크) · 연간 카드 위 · 버튼 바로 위 체험 일정 3단(가격·자동 갱신·해지 장소).
   //   결제(구매 호출·패키지·선택 규칙)는 그대로 — 화면 표현만. 체험이 없거나 다른 화면이면 예전 그대로
-  const trialScreen = !!trialDays && trialHead && !context && !keepOpenWhilePro;
   const head1 = !trialDays ? head0
     : trialScreen ? { title: t.trialHeadTitle(trialDays), lede: '', cta: t.ctaTrial(trialDays) }
     : { ...head0, cta: t.ctaTrial(trialDays) };
@@ -661,8 +671,8 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
       return pf === 'ios' ? 'ios' as const : pf === 'android' ? 'android' as const : 'other' as const;
     } catch { return 'other' as const; }
   })();
-  // 체험 화면은 연간 카드를 위로(기본 선택이 맨 위에 보이게) — 선택·구매 규칙은 plans 그대로, 그리는 순서만
-  const shownPlans = trialScreen ? [...plans].sort((a, b) => (a.plan === 'annual' ? 0 : 1) - (b.plan === 'annual' ? 0 : 1)) : plans;
+  // 체험 화면에서 다른 카드를 눌러도 연간은 같은 자리에 둔다.
+  const shownPlans = trialFirst ? [...plans].sort((a, b) => (a.plan === 'annual' ? 0 : 1) - (b.plan === 'annual' ? 0 : 1)) : plans;
 
   return (
     <div className={s.overlay} data-pro-paywall data-paywall-src={context ? funnelSrc : undefined} role="dialog" aria-modal="true" aria-label={head.title} onKeyDown={trapTab}>
@@ -774,7 +784,8 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
                 ? (p.pricePerMonthString ? t.monthlyEq(p.pricePerMonthString) : null)
                 : p.plan === 'lifetime' ? t.lifetimeSub : null;
               // ★11/16 체험이 적용되는 카드엔 «7일 무료 체험»을 덧붙인다(카드의 속성 — 토글 아님)
-              const sub = p.plan !== 'lifetime' && p.trialDays ? (sub0 ? `${sub0} · ${t.trialBadge(p.trialDays)}` : t.trialBadge(p.trialDays)) : sub0;
+              const badge = p.plan !== 'lifetime' && p.trialDays ? t.trialBadge(p.trialDays) : null;
+              const sub = (trialFirst ? [badge, sub0] : [sub0, badge]).filter(Boolean).join(' · ');
               return (
                 <button
                   key={p.plan}

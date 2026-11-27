@@ -23,6 +23,7 @@ import {
 import { PAYWALL_OPEN_KEY, gateFlowActive, trialAnnounceRouteOk } from '@/lib/app/trialAnnounce';
 import { claimOnbShow } from '@/lib/app/onboardingConfig';
 import { trackFunnel } from '@/lib/app/funnelBeacon';
+import { readAnnualTrialSwitch } from '@/lib/app/annualTrialDefault';
 import { ProPaywall } from './ProPaywall';
 
 const store = (): MiniStore | null => { try { return window.localStorage; } catch { return null; } };
@@ -44,7 +45,7 @@ type Snap = {
 
 export function FirstRunTrialPaywall({ locale, onDone }: { locale: string; onDone: () => void }) {
   const { isPro, ready, offers, iapAvailable, trialsReady } = useProStatus();
-  const [show, setShow] = useState<PlanOffer[] | null>(null);
+  const [show, setShow] = useState<{ offers: PlanOffer[]; annualOn: boolean } | null>(null);
   // 최신 훅 값 — 판정 고리(비동기)가 매번 지금 값을 읽는다
   const snap = useRef<Snap>({ isPro, ready, trialsReady, iapAvailable, offers });
   snap.current = { isPro, ready, trialsReady, iapAvailable, offers };
@@ -56,12 +57,14 @@ export function FirstRunTrialPaywall({ locale, onDone }: { locale: string; onDon
 
   useEffect(() => {
     let alive = true;
+    let annualOn: boolean | null = null;
+    void readAnnualTrialSwitch().then((on) => { annualOn = on; });
     countOnce('fr_try', 'fr_try');
     void runFirstRunLoop<PlanOffer>({
       now: () => Date.now(),
       sleep,
       alive: () => alive && !decided.current,
-      snap: () => snap.current,
+      snap: () => ({ ...snap.current, trialsReady: snap.current.trialsReady && annualOn !== null }),
       pending: () => proPurchaseState.getSnapshot(),
       sharedPro: () => storeProSignal.latest() === true,
       shown: () => readFirstRunPaywallShown(store()),
@@ -76,7 +79,7 @@ export function FirstRunTrialPaywall({ locale, onDone }: { locale: string; onDon
       if (!alive || decided.current || r.kind === 'gone') return;   // 판정 중 해제(화면 이동) — 결론을 세지 않는다
       if (r.kind === 'skip') { countOnce(r.reason, 'fr_out'); finish(); return; }
       if (r.late) countOnce('fr_late', 'fr_late');
-      setShow(r.offers);   // 닫을 때 finish(onDone) · 열림은 ProPaywall 이 open/first_run 으로 센다
+      setShow({ offers: r.offers, annualOn: annualOn === true });   // 닫을 때 finish(onDone) · 열림은 ProPaywall 이 open/first_run 으로 센다
     }).catch(() => { if (alive) finish(); });
     return () => { alive = false; };
     // 마운트당 한 번 — 최신 훅 값은 snap 으로 읽는다
@@ -84,7 +87,7 @@ export function FirstRunTrialPaywall({ locale, onDone }: { locale: string; onDon
   }, []);
 
   if (!show) return null;
-  return <FirstRunPaywallSheet locale={locale} offers={show} onClose={() => { setShow(null); finish(); }} />;
+  return <FirstRunPaywallSheet locale={locale} offers={show.offers} annualOn={show.annualOn} onClose={() => { setShow(null); finish(); }} />;
 }
 
 function readOpenedAt(): string | null {
@@ -92,13 +95,14 @@ function readOpenedAt(): string | null {
 }
 
 /** 떠 있는 동안 네이티브 배너를 내린다(TrialAnnounceGate AnnouncePaywall 과 같은 방식) — 화면(DOM)은 ProPaywall 그대로 */
-function FirstRunPaywallSheet({ locale, offers, onClose }: { locale: string; offers: PlanOffer[]; onClose: () => void }) {
+function FirstRunPaywallSheet({ locale, offers, annualOn, onClose }: { locale: string; offers: PlanOffer[]; annualOn: boolean; onClose: () => void }) {
   useBannerSuppression(true);
   return (
     <ProPaywall
       locale={locale}
       src="first_run"
       trialHead
+      annualTrialDefault={annualOn}
       offers={offers}
       onClose={onClose}
     />

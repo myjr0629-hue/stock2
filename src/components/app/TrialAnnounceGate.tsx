@@ -19,6 +19,7 @@ import {
   TRIAL_ANNOUNCE_DELAY_MS, TRIAL_ANNOUNCE_VERIFY_MS, markTrialAnnounced, noPurchaseHistory, otherSheetToday, readTrialAnnounced,
   trialAnnounceRouteOk, trialAnnounceStep, gateFlowActive, FIRST_RUN_SHOWN_KEY, type MiniStore,
 } from '@/lib/app/trialAnnounce';
+import { hasAnnualTrial, readAnnualTrialSwitch } from '@/lib/app/annualTrialDefault';
 import { ProPaywall } from './ProPaywall';
 
 function localStore(): MiniStore | null {
@@ -49,7 +50,7 @@ const run = { done: false };
 export function TrialAnnounceGate() {
   const { isPro, ready, offers, iapAvailable, trialsReady } = useProStatus();
   const pathname = usePathname() || '';
-  const [show, setShow] = useState<string | null>(null);
+  const [show, setShow] = useState<{ locale: string; annualOn: boolean; offers: typeof offers } | null>(null);
   /** 포그라운드 회차 — 앱이 앞으로 올 때마다 +1(그때 다시 판정) */
   const [fg, setFg] = useState(0);
   const checking = useRef(false);
@@ -80,7 +81,7 @@ export function TrialAnnounceGate() {
         // 기다리는 사이 다른 시트가 떴거나·화면을 옮겼거나·뒤로 갔으면 이번 회차는 넘긴다
         const again = trialAnnounceStep(state());
         if (again !== 'check') { checking.current = false; if (again === 'stop') run.done = true; return; }
-        const info = await freshInfo();
+        const [info, annualOn] = await Promise.all([freshInfo(), hasAnnualTrial(offers) && readAnnualTrialSwitch()]);
         checking.current = false;
         if (!alive.current || run.done) return;
         // 지금 PRO·이력 있음·모름 = 이번 실행 끝(다음 실행에 다시 보지만 이력은 남으므로 계속 안 뜬다)
@@ -91,18 +92,18 @@ export function TrialAnnounceGate() {
         run.done = true;
         // 오늘 게이트 «하루 첫 탭» 페이월(gate_first)은 쉬게 한다 — 같은 날 페이월을 두 번 들이밀지 않는다(게이트 자신의 하루 표식 · 내일 다시)
         markGateDay(localDay());
-        setShow(window.location.pathname.split('/')[1] || 'en');
+        setShow({ locale: window.location.pathname.split('/')[1] || 'en', annualOn, offers });
       })();
     }, TRIAL_ANNOUNCE_DELAY_MS);
     return () => { window.clearTimeout(timer); checking.current = false; };
   }, [iapAvailable, ready, trialsReady, isPro, offers, show, fg, pathname]);
 
   if (!show) return null;
-  return <AnnouncePaywall locale={show} offers={offers} onClose={() => setShow(null)} />;
+  return <AnnouncePaywall locale={show.locale} offers={show.offers} annualOn={show.annualOn} onClose={() => setShow(null)} />;
 }
 
 /** 떠 있는 동안 네이티브 배너를 내린다 — 아래 «구매 복원·이용약관·개인정보» 줄(애플 3.1.2)이 배너에 가리지 않게(ValueWall GatePaywall 과 같은 방식) */
-function AnnouncePaywall({ locale, offers, onClose }: { locale: string; offers: ReturnType<typeof useProStatus>['offers']; onClose: () => void }) {
+function AnnouncePaywall({ locale, offers, annualOn, onClose }: { locale: string; annualOn: boolean; offers: ReturnType<typeof useProStatus>['offers']; onClose: () => void }) {
   useBannerSuppression(true);
-  return <ProPaywall locale={locale} src="trial_announce" trialHead trialAnnounce offers={offers} onClose={onClose} />;
+  return <ProPaywall locale={locale} src="trial_announce" trialHead trialAnnounce annualTrialDefault={annualOn} offers={offers} onClose={onClose} />;
 }
