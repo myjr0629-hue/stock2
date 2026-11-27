@@ -78,6 +78,45 @@ async function ensureTable() {
 // WRITE SNAPSHOT
 // ══════════════════════════════════════════════════════════════
 
+function buildRlsiHistoryItem(snapshot, timestamp) {
+    const { score, level, session, zScore, components } = snapshot.rlsi;
+    if (!Number.isFinite(score)) throw new TypeError("RLSI history requires a finite score");
+
+    const item = {
+        pk: "MARKET",
+        timestamp,
+        rlsi: Math.round(score * 10) / 10,
+        regime: level || "NEUTRAL",
+    };
+    if (typeof session === "string" && session.length > 0) item.session = session;
+
+    // Keep the five legacy keys aligned with the harvest-history writer.
+    const comp = components ?? {};
+    const numericFields = {
+        momentum: Number.isFinite(comp.momentumScore) ? comp.momentumScore : comp.crossAssetMomentumScore,
+        participation: comp.priceActionScore,
+        priceTrend: Number.isFinite(comp.breadthScore) ? comp.breadthScore : comp.breadthMcClellanScore,
+        rotation: comp.rotationScore,
+        sentiment: comp.sentimentScore,
+        vix: comp.vix,
+        vixTermStructure: comp.vixTermStructure,
+        volatilityScore: comp.volatilityScore,
+        gammaScore: comp.gammaScore,
+        liquidityScore: comp.liquidityScore,
+        breadthScore: comp.breadthScore,
+        breadthPct: comp.breadthPct,
+        crossAssetMomentumScore: comp.crossAssetMomentumScore,
+        yieldRaw: comp.yieldRaw,
+        yieldPenalty: comp.yieldPenalty,
+        vixMultiplier: comp.vixMultiplier,
+        zScore,
+    };
+    for (const [key, value] of Object.entries(numericFields)) {
+        if (Number.isFinite(value)) item[key] = value;
+    }
+    return item;
+}
+
 async function writeSnapshot(snapshot) {
     if (!snapshot?.rlsi) return;
 
@@ -132,17 +171,7 @@ async function writeSnapshot(snapshot) {
 
     // === 2) RLSI History (signum-rlsi-history table — Vercel API reads this) ===
     try {
-        const rlsiItem = {
-            pk: "MARKET",
-            timestamp,
-            rlsi: Math.round(snapshot.rlsi.score * 10) / 10,
-            momentum: snapshot.rlsi.components?.momentum || 0,
-            participation: snapshot.rlsi.components?.participation || 0,
-            priceTrend: snapshot.rlsi.components?.priceActionScore || 0,
-            rotation: snapshot.rlsi.components?.rotation || 0,
-            sentiment: snapshot.rlsi.components?.sentiment || 0,
-            regime: snapshot.rlsi.level || "NEUTRAL",
-        };
+        const rlsiItem = buildRlsiHistoryItem(snapshot, timestamp);
         await docClient.send(new PutCommand({
             TableName: "signum-rlsi-history",
             Item: rlsiItem,
@@ -262,6 +291,7 @@ async function findSimilarConditions(currentRlsi, currentGex, tolerance = 10, da
 }
 
 module.exports = {
+    buildRlsiHistoryItem,
     ensureTable,
     writeSnapshot,
     getDayHistory,
