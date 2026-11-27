@@ -13,7 +13,7 @@
 // ============================================================================
 
 import { phaseOf, COPY, toLoc } from '@/lib/earningsWeek';
-import { etDateOf } from '@/lib/marketCalendar';
+import { etDateOf, sessionCloseMinutes } from '@/lib/marketCalendar';
 import type { ImpliedTiming } from '@/services/impliedMoveService';
 import type { EarningsMoveMethod } from '@/lib/earnings/eventMove';
 
@@ -143,14 +143,14 @@ export function impliedPackStale(pack: ImpliedPack | null | undefined, nowMs: nu
 }
 
 const ET_HM = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hourCycle: 'h23', weekday: 'short', hour: '2-digit', minute: '2-digit' });
-/** 평일 뉴욕 09:30~16:00(휴장일은 따지지 않는다 — 갱신 주기만 정한다) */
+/** 평일 뉴욕 09:30~16:00 · 조기 폐장일 13:00 까지(휴장일은 따지지 않는다 — 갱신 주기만 정한다) */
 export function isRegularHoursET(nowMs: number = Date.now()): boolean {
   const p = ET_HM.formatToParts(new Date(nowMs));
   const g = (t: string) => p.find((x) => x.type === t)?.value ?? '';
   const wd = g('weekday');
   if (wd === 'Sat' || wd === 'Sun') return false;
   const m = Number(g('hour')) * 60 + Number(g('minute'));
-  return m >= 9 * 60 + 30 && m < 16 * 60;
+  return m >= 9 * 60 + 30 && m < sessionCloseMinutes(etDateOf(nowMs));
 }
 
 // ── 화면 글자 ────────────────────────────────────────────────────────────────

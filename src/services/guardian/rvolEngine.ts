@@ -1,5 +1,6 @@
 
 import { fetchMassive } from "../massiveClient";
+import { etDateOf, sessionCloseMinutes } from '@/lib/marketCalendar';
 
 // === TYPES ===
 export interface RvolProfile {
@@ -46,7 +47,7 @@ export class RvolEngine {
             const hours = nyTime.getHours();
             const minutes = nyTime.getMinutes();
             const marketOpen = 9 * 60 + 30; // 09:30 => 570
-            const marketClose = 16 * 60;    // 16:00 => 960
+            const marketClose = sessionCloseMinutes(etDateOf(now.getTime()));    // 16:00 => 960 · 조기 폐장일 13:00 => 780
             const currentMinuteOfDay = hours * 60 + minutes;
 
             let status: RvolProfile['status'] = "CLOSED";

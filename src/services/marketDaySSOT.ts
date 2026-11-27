@@ -2,6 +2,8 @@
 // S-56.4.6: Market Day SSOT Helper
 // Handles timezone-aware market day calculations for non-trading day fallback
 
+import { sessionCloseMinutes } from '@/lib/marketCalendar';
+
 /**
  * Get current time components in ET (Eastern Time)
  * Returns an object with year, month, day, hour, minute, dayOfWeek
@@ -278,7 +280,8 @@ export function determineSessionInfo(nowET: Date = getETNow()): SessionInfo {
 
     // Weekday time-based session
     const marketOpenMinutes = 9 * 60 + 30;  // 9:30 AM
-    const marketCloseMinutes = 16 * 60;      // 4:00 PM
+    // 정규장 끝 — 평소 16:00 · 조기 폐장일 13:00 ET(달력 정본). 시·분과 같은 해석(toYYYYMMDD_ET)으로 날짜를 읽는다.
+    const marketCloseMinutes = sessionCloseMinutes(toYYYYMMDD_ET(nowET));
     const preMarketStart = 4 * 60;           // 4:00 AM
     const afterHoursEnd = 20 * 60;           // 8:00 PM
 

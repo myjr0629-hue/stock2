@@ -1,6 +1,42 @@
 import { MarketStatus } from './stockApi';
 
 import { fetchMassive, CACHE_POLICY } from './massiveClient';
+import { etDateOf, etMinutesOf, sessionCloseMinutes } from '@/lib/marketCalendar';
+
+/**
+ * [2026-11-28] 조기 폐장 수리 — 2026-11-27(블랙프라이데이, NYSE 13:00 ET 마감) 13:14 ET 에
+ *   /api/market/status 가 {"market":"open","session":"regular"} 를 줬다. 정규장 끝을 16:00(960)으로
+ *   박아 둔 탓이다. 정규장 끝은 이제 달력 정본 sessionCloseMinutes(그날 ET 날짜)로 읽는다
+ *   (평소 960 · 조기 폐장일 780). 애프터 끝(20:00)·프리 시작(04:00)·정규장 시작(09:30)은 그대로다.
+ *
+ * 원천 상태(stocksStatus)와 시각으로 세션을 정한다 — 시험용으로 꺼냈다(정규장 끝만 달력을 따르고, 원천 «open»을 시각으로 고친 경우 market 도 함께 맞춘다).
+ */
+export function resolveLiveSession(
+    stocksStatus: string,
+    nowMs: number,
+): { session: "pre" | "regular" | "post" | "closed"; market: "open" | "extended-hours" | "closed" } {
+    const etTime = etMinutesOf(nowMs);
+    const regClose = sessionCloseMinutes(etDateOf(nowMs));
+    const isOpen = stocksStatus === "open";
+    const isExtended = stocksStatus === "extended-hours";
+    let session: "pre" | "regular" | "post" | "closed" = "closed";
+    if (isOpen) {
+        // [V4.5 BUG FIX] Polygon occasionally flags `open` early. Enforce strictly.
+        if (etTime < 570) session = "pre";                 // Before 09:30 ET
+        else if (etTime >= regClose) session = "post";     // After regular close (16:00 ET · early close 13:00 ET)
+        else session = "regular";
+    } else if (isExtended) {
+        // "extended-hours" — disambiguate PRE vs POST.
+        if (etTime < 570) session = "pre";                 // Before 09:30 ET
+        else if (etTime < 1200) session = "post";          // 09:30~20:00 ET (handles 13:00 early closes)
+        else session = "closed";                           // After 20:00
+    }
+    // 원천이 «open»이라 해도 시각이 정규장 밖이면 market 도 세션에 맞춘다(예전엔 session 만 고치고 market 은 "open" 으로 남았다).
+    const market: "open" | "extended-hours" | "closed" = isOpen
+        ? (session === "regular" ? "open" : "extended-hours")
+        : isExtended ? "extended-hours" : "closed";
+    return { session, market };
+}
 
 export interface MarketStatusResult extends MarketStatus {
     session: "pre" | "regular" | "post" | "closed";
@@ -83,14 +119,9 @@ export async function getMarketStatusSSOT(): Promise<MarketStatusResult> {
         const etNow = new Date();
         const etStr = etNow.toLocaleString("en-US", { timeZone: "America/New_York" });
         const etDate = new Date(etStr);
-        const etHour = etDate.getHours();
-        const etMin = etDate.getMinutes();
-        const etTime = etHour * 60 + etMin;
 
         // Standardize Output
         const stocksStatus = data.exchanges?.nasdaq || data.exchanges?.nyse || data.market || "closed";
-        const isOpen = stocksStatus === "open";
-        const isExtended = stocksStatus === "extended-hours";
 
         // [Phase 24.1] Strict Holiday Validation (User Requirement)
         // Check upcoming holidays to confirm if today is TRULY a holiday.
@@ -116,34 +147,9 @@ export async function getMarketStatusSSOT(): Promise<MarketStatusResult> {
             holidayName = h?.name || holidayName;
         }
 
-        let session: "pre" | "regular" | "post" | "closed" = "closed";
-
-        if (isOpen) {
-            // [V4.5 BUG FIX] Polygon occasionally flags `open` early. Enforce strictly.
-            if (etTime < 570) {
-                // Before 09:30 ET
-                session = "pre";
-            } else if (etTime >= 960) {
-                // After 16:00 ET
-                session = "post";
-            } else {
-                session = "regular";
-            }
-        } else if (isExtended) {
-            // Polygon says "extended-hours". Disambiguate PRE vs POST.
-            if (etTime < 570) {
-                // Before 09:30 ET
-                session = "pre";
-            } else if (etTime < 1200) {
-                // After 09:30 ET (handles 13:00 early closes gracefully!)
-                session = "post";
-            } else {
-                // After 20:00 (extended hours legally ends at 20:00)
-                session = "closed";
-            }
-        } else {
-            session = "closed";
-        }
+        // 정규장 끝 = sessionCloseMinutes(ET 날짜) — 조기 폐장일 13:00 ET (resolveLiveSession 머리말 참조)
+        const resolved = resolveLiveSession(stocksStatus, etNow.getTime());
+        let session: "pre" | "regular" | "post" | "closed" = resolved.session;
 
         // [HOLIDAY] A non-trading holiday has no pre/regular/post — Polygon can still
         // report "extended-hours" on a holiday morning, which the time-gate above would
@@ -157,7 +163,7 @@ export async function getMarketStatusSSOT(): Promise<MarketStatusResult> {
         const sessionHoliday = checkSessionHoliday(etDate);
 
         const result: MarketStatusResult = {
-            market: isPolygonHoliday ? "closed" : (isOpen ? "open" : isExtended ? "extended-hours" : "closed"),
+            market: isPolygonHoliday ? "closed" : resolved.market,
             session,
             isHoliday: isPolygonHoliday,
             holidayName: holidayName || undefined,
@@ -186,14 +192,15 @@ export async function getMarketStatusSSOT(): Promise<MarketStatusResult> {
     }
 }
 
-function calculateFallbackStatus(): MarketStatusResult {
-    const now = new Date();
+/** 원천 실패 시 시각·달력만으로 계산한다. nowMs 는 시험용(생략하면 지금 — 예전과 같다). */
+export function calculateFallbackStatus(nowMs: number = Date.now()): MarketStatusResult {
+    const now = new Date(nowMs);
     const etStr = now.toLocaleString("en-US", { timeZone: "America/New_York" });
     const etDate = new Date(etStr);
     const day = etDate.getDay(); // 0=Sun, 6=Sat
-    const h = etDate.getHours();
-    const m = etDate.getMinutes();
-    const minOfDay = h * 60 + m;
+    const minOfDay = etMinutesOf(nowMs);
+    // 정규장 끝 — 평소 16:00(960) · 조기 폐장일 13:00(780). 애프터 끝 20:00 은 그대로.
+    const regClose = sessionCloseMinutes(etDateOf(nowMs));
 
     const isWeekend = day === 0 || day === 6;
 
@@ -208,13 +215,13 @@ function calculateFallbackStatus(): MarketStatusResult {
     let session: "closed" | "pre" | "regular" | "post" = "closed";
 
     if (!isWeekend && !isHoliday) {
-        if (minOfDay >= 570 && minOfDay < 960) { // 09:30 - 16:00
+        if (minOfDay >= 570 && minOfDay < regClose) { // 09:30 - 16:00 (조기 폐장 13:00)
             market = "open";
             session = "regular";
         } else if (minOfDay >= 240 && minOfDay < 570) { // 04:00 - 09:30
             market = "extended-hours";
             session = "pre";
-        } else if (minOfDay >= 960 && minOfDay < 1200) { // 16:00 - 20:00
+        } else if (minOfDay >= regClose && minOfDay < 1200) { // 16:00 (조기 폐장 13:00) - 20:00
             market = "extended-hours";
             session = "post";
         }
@@ -227,7 +234,7 @@ function calculateFallbackStatus(): MarketStatusResult {
         holidayName: holidayNameString || undefined,
         isHolidaySession: !!sessionHolidayName,
         holidaySessionName: sessionHolidayName || undefined,
-        serverTime: new Date().toISOString(),
+        serverTime: now.toISOString(),
         asOfET: etStr,
         source: "FALLBACK",
         cacheAgeSec: 0

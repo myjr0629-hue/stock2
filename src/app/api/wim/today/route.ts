@@ -29,7 +29,8 @@ import { fetchMassive } from '@/services/massiveClient';
 import { publicBase } from '@/lib/net/publicBase';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { readEodCloses } from '@/services/eodSnapshot';
-import { etClock, lastClosedSessionDate, etWallTimeToMs, weekdayName, REG_CLOSE_MIN } from '@/lib/marketSession';
+import { etClock, lastClosedSessionDate, etWallTimeToMs, weekdayName } from '@/lib/marketSession';
+import { sessionCloseMinutes } from '@/lib/marketCalendar';
 import {
   isSpam, invokeJSON, fetchMoney, serveSWR, volumePutCall, type NewsItem,
 } from '../../undercurrent/shared';
@@ -136,7 +137,7 @@ export async function GET(request: Request) {
     const tagged = all.find((m) => typeof (m as any).regularCloseFrom === 'string') as any;
     const clk = etClock(Date.now());
     const listSession: string | null = tagged ? tagged.regularCloseFrom
-      : clk.date === today && clk.minutes >= REG_CLOSE_MIN ? today : null;
+      : clk.date === today && clk.minutes >= sessionCloseMinutes(clk.date) ? today : null;   // 조기 폐장일 13:00
     const listsAreSession = listSession === today;
     const bySym = new Map((listsAreSession ? all : []).map((m) => [m.ticker, m]));
 
@@ -236,11 +237,11 @@ export async function GET(request: Request) {
         const mi = Number(p.find((x) => x.type === 'minute')?.value ?? 0);
         return h * 60 + mi;
       };
-      const REG_OPEN = 9 * 60 + 30, REG_CLOSE = 16 * 60;
+      const REG_OPEN = 9 * 60 + 30;
       const regularBars = barsAll.filter((b) => {
         if (typeof b.t !== 'number') return false;
         const t = etHM(b.t);
-        return t >= REG_OPEN && t < REG_CLOSE;   // 프리·애프터 제외
+        return t >= REG_OPEN && t < sessionCloseMinutes(etDateOf(b.t));   // 프리·애프터 제외 (조기 폐장일 13:00 마감)
       });
       // ★2026-09-28: the chart is the SESSION this set is about (`today`), not «the latest date with
       // regular bars» — during the next session's hours that would be the new day's partial chart.

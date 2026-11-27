@@ -8,6 +8,7 @@ import { calcPriceDisplay } from "@/utils/calcPriceDisplay";
 import { getFlashStyle, usePriceFlash, tickerDelay } from "@/components/ui/PriceDisplay";
 import { Radio } from "lucide-react";
 import clsx from "clsx";
+import { etDateOf, sessionCloseMinutes } from '@/lib/marketCalendar';
 
 // ──── 1. Market Status Component ────
 
@@ -32,7 +33,7 @@ function MobileMarketPulse() {
 
             const PRE_OPEN = 4 * 60;
             const REG_OPEN = 9 * 60 + 30;
-            const REG_CLOSE = 16 * 60;
+            const REG_CLOSE = sessionCloseMinutes(etDateOf(now.getTime()));   // 16:00 · 조기 폐장일 13:00
             const AFTER_CLOSE = 20 * 60;
 
             let sLabel = 'CLOSED';

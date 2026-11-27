@@ -13,7 +13,7 @@
 //   ④ 시장 교란 — 시장 전체가 조용한 날엔 모든 종목이 «이탈»로 보인다
 // ============================================================================
 
-import { cashSessionPhaseAt, etDateOf, etLastClosedSessionDate, etMinutesOf, isNonTradingDay, prevTradingDate, shownRegularSessionDate } from '@/lib/marketCalendar';
+import { cashSessionPhaseAt, etDateOf, etLastClosedSessionDate, etMinutesOf, isNonTradingDay, prevTradingDate, sessionCloseMinutes, shownRegularSessionDate } from '@/lib/marketCalendar';
 
 // 'anytime' = 세션과 무관하게 성립하는 랭킹(내부자 신고·펀더멘털).
 // 장중/마감후로만 나누면 이런 것들이 억지로 한쪽에 붙어 오해를 만든다.
@@ -130,12 +130,12 @@ export type AfterCloseState = 'fresh' | 'pending' | 'late' | 'stale';
 
 export function afterCloseState(dataDate: string | null | undefined, now = Date.now()): {
     state: AfterCloseState;
-    /** 마지막으로 끝난 정규장 (16:00 ET 전이면 직전 거래일) */
+    /** 마지막으로 끝난 정규장 (16:00 ET · 조기 폐장일 13:00 전이면 직전 거래일) */
     lastClosed: string;
 } {
     const today = etDateOf(now);
     const min = etMinutesOf(now);
-    const lastClosed = !isNonTradingDay(today) && min >= 16 * 60 ? today : prevTradingDate(today);
+    const lastClosed = !isNonTradingDay(today) && min >= sessionCloseMinutes(today) ? today : prevTradingDate(today);
     let state: AfterCloseState;
     // 달력보다 앞선 날짜(목록에 없는 휴장 해제 등)는 «낡음»이 아니다
     if (dataDate && dataDate >= lastClosed) state = 'fresh';

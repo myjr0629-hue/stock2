@@ -17,7 +17,7 @@
  *    자정을 «24시»로 준다(memory: intl-hour12-false-gives-24-at-midnight). 'M/D/YYYY, h:mm:ss AM'
  *    문자열을 new Date() 로 다시 파싱하는 방식은 사파리(WKWebView — UC·WIM 앱 셸)에서 보장되지 않는다.
  */
-import { etLastClosedSessionDate, isNonTradingDay, isUsMarketHoliday } from './marketCalendar';
+import { etLastClosedSessionDate, isNonTradingDay, isUsMarketHoliday, sessionCloseMinutes } from './marketCalendar';
 
 export type SessionLoc = 'ko' | 'en' | 'ja';
 
@@ -31,6 +31,7 @@ export interface EtClock {
 }
 
 export const REG_OPEN_MIN = 9 * 60 + 30;
+/** 평소 정규장 끝(16:00). ⚠️ 조기 폐장일(13:00)은 sessionCloseMinutes(date) 로 읽는다 — 세션 판정에 이 상수를 쓰지 말 것. */
 export const REG_CLOSE_MIN = 16 * 60;
 
 const ET_PARTS = new Intl.DateTimeFormat('en-US', {
@@ -95,7 +96,7 @@ export type CashPhase = 'pre-open' | 'regular' | 'after-close' | 'closed-day';
 export function cashPhase(c: EtClock): CashPhase {
     if (!isTradingDate(c.date)) return 'closed-day';
     if (c.minutes < REG_OPEN_MIN) return 'pre-open';
-    if (c.minutes < REG_CLOSE_MIN) return 'regular';
+    if (c.minutes < sessionCloseMinutes(c.date)) return 'regular';   // 조기 폐장일 13:00 (2026-11-28)
     return 'after-close';
 }
 

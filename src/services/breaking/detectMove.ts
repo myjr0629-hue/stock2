@@ -18,6 +18,7 @@
 
 import { fetchMassive } from '@/services/massiveClient';
 import { getSigmaProfile, sigmaForWindow, etDate, type SigmaProfile } from './sigmaEngine';
+import { sessionCloseMinutes } from '@/lib/marketCalendar';
 
 // ── 튜닝 파라미터 — 전부 §2 실측 근거 ──────────────────────────────────────
 export const TUNING = {
@@ -36,7 +37,7 @@ export const TUNING = {
 } as const;
 
 const REG_OPEN = 9 * 60 + 30;   // 09:30 ET
-const REG_CLOSE = 16 * 60;      // 16:00 ET
+// 정규장 끝은 그날 달력으로 읽는다 — sessionCloseMinutes(ET 날짜): 평소 16:00 · 조기 폐장일 13:00 (2026-11-28)
 
 export type BreakingKind = 'SPIKE' | 'REVERSAL';
 
@@ -129,7 +130,7 @@ async function fetchRegularBars(symbol: string): Promise<Bar[]> {
     return rows.filter((b) => {
       if (typeof b.t !== 'number' || !b.c) return false;
       const hm = etHM(b.t);
-      return hm >= REG_OPEN && hm < REG_CLOSE;
+      return hm >= REG_OPEN && hm < sessionCloseMinutes(today);
     });
   } catch {
     return [];
@@ -290,5 +291,5 @@ export function isRegularSessionNow(now: Date = new Date()): boolean {
   if (wd === 'Sat' || wd === 'Sun') return false;
   const hm = etHM(now.getTime());
   // 개장 15분은 건너뛴다 — 시가 갭이 전부 «급변동»으로 잡힌다.
-  return hm >= REG_OPEN + 15 && hm < REG_CLOSE;
+  return hm >= REG_OPEN + 15 && hm < sessionCloseMinutes(etDate(now));
 }

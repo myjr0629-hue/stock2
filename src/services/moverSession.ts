@@ -8,16 +8,21 @@
  * 배경 설명(9/9 종가 오염 · 9/12 T+1 밀림)은 app/api/market/movers/route.ts 머리말에 그대로 남아 있다.
  */
 import { readEodCloses } from '@/services/eodSnapshot';
+import { etDateOf, sessionCloseMinutes } from '@/lib/marketCalendar';
 
 const etParts = (now: number) => new Date(new Date(now).toLocaleString('en-US', { timeZone: 'America/New_York' }));
 
-/** 지금 정규장이 «열려 있는가» (평일 09:30~16:00 ET). */
+/**
+ * 지금 정규장이 «열려 있는가» (평일 09:30~16:00 ET · 조기 폐장일은 13:00 까지).
+ * [2026-11-28] 11/27 블프 13:00 마감 뒤에도 16:00 까지 «열림»으로 봐 EOD 보정을 건너뛰었고,
+ *   무버가 시간외 체결을 하루 등락으로 보였다(NVDA 무버 −0.03% vs 내 종목 정규장 종가 +0.74%).
+ */
 export function isRegularSessionOpen(now: number = Date.now()): boolean {
     const d = etParts(now);
     const dow = d.getDay();
     if (dow === 0 || dow === 6) return false;
     const m = d.getHours() * 60 + d.getMinutes();
-    return m >= 9 * 60 + 30 && m < 16 * 60;
+    return m >= 9 * 60 + 30 && m < sessionCloseMinutes(etDateOf(now));
 }
 
 /** 마지막으로 «끝난» 정규장 세션 날짜 (ET, YYYY-MM-DD) — 휴장일은 판별하지 않는다(어긋나면 «덮지 않는» 쪽으로 실패). */
@@ -26,7 +31,7 @@ export function lastCompletedSessionDateET(now: number = Date.now()): string {
     const d = new Date(cur);
     const minutes = cur.getHours() * 60 + cur.getMinutes();
     const dow = cur.getDay();
-    const finishedToday = dow >= 1 && dow <= 5 && minutes >= 16 * 60;
+    const finishedToday = dow >= 1 && dow <= 5 && minutes >= sessionCloseMinutes(etDateOf(now));   // 조기 폐장일 13:00
     if (!finishedToday) d.setDate(d.getDate() - 1);
     while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() - 1);
     const pad = (n: number) => String(n).padStart(2, '0');

@@ -1,5 +1,5 @@
 import { isUsExtendedWindowAt } from '@/lib/usExtendedWindow';
-import { etMinutesOf, etWeekdayOf } from '@/lib/marketCalendar';
+import { etDateOf, etMinutesOf, etWeekdayOf, sessionCloseMinutes } from '@/lib/marketCalendar';
 import { latestCollectorGexRow } from '@/lib/app/intelOptionsBasis';
 import { readOptionEditions } from '@/services/optionMetricsService';
 import { readOptionAlpha } from '@/services/optionAlphaService';
@@ -295,10 +295,10 @@ function isMarketHoursNow(): boolean {
 
 // Regular session only — used for aggressive refresh thresholds
 function isRegularSessionNow(): boolean {
-    // 정규장(ET 평일 09:30~16:00) — 뉴욕 시계. (2026-11-02) 예전 UTC 13:30~20:00 고정은 EST 에 08:30~15:00 ET 로 1시간 어긋났다.
+    // 정규장(ET 평일 09:30~16:00 · 조기 폐장일 13:00) — 뉴욕 시계. (2026-11-02) 예전 UTC 13:30~20:00 고정은 EST 에 08:30~15:00 ET 로 1시간 어긋났다.
     const now = Date.now();
     const wd = etWeekdayOf(now), m = etMinutesOf(now);
-    return wd >= 1 && wd <= 5 && m >= 9 * 60 + 30 && m <= 16 * 60;
+    return wd >= 1 && wd <= 5 && m >= 9 * 60 + 30 && m <= sessionCloseMinutes(etDateOf(now));
 }
 
 // Smart TTL: short during market (incl. extended), long during off-hours

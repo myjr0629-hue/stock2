@@ -17,7 +17,7 @@ import { getFromCache, setInCache } from "./redisClient";
 import { observationMonthsAgo } from "@/lib/economicSeries";
 // 휴장 달력은 «단 하나의» 정본을 본다. 예전엔 이 파일 안에만 있어서
 // 다른 서비스가 물어볼 수 없었고, 각자 «값»으로 추측하다 버그가 났다.
-import { US_MARKET_HOLIDAYS, etDateOf as etDateOfEpochMs } from "@/lib/marketCalendar";
+import { US_MARKET_HOLIDAYS, EARLY_CLOSE_DATES, etDateOf as etDateOfEpochMs, sessionCloseMinutes } from "@/lib/marketCalendar";
 import { after } from "next/server";
 // 구조 판본 사전 갱신(cron/structure-warm) 전용 관문 — 그 흐름 안에서 시작된 호출만 본다(사용자 경로는 저장소가 없어 그대로).
 import { warmGateStore } from "@/lib/intrinioWarmGate";
@@ -2463,7 +2463,8 @@ function isRegularSessionEt(): boolean {
     const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
     if (et.getDay() === 0 || et.getDay() === 6) return false;
     const m = et.getHours() * 60 + et.getMinutes();
-    return m >= 570 && m < 960;
+    // 정규장 끝 — 평소 16:00 · 조기 폐장일 13:00 ET (2026-11-28 조기 폐장 수리)
+    return m >= 570 && m < sessionCloseMinutes(etDateOfEpochMs(Date.now()));
 }
 
 /** EC2 가 적재한 «직전 정규장» 유동성 (종목 → 점수) */
@@ -3018,8 +3019,8 @@ export async function getGroupedDailyIntrinio(reqDate: string): Promise<any> {
 
 // US_MARKET_HOLIDAYS 는 @/lib/marketCalendar 에서 가져온다 (위 import 참조)
 
-export function getMarketStatusIntrinio(): any {
-    const now = new Date();
+export function getMarketStatusIntrinio(nowMs: number = Date.now()): any {
+    const now = new Date(nowMs);
     const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
     const y = et.getFullYear();
     const m = String(et.getMonth() + 1).padStart(2, "0");
@@ -3031,17 +3032,20 @@ export function getMarketStatusIntrinio(): any {
     const isWeekend = dow === 0 || dow === 6;
     const isHoliday = US_MARKET_HOLIDAYS.has(dateStr);
 
+    // [2026-11-28] 정규장 끝은 달력 정본 — 평소 16:00(960) · 조기 폐장일 13:00(780).
+    //   11/27 블프 13:14 ET 에 여기서 «open»이 나가 /api/market/status 가 정규장으로 답했다.
+    const regClose = sessionCloseMinutes(dateStr);
     let market: "open" | "closed" | "extended-hours" = "closed";
     if (!isWeekend && !isHoliday) {
-        if (mins >= 570 && mins < 960) market = "open";              // 09:30–16:00
-        else if ((mins >= 240 && mins < 570) || (mins >= 960 && mins < 1200))
-            market = "extended-hours";                                // 04:00–09:30 / 16:00–20:00
+        if (mins >= 570 && mins < regClose) market = "open";              // 09:30–16:00 (조기 폐장 13:00)
+        else if ((mins >= 240 && mins < 570) || (mins >= regClose && mins < 1200))
+            market = "extended-hours";                                // 04:00–09:30 / 16:00(조기 폐장 13:00)–20:00
     }
 
     return {
         market,
         serverTime: now.toISOString(),
-        earlyAdjournment: false,
+        earlyAdjournment: EARLY_CLOSE_DATES.has(dateStr),
         exchanges: { nasdaq: market, nyse: market, otc: market },
         currencies: { fx: "open", crypto: "open" },
         _source: "intrinio-adapter-calendar",

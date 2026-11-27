@@ -54,6 +54,7 @@ import {
 } from "lucide-react";
 import { formatLevelPrice } from '@/lib/optionLevelGate';
 import { gammaFlipDistancePct } from '@/lib/gammaFlipDistance';
+import { etDateOf, sessionCloseMinutes } from '@/lib/marketCalendar';
 
 // Market status badge colors
 const STATUS_COLORS = {
@@ -101,7 +102,7 @@ function MarketCountdown({ marketStatus, isHoliday }: { marketStatus?: string; i
             // Market sessions in ET minutes
             const PRE_OPEN = 4 * 60;       // 04:00
             const REG_OPEN = 9 * 60 + 30;  // 09:30
-            const REG_CLOSE = 16 * 60;     // 16:00
+            const REG_CLOSE = sessionCloseMinutes(etDateOf(now.getTime()));     // 16:00 · 조기 폐장일 13:00
             const AFTER_CLOSE = 20 * 60;   // 20:00
 
             let targetMinutes = 0;
@@ -182,12 +183,13 @@ function AlphaStatusBar() {
                     const isWeekend = etDay === 0 || etDay === 6;
                     const isHoliday = market?.isHoliday || false;
 
-                    // Determine session from ET time
+                    // Determine session from ET time — 정규장 끝은 달력(평소 16:00 · 조기 폐장일 13:00)
+                    const regClose = sessionCloseMinutes(etDateOf(now.getTime()));
                     let sessionLabel: 'PRE' | 'OPEN' | 'AFTER' | 'CLOSED' = 'CLOSED';
                     if (!isWeekend && !isHoliday) {
                         if (etMinutes >= 240 && etMinutes < 570) sessionLabel = 'PRE';       // 04:00-09:29
-                        else if (etMinutes >= 570 && etMinutes < 960) sessionLabel = 'OPEN';  // 09:30-15:59
-                        else if (etMinutes >= 960 && etMinutes < 1200) sessionLabel = 'AFTER'; // 16:00-19:59
+                        else if (etMinutes >= 570 && etMinutes < regClose) sessionLabel = 'OPEN';  // 09:30-15:59 (조기 폐장 12:59)
+                        else if (etMinutes >= regClose && etMinutes < 1200) sessionLabel = 'AFTER'; // 16:00(조기 폐장 13:00)-19:59
                     }
 
                     const isLive = sessionLabel !== 'CLOSED';
@@ -289,11 +291,12 @@ function MobileStickyHero() {
                     const etDay = et.getDay();
                     const etMin = et.getHours() * 60 + et.getMinutes();
                     const isWeekend = etDay === 0 || etDay === 6;
+                    const regCloseM = sessionCloseMinutes(etDateOf(now.getTime()));   // 16:00 · 조기 폐장일 13:00
                     let sLabel: 'PRE' | 'OPEN' | 'AFTER' | 'CLOSED' = 'CLOSED';
                     if (!isWeekend) {
                         if (etMin >= 240 && etMin < 570) sLabel = 'PRE';
-                        else if (etMin >= 570 && etMin < 960) sLabel = 'OPEN';
-                        else if (etMin >= 960 && etMin < 1200) sLabel = 'AFTER';
+                        else if (etMin >= 570 && etMin < regCloseM) sLabel = 'OPEN';
+                        else if (etMin >= regCloseM && etMin < 1200) sLabel = 'AFTER';
                     }
                     const isLive = sLabel !== 'CLOSED';
                     return (
@@ -651,7 +654,7 @@ function WatchlistPanel() {
         const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
         const et = new Date(etStr);
         const etMinutes = et.getHours() * 60 + et.getMinutes();
-        if (etMinutes >= 4 * 60 && etMinutes < 16 * 60) return 'PRE';
+        if (etMinutes >= 4 * 60 && etMinutes < sessionCloseMinutes(etDateOf(now.getTime()))) return 'PRE';   // 조기 폐장일 13:00
         return 'POST';
     }, [market?.marketStatus]);
 
