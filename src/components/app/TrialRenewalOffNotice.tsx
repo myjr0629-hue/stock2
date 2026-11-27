@@ -442,7 +442,7 @@ function TrialOffSheet({ view, locale, onClose, onLater, onManage, onPlans, onBf
         <li className={p.benefit}>{copy.unlocked}</li>
       </ul>
       {bf ? <>
-        <button type="button" className={`${p.cta} ${b.cta}`} onClick={() => onBf(bf.plans.primary)} data-trial-bf-plan={bf.plans.primary}>
+        <button type="button" className={`${p.cta} ${b.cta}`} style={{ height: 'auto', minHeight: 46, padding: '11px 14px', lineHeight: 1.25 }} onClick={() => onBf(bf.plans.primary)} data-trial-bf-plan={bf.plans.primary}>
           {bf.plans.primary === 'annual' ? bfc.annualCta(bf.prices.annual.offer) : bfc.monthlyCta(bf.prices.monthly.regular, bf.prices.monthly.offer)}
         </button>
         {bf.plans.secondary && <button type="button" className={b.alt} onClick={() => onBf(bf.plans.secondary as BfPlan)} data-trial-bf-plan={bf.plans.secondary}>
