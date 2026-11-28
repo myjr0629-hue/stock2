@@ -35,9 +35,9 @@ const DUMMY_PLANS: Record<string, PaywallPlan[]> = {
   ],
 };
 
-export default function PaywallPreview({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ plans?: string; trial?: string; head?: string }> }) {
+export default function PaywallPreview({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ plans?: string; trial?: string; head?: string; gate?: string }> }) {
   const { locale } = use(params);
-  const { plans, trial, head } = use(searchParams);
+  const { plans, trial, head, gate } = use(searchParams);
   // ★11/16 `?plans=1&trial=7` — 스토어 무료 체험(자격 확인됨) 모양 · `&head=1` 첫 실행 페이월 머리(더미 · 실제 앱은 스토어 값만)
   const trialDays = /^\d{1,2}$/.test(trial ?? '') ? Number(trial) : null;
   const base = DUMMY_PLANS[locale] ?? DUMMY_PLANS.en;
@@ -56,7 +56,7 @@ export default function PaywallPreview({ params, searchParams }: { params: Promi
         'linear-gradient(180deg,#0a1020,#050912)',
     }}>
       <ProPaywall locale={locale} onClose={() => {}} previewPrice={DUMMY[locale] ?? DUMMY.en}
-        previewPlans={shownPlans} trialHead={head === '1'} annualTrialDefault />
+        previewPlans={shownPlans} trialHead={head === '1'} annualTrialDefault hardGate={gate === '1'} />
     </div>
   );
 }

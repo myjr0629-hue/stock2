@@ -385,11 +385,12 @@ function bfPwHere(): { ios: boolean; preview: boolean } {
 /** ★11/11 체험 만료 뒤 1회 페이월 — 머리·버튼 문구와 «체험 동안 / 무료에서 달라지는 것» 묶음(lib/app/trialExpired). 가격·고지·복원은 그대로 */
 export type PaywallContext = { title: string; lede: string; cta: string; sections: { label: string; items: string[] }[] };
 
-export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1', onNavigate, returnFocus, src, keepOpenWhilePro = false, context, subscriptionOnly = false, onProConfirmed, discountOffer, trialHead = false, annualTrialDefault = false, trialAnnounce = false, offers: offersProp }: {
+export function ProPaywall({ locale, onClose, hardGate = false, previewPrice, previewPlans, lead = 'ads', alerts = process.env.NEXT_PUBLIC_WATCHLIST_ALERTS === '1', onNavigate, returnFocus, src, keepOpenWhilePro = false, context, subscriptionOnly = false, onProConfirmed, discountOffer, trialHead = false, annualTrialDefault = false, trialAnnounce = false, offers: offersProp }: {
   locale: string;
   /** 퍼널 측정 — 이 페이월을 연 화면. 없으면 lead 로 짐작한다(«내 종목» 호스트 = wl_paywall · 프리뷰 가격 = preview) */
   src?: FunnelSrc;
   onClose: () => void;
+  hardGate?: boolean;
   /** 닫힐 때 초점을 돌려줄 요소 — 주면 마운트 때의 activeElement 대신 이것을 쓴다. 동적 로드로 늦게 마운트되면 그 사이
       아래 층(시트)이 inert 가 되며 초점이 body 로 빠져, 닫은 뒤 초점이 갈 곳을 잃었다(E6 — «내 종목» 호스트가 먼저 잡아 넘긴다) */
   returnFocus?: HTMLElement | null;
@@ -576,11 +577,12 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
       plan: onProConfirmed || keepOpenWhilePro ? 'none' : selectedOffer.plan,
       product: selectedOffer.pkg?.product?.identifier,
       // ★11/16 체험을 보여 준 화면이면 «그 화면에 그린 패키지»로 산다(그 사이 오퍼링이 바뀌어 다른 조건이 열리지 않게, 관문 11161253 ①)
-      purchase: () => purchase(selectedOffer.plan, funnelSrc, trialDays ? selectedOffer.pkg : undefined),
+      purchase: () => purchase(selectedOffer.plan, funnelSrc, (trialDays || hardGate) ? selectedOffer.pkg : undefined),
       stillOpen: () => alive.current && !closedByUser.current,
     });
     if (!out) { if (alive.current) setBusy(false); return; }
     const res = out.res;
+    if (hardGate && res.ok && !res.isPro) { onClose(); return; } // 스토어 승인 뒤 권한 동기화 중에는 다시 결제시키지 않는다.
     if (out.claimed) {
       if (alive.current) onClose();
       // 아래에 한도 시트가 있으면(내 종목 호스트 페이월) 그 시트의 «담으려던 종목 담기»가 끝난 뒤에 옮긴다(관문 11121105)
@@ -594,7 +596,7 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
     if (res.ok && res.isPro) { if (onProConfirmed) onProConfirmed(); else if (keepOpenWhilePro) onClose(); return; } // 평소엔 위 effect 가 닫는다
     // 사용자가 스토어 시트를 직접 닫은 경우는 «실패»가 아니다 — 조용히 둔다.
     if (!res.ok && !res.cancelled) { markSessionError(); setNote(t.failed); }
-  }, [busy, purchasePending, selectedOffer, purchase, t, funnelSrc, keepOpenWhilePro, onClose, onProConfirmed, router, loc, offerSelected, offerReal, purchaseOffer, bfSelected, trialScreen, trialDays]);
+  }, [busy, purchasePending, selectedOffer, purchase, t, funnelSrc, keepOpenWhilePro, onClose, onProConfirmed, router, loc, offerSelected, offerReal, purchaseOffer, bfSelected, trialScreen, trialDays, hardGate]);
 
   const handleRestore = useCallback(async () => {
     if (busy) return;
@@ -617,30 +619,32 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
 
   // ── 초점: 열리면 닫기 버튼(첫 페인트에 보이는 컨트롤), 닫히면 연 자리로 ──
   //   시트 위에 떠도 초점이 아래 시트에 남아 Tab·스크린리더가 가려진 시트를 돌지 않게.
+  const sheetRef = useRef<HTMLDivElement>(null);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     const back = returnFocus ?? (document.activeElement instanceof HTMLElement && document.activeElement !== document.body
       ? document.activeElement : null);
-    const id = window.setTimeout(() => closeBtnRef.current?.focus({ preventScroll: true }), 40);
+    const id = window.setTimeout(() => (hardGate ? sheetRef.current : closeBtnRef.current)?.focus({ preventScroll: true }), 40);
     return () => {
       window.clearTimeout(id);
       if (back && document.contains(back)) {
         try { back.focus({ preventScroll: true }); } catch { /* noop */ }
       }
     };
-  }, [returnFocus]);
+  }, [returnFocus, hardGate]);
 
   // ── Tab 을 페이월 안에서만 돈다(마지막 → 처음, 처음 → 마지막) ──
   const trapTab = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (hardGate && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); return; }
     if (e.key !== 'Tab') return;
     const f = Array.from(e.currentTarget.querySelectorAll<HTMLElement>(
       'button:not([disabled]), [href], input, [tabindex]:not([tabindex="-1"])',
     )).filter((el) => el.offsetParent !== null);
     if (!f.length) return;
     const first = f[0], last = f[f.length - 1];
-    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    if (e.shiftKey && (document.activeElement === first || (hardGate && document.activeElement === sheetRef.current))) { e.preventDefault(); last.focus(); }
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-  }, []);
+  }, [hardGate]);
 
   // 열린 자리의 말로 이어 간다 — «내 종목» 한도 시트·PRO 카드에서 «광고 없이 봅니다»로 갑자기 바뀌지 않게.
   // 설정·가치 벽(기본 'ads')은 예전 그대로(+ «내 종목 100개» 한 줄). 알림 플래그가 꺼진 빌드의 'alerts' 는 «내 종목»으로 연다.
@@ -676,13 +680,13 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
 
   return (
     <div className={s.overlay} data-pro-paywall data-paywall-src={context ? funnelSrc : undefined} role="dialog" aria-modal="true" aria-label={head.title} onKeyDown={trapTab}>
-      <div className={s.sheet}>
+      <div className={s.sheet} ref={sheetRef} tabIndex={hardGate ? -1 : undefined} style={hardGate ? { outline: 'none' } : undefined}>
         {/* 닫기 — 첫 페인트에 보이고 44×44 이상 (Play 요건) */}
-        <button ref={closeBtnRef} type="button" className={s.close} onClick={closeByUser} aria-label={t.close}>
+        {!hardGate && <button ref={closeBtnRef} type="button" className={s.close} onClick={closeByUser} aria-label={t.close}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
           </svg>
-        </button>
+        </button>}
 
         <div className={s.head}>
           <span className={s.eyebrow}>{trialAnnounce && trialHead && trialDays && !context && !keepOpenWhilePro ? t.trialAnnounceEyebrow : t.eyebrow}</span>
@@ -855,6 +859,8 @@ export function ProPaywall({ locale, onClose, previewPrice, previewPlans, lead =
         <RedeemCodeLink locale={loc} src={funnelSrc} />
 
         <p className={s.fine} data-bf-pw-fine={bfSelected ? '' : undefined}>{bfSelected && bfCard ? bfc.fine(bfCard.offer, bfCard.regular) : offerSelected && offer ? oc.fine(offer.priceString, offer.regularPriceString) : trialDays && trialPlan ? t.trialFine(trialDays, trialPlan.priceString, trialPlan.plan) : multi ? planFineLine(loc, t, selected) : fineLine(loc, t)}</p>
+        {/* 관문(신규 설치 체험 필수) — Google Play 구독 정책: 앱 이용에 구독이 필요함을 분명히 고지 */}
+        {hardGate && <p className={s.fine} data-hard-gate-notice>{loc === 'ko' ? 'SIGNUM 앱은 PRO 구독(무료 체험 포함) 또는 쿠폰 코드로 이용할 수 있습니다.' : loc === 'ja' ? 'SIGNUMアプリはPRO定期購読（無料体験を含む）またはクーポンコードでご利用いただけます。' : 'SIGNUM requires a PRO subscription (free trial included) or a coupon code to use.'}</p>}
 
         <div ref={linksRef} className={s.links}>
           <button type="button" className={s.link} onClick={handleRestore} disabled={busy}>

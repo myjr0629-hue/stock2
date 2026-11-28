@@ -85,6 +85,7 @@ export const FUNNEL_SRCS = [
   'trial_expired_offer',            // ★11/12 그 페이월 안의 «월간 첫 달 할인» 카드(open = 카드가 보였다 · cta = 할인 카드로 결제 단추 · buy_* = 할인 결제 결과)
   'gate_first',                     // ★11/16 하루 첫 게이트 탭(«광고 보고 잠금해제»)이 광고 전에 연 페이월(lib/app/gatePaywall ①) — 닫으면 광고가 이어진다
   'ad_nofill',                      // ★11/16 네이티브 보상형 광고가 안 나왔을 때 대체 30초 창 전에 연 페이월(lib/app/gatePaywall ②)
+  'hard_gate', 'hg_mark', 'hg_noiap', 'hg_status', 'hg_nooffer', 'hg_timeout', 'hg_error',
   'first_run',                      // ★11/16 첫 실행이 끝난 직후 1회 «7일 무료 체험» 페이월(lib/app/firstRunPaywall — 체험 자격 확인된 무료 사용자만)
   'trial_announce',                 // ★11/16 밤 기존 무료 사용자 1회 «새로 생긴 7일 무료 체험» 페이월(lib/app/trialAnnounce — 체험 자격·이력 0 확인된 무료 사용자만, 앱 포그라운드 때)
   'tpush_ai', 'tpush_day1',         // ★11/18 체험자 알림 다시 묻기의 트리거(trial_push_* 전용 — 구매 출처로 쓰지 않는다): 내 종목 첫 AI 한 줄 · 체험 다음 날 첫 실행

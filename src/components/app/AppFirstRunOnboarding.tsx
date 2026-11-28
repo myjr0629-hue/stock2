@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useLocale } from 'next-intl';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { usePathname } from '@/i18n/routing';
 import { resolveAppLocale } from '@/lib/appLocale';
 import { readStoredPushPrefs } from '@/lib/push/prefs';
@@ -18,6 +18,10 @@ import { firstRunCopy } from '@/lib/app/firstRunCopy';
 import { legalContinueBlocked, legalPinNext, measureLegalAckCovered, nudgeLegalAck } from '@/lib/app/legalNudge';
 import { LEGAL_LOCALE_DONE_GUARD, legalDoneLocaleSrc, legalLocaleSrc, legalSeenBefore, rememberLegalShownLocale } from '@/lib/app/legalDiag';
 import { loadOnbMode, useOnbMode } from './onboardingMode';
+import { HARD_GATE_WAIT_MS, hardGateCohort, hardGateSwitch } from '@/lib/app/hardGate';
+import { withinDeadline } from '@/lib/app/requestDeadline';
+import type { PlanOffer } from '@/services/revenueCat';
+import type { HardGatePaywall } from './HardGatePaywall';
 import { ONB_BACK_EVENT } from '@/lib/app/onbBack';
 import { legalAgreeLabel, legalOneTapOn, shellPlatform } from '@/lib/app/legalOneTap';
 // 가치·알림 단계(카드·시세·레벨·AI 줄)는 이 오버레이를 «이미 마친 기기»(대부분의 사용자)에는 한 바이트도 싣지 않도록 필요할 때만 불러온다 —
@@ -50,6 +54,10 @@ type OnboardingCopy = {
 };
 
 const STORAGE_KEY = 'signumhq.app.onboarding.v1';
+
+// 실패 안전 또는 PRO 확인은 이 WebView 실행 동안 유지한다. 다음 콜드 스타트에서는 다시 판정한다.
+let hardGateDone = false;
+type GateSheet = { Sheet: typeof HardGatePaywall; offers: PlanOffer[]; annualOn: boolean };
 
 /** sessionStorage — 막혀 있으면 null(진행 상태 보존·노출 가드가 예전 동작으로 돌아간다) */
 function sessionStore(): Storage | null {
@@ -254,6 +262,16 @@ export function AppFirstRunOnboarding() {
   const agreeRef = useRef<HTMLButtonElement | null>(null);
   // ★11/16 첫 실행을 «이번에» 마쳤다(네이티브) → 체험 페이월 판정 1회. 이미 마친 기기·문서 경로는 켜지지 않는다
   const [trialPaywall, setTrialPaywall] = useState(false);
+  const [gateSwitch, setGateSwitch] = useState<boolean | null>(false);
+  const [onboarded, setOnboarded] = useState(false);
+  const gateStarted = useRef<number | null>(null);
+  const [gateSheet, setGateSheet] = useState<GateSheet | null>(null);
+  const finishGate = useCallback(() => {
+    hardGateDone = true;
+    setGateSheet(null);
+    setTrialPaywall(false);
+    setGateSwitch(false);
+  }, []);
   // 첫 실행 «가치 먼저»(v2) — 끄기 스위치(레디스 onb2:off)를 읽는다. 아직 모르면 null → 첫 그림은 v2 로 가정하고,
   // 법적 고지 [계속]을 누를 때 읽기가 끝나기를 기다린다(onLegalNext). 못 읽으면 옛 흐름(legacy).
   const [advancing, setAdvancing] = useState(false);
@@ -282,9 +300,22 @@ export function AppFirstRunOnboarding() {
 
   useEffect(() => {
     setMounted(true);
+    let alive = true;
     let show = false;
     try {
-      show = !isDocumentRoute && window.localStorage.getItem(STORAGE_KEY) !== 'accepted';
+      const acceptedBefore = window.localStorage.getItem(STORAGE_KEY) === 'accepted';
+      show = !isDocumentRoute && !acceptedBefore;
+      setOnboarded(acceptedBefore);
+      if (!hardGateDone && shellPlatform() !== 'web') {
+        const cohort = hardGateCohort(localStore(), show);
+        if (cohort === 'new') trackFunnel('fr_judge', { src: 'hg_mark' });
+        if (cohort !== 'existing') {
+          const read = hardGateSwitch();
+          // 최초 응답을 기다리는 동안 기존 first_run 판정과 경합하지 않는다.
+          setGateSwitch(current => current === true ? true : null);
+          void read.then(on => { if (alive && !hardGateDone) setGateSwitch(on); });
+        }
+      }
     } catch {
       show = false;
     }
@@ -299,6 +330,7 @@ export function AppFirstRunOnboarding() {
         if (draft.step !== 'legal') legalDoneCounted.current = true;
       }
     }
+    return () => { alive = false; };
   }, [isDocumentRoute, locale]);
 
   // 네이티브 첫 실행에서 URL 언어(/en)가 아직 기기 언어(/ko·/ja)가 아니면 법적 고지 대신 중립 로딩을 그린다(onbLocalePending 주석)
@@ -519,7 +551,48 @@ export function AppFirstRunOnboarding() {
     if (claimOnbShow(LEGAL_LOCALE_DONE_GUARD, ss)) trackFunnel('onb_done', { src: legalDoneLocaleSrc(ss, locale) });
   }, [step, locale]);
 
-  if (mounted && trialPaywall && !visible && !isDocumentRoute) {
+  const afterOnboarding = trialPaywall || onboarded;
+  const checkGate = gateSwitch === true && afterOnboarding && !hardGateDone;
+  useEffect(() => {
+    if (!afterOnboarding || gateSwitch === false || hardGateDone) return;
+    const started = gateStarted.current ??= performance.now();
+    if (!checkGate) return; // 아직 실행 스위치가 도착하지 않아도 8초 예산은 시작됐다.
+    let alive = true;
+    const remaining = Math.max(0, HARD_GATE_WAIT_MS - (performance.now() - started));
+    void withinDeadline(async () => {
+      const { HardGatePaywall: Sheet, prepareHardGate } = await import('./HardGatePaywall');
+      if (!alive) return null;
+      return { Sheet, ...await prepareHardGate(started) };
+    }, remaining).then(result => {
+      if (!alive || !result) return;
+      if (result.decision === 'gate') {
+        setGateSheet(result);
+        return;
+      }
+      if (result.decision !== 'off' && result.decision !== 'entitled') trackFunnel('fr_judge', { src: result.decision });
+      finishGate();
+    }).catch(error => {
+      if (!alive) return;
+      alive = false; // 시간 초과 뒤 도착한 스토어 응답으로 다시 열지 않는다.
+      trackFunnel('fr_judge', { src: error?.name === 'AbortError' ? 'hg_timeout' : 'hg_error' });
+      finishGate();
+    });
+    return () => { alive = false; };
+  }, [afterOnboarding, checkGate, gateSwitch, finishGate]);
+
+  if (mounted && checkGate) {
+    const legalDoc = /\/app-view\/(terms|privacy)\/?$/.test(pathname ?? '');
+    // 문서는 기존 경로에서 읽고, 돌아오면 같은 구매 화면·선택으로 복귀한다.
+    return <div hidden={legalDoc} data-hard-gate={legalDoc ? undefined : ''}>
+      {gateSheet
+        ? <gateSheet.Sheet locale={locale} offers={gateSheet.offers} annualOn={gateSheet.annualOn} onDone={finishGate} />
+        : <div className={styles.overlay} role="dialog" aria-modal="true" aria-busy="true">
+            <div className={styles.shell}><div className={styles.localeWait} aria-hidden="true" /></div>
+          </div>}
+    </div>;
+  }
+
+  if (mounted && gateSwitch === false && trialPaywall && !visible && !isDocumentRoute) {
     return <FirstRunTrialPaywall locale={locale} onDone={() => setTrialPaywall(false)} />;
   }
 

@@ -180,6 +180,7 @@ export function NativeAppProvider({ children }: { children: React.ReactNode }) {
           // ★11/22 첫 실행 안내가 떠 있으면 첫 뒤로 가기는 앱을 닫지 않고 그 화면에 알린다 — 2초 안에 또 누르면 앱을 내린다(lib/app/onbBack)
           let onbBackAt = 0;
           App.addListener('backButton', ({ canGoBack }) => {
+            if (document.querySelector('[data-hard-gate]')) return;
             const now = Date.now();
             const act = onbBackAction(onboardingOpenNow(), now, onbBackAt);
             if (act === 'exit') {

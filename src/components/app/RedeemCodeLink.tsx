@@ -18,7 +18,7 @@ export function RedeemCodeLink({ locale, src, className }: { locale: string; src
   // 서버 렌더·첫 그림에는 없다 — 마운트 뒤 네이티브(또는 프리뷰)일 때만(하이드레이션 불일치 없음)
   const [show, setShow] = useState(false);
   useEffect(() => { setShow(showRedeemEntry()); }, []);
-  if (!show) return null;
+  if (!show && src !== 'hard_gate') return null; // 관문은 이미 네이티브 스토어를 확인했다.
   const c = redeemCopy(locale);
   return (
     <>
